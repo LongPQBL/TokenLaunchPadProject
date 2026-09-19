@@ -18,3 +18,8 @@ id.json
 
 # Proprietary TradingView Charting Library (needs its own licence, do not publish)
 Solana-Pumpfun-Frontend/public/libraries/
+
+# Ponder / example build output
+.ponder/
+ponder-env.d.ts
+package-lock.json

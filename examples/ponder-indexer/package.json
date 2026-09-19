@@ -1,0 +1,21 @@
+{
+  "name": "ponder-indexer-example",
+  "private": true,
+  "type": "module",
+  "description": "Reference indexer for the Vezta launchpad: turns contract events into Postgres tables and a REST/GraphQL API.",
+  "scripts": {
+    "dev": "ponder dev",
+    "start": "ponder start",
+    "codegen": "ponder codegen",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "hono": "^4.6.0",
+    "ponder": "^0.17.10",
+    "viem": "^2.47.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.9.3"
+  }
+}

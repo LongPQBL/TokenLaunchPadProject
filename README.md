@@ -9,8 +9,9 @@ Web app for the Vezta token launchpad: token creation, bonding-curve trading and
 
 The on-chain part for EVM chains lives in a separate repository:
 [Vezta-contract-tokenLaunchpad](https://github.com/LongPQBL/Vezta-contract-tokenLaunchpad).
-The plan is to adapt this backend and frontend to those contracts; see `docs/` for the proposed stack and the
-integration guides.
+The plan is to adapt this backend and frontend to those contracts. Start with [`docs/`](docs/README.md): the
+proposed tech stack, the contract reference, and guides for the frontend and backend, with runnable, verified examples
+in [`examples/`](examples). ABIs are in [`abi/`](abi) and per-network addresses go in [`deployments/`](deployments).
 
 ## Working locally
 

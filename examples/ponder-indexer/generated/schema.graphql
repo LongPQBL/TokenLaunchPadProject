@@ -1,0 +1,389 @@
+"""
+The `JSON` scalar type represents JSON values as specified by [ECMA-404](http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf).
+"""
+scalar JSON
+
+scalar BigInt
+
+type PageInfo {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
+}
+
+type ViewPageInfo {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+}
+
+type Meta {
+  status: JSON
+}
+
+type Query {
+  token(address: String!): token
+  tokens(where: tokenFilter, orderBy: String, orderDirection: String, before: String, after: String, limit: Int, offset: Int): tokenPage!
+  trade(id: String!): trade
+  trades(where: tradeFilter, orderBy: String, orderDirection: String, before: String, after: String, limit: Int, offset: Int): tradePage!
+  balance(token: String!, holder: String!): balance
+  balances(where: balanceFilter, orderBy: String, orderDirection: String, before: String, after: String, limit: Int, offset: Int): balancePage!
+  _meta: Meta
+}
+
+type token {
+  address: String!
+  creator: String!
+  quoteToken: String!
+  antiSniperWindow: Int!
+  name: String
+  ticker: String
+  metadataURI: String
+  createdAt: BigInt!
+  virtualQuoteReserves: BigInt!
+  virtualTokenReserves: BigInt!
+  progressBps: Int!
+  volumeQuote: BigInt!
+  tradeCount: Int!
+  complete: Boolean!
+  migrated: Boolean!
+  pair: String
+}
+
+type tokenPage {
+  items: [token!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+input tokenFilter {
+  AND: [tokenFilter]
+  OR: [tokenFilter]
+  address: String
+  address_not: String
+  address_in: [String]
+  address_not_in: [String]
+  address_contains: String
+  address_not_contains: String
+  address_starts_with: String
+  address_ends_with: String
+  address_not_starts_with: String
+  address_not_ends_with: String
+  creator: String
+  creator_not: String
+  creator_in: [String]
+  creator_not_in: [String]
+  creator_contains: String
+  creator_not_contains: String
+  creator_starts_with: String
+  creator_ends_with: String
+  creator_not_starts_with: String
+  creator_not_ends_with: String
+  quoteToken: String
+  quoteToken_not: String
+  quoteToken_in: [String]
+  quoteToken_not_in: [String]
+  quoteToken_contains: String
+  quoteToken_not_contains: String
+  quoteToken_starts_with: String
+  quoteToken_ends_with: String
+  quoteToken_not_starts_with: String
+  quoteToken_not_ends_with: String
+  antiSniperWindow: Int
+  antiSniperWindow_not: Int
+  antiSniperWindow_in: [Int]
+  antiSniperWindow_not_in: [Int]
+  antiSniperWindow_gt: Int
+  antiSniperWindow_lt: Int
+  antiSniperWindow_gte: Int
+  antiSniperWindow_lte: Int
+  name: String
+  name_not: String
+  name_in: [String]
+  name_not_in: [String]
+  name_contains: String
+  name_not_contains: String
+  name_starts_with: String
+  name_ends_with: String
+  name_not_starts_with: String
+  name_not_ends_with: String
+  name_contains_nocase: String
+  name_not_contains_nocase: String
+  name_starts_with_nocase: String
+  name_ends_with_nocase: String
+  name_not_starts_with_nocase: String
+  name_not_ends_with_nocase: String
+  ticker: String
+  ticker_not: String
+  ticker_in: [String]
+  ticker_not_in: [String]
+  ticker_contains: String
+  ticker_not_contains: String
+  ticker_starts_with: String
+  ticker_ends_with: String
+  ticker_not_starts_with: String
+  ticker_not_ends_with: String
+  ticker_contains_nocase: String
+  ticker_not_contains_nocase: String
+  ticker_starts_with_nocase: String
+  ticker_ends_with_nocase: String
+  ticker_not_starts_with_nocase: String
+  ticker_not_ends_with_nocase: String
+  metadataURI: String
+  metadataURI_not: String
+  metadataURI_in: [String]
+  metadataURI_not_in: [String]
+  metadataURI_contains: String
+  metadataURI_not_contains: String
+  metadataURI_starts_with: String
+  metadataURI_ends_with: String
+  metadataURI_not_starts_with: String
+  metadataURI_not_ends_with: String
+  metadataURI_contains_nocase: String
+  metadataURI_not_contains_nocase: String
+  metadataURI_starts_with_nocase: String
+  metadataURI_ends_with_nocase: String
+  metadataURI_not_starts_with_nocase: String
+  metadataURI_not_ends_with_nocase: String
+  createdAt: BigInt
+  createdAt_not: BigInt
+  createdAt_in: [BigInt]
+  createdAt_not_in: [BigInt]
+  createdAt_gt: BigInt
+  createdAt_lt: BigInt
+  createdAt_gte: BigInt
+  createdAt_lte: BigInt
+  virtualQuoteReserves: BigInt
+  virtualQuoteReserves_not: BigInt
+  virtualQuoteReserves_in: [BigInt]
+  virtualQuoteReserves_not_in: [BigInt]
+  virtualQuoteReserves_gt: BigInt
+  virtualQuoteReserves_lt: BigInt
+  virtualQuoteReserves_gte: BigInt
+  virtualQuoteReserves_lte: BigInt
+  virtualTokenReserves: BigInt
+  virtualTokenReserves_not: BigInt
+  virtualTokenReserves_in: [BigInt]
+  virtualTokenReserves_not_in: [BigInt]
+  virtualTokenReserves_gt: BigInt
+  virtualTokenReserves_lt: BigInt
+  virtualTokenReserves_gte: BigInt
+  virtualTokenReserves_lte: BigInt
+  progressBps: Int
+  progressBps_not: Int
+  progressBps_in: [Int]
+  progressBps_not_in: [Int]
+  progressBps_gt: Int
+  progressBps_lt: Int
+  progressBps_gte: Int
+  progressBps_lte: Int
+  volumeQuote: BigInt
+  volumeQuote_not: BigInt
+  volumeQuote_in: [BigInt]
+  volumeQuote_not_in: [BigInt]
+  volumeQuote_gt: BigInt
+  volumeQuote_lt: BigInt
+  volumeQuote_gte: BigInt
+  volumeQuote_lte: BigInt
+  tradeCount: Int
+  tradeCount_not: Int
+  tradeCount_in: [Int]
+  tradeCount_not_in: [Int]
+  tradeCount_gt: Int
+  tradeCount_lt: Int
+  tradeCount_gte: Int
+  tradeCount_lte: Int
+  complete: Boolean
+  complete_not: Boolean
+  complete_in: [Boolean]
+  complete_not_in: [Boolean]
+  migrated: Boolean
+  migrated_not: Boolean
+  migrated_in: [Boolean]
+  migrated_not_in: [Boolean]
+  pair: String
+  pair_not: String
+  pair_in: [String]
+  pair_not_in: [String]
+  pair_contains: String
+  pair_not_contains: String
+  pair_starts_with: String
+  pair_ends_with: String
+  pair_not_starts_with: String
+  pair_not_ends_with: String
+}
+
+type trade {
+  id: String!
+  token: String!
+  trader: String!
+  isBuy: Boolean!
+  quoteAmount: BigInt!
+  tokenAmount: BigInt!
+  fee: BigInt!
+  launchTax: BigInt!
+  virtualQuoteReserves: BigInt!
+  virtualTokenReserves: BigInt!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+}
+
+type tradePage {
+  items: [trade!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+input tradeFilter {
+  AND: [tradeFilter]
+  OR: [tradeFilter]
+  id: String
+  id_not: String
+  id_in: [String]
+  id_not_in: [String]
+  id_contains: String
+  id_not_contains: String
+  id_starts_with: String
+  id_ends_with: String
+  id_not_starts_with: String
+  id_not_ends_with: String
+  id_contains_nocase: String
+  id_not_contains_nocase: String
+  id_starts_with_nocase: String
+  id_ends_with_nocase: String
+  id_not_starts_with_nocase: String
+  id_not_ends_with_nocase: String
+  token: String
+  token_not: String
+  token_in: [String]
+  token_not_in: [String]
+  token_contains: String
+  token_not_contains: String
+  token_starts_with: String
+  token_ends_with: String
+  token_not_starts_with: String
+  token_not_ends_with: String
+  trader: String
+  trader_not: String
+  trader_in: [String]
+  trader_not_in: [String]
+  trader_contains: String
+  trader_not_contains: String
+  trader_starts_with: String
+  trader_ends_with: String
+  trader_not_starts_with: String
+  trader_not_ends_with: String
+  isBuy: Boolean
+  isBuy_not: Boolean
+  isBuy_in: [Boolean]
+  isBuy_not_in: [Boolean]
+  quoteAmount: BigInt
+  quoteAmount_not: BigInt
+  quoteAmount_in: [BigInt]
+  quoteAmount_not_in: [BigInt]
+  quoteAmount_gt: BigInt
+  quoteAmount_lt: BigInt
+  quoteAmount_gte: BigInt
+  quoteAmount_lte: BigInt
+  tokenAmount: BigInt
+  tokenAmount_not: BigInt
+  tokenAmount_in: [BigInt]
+  tokenAmount_not_in: [BigInt]
+  tokenAmount_gt: BigInt
+  tokenAmount_lt: BigInt
+  tokenAmount_gte: BigInt
+  tokenAmount_lte: BigInt
+  fee: BigInt
+  fee_not: BigInt
+  fee_in: [BigInt]
+  fee_not_in: [BigInt]
+  fee_gt: BigInt
+  fee_lt: BigInt
+  fee_gte: BigInt
+  fee_lte: BigInt
+  launchTax: BigInt
+  launchTax_not: BigInt
+  launchTax_in: [BigInt]
+  launchTax_not_in: [BigInt]
+  launchTax_gt: BigInt
+  launchTax_lt: BigInt
+  launchTax_gte: BigInt
+  launchTax_lte: BigInt
+  virtualQuoteReserves: BigInt
+  virtualQuoteReserves_not: BigInt
+  virtualQuoteReserves_in: [BigInt]
+  virtualQuoteReserves_not_in: [BigInt]
+  virtualQuoteReserves_gt: BigInt
+  virtualQuoteReserves_lt: BigInt
+  virtualQuoteReserves_gte: BigInt
+  virtualQuoteReserves_lte: BigInt
+  virtualTokenReserves: BigInt
+  virtualTokenReserves_not: BigInt
+  virtualTokenReserves_in: [BigInt]
+  virtualTokenReserves_not_in: [BigInt]
+  virtualTokenReserves_gt: BigInt
+  virtualTokenReserves_lt: BigInt
+  virtualTokenReserves_gte: BigInt
+  virtualTokenReserves_lte: BigInt
+  timestamp: BigInt
+  timestamp_not: BigInt
+  timestamp_in: [BigInt]
+  timestamp_not_in: [BigInt]
+  timestamp_gt: BigInt
+  timestamp_lt: BigInt
+  timestamp_gte: BigInt
+  timestamp_lte: BigInt
+  blockNumber: BigInt
+  blockNumber_not: BigInt
+  blockNumber_in: [BigInt]
+  blockNumber_not_in: [BigInt]
+  blockNumber_gt: BigInt
+  blockNumber_lt: BigInt
+  blockNumber_gte: BigInt
+  blockNumber_lte: BigInt
+}
+
+type balance {
+  token: String!
+  holder: String!
+  amount: BigInt!
+}
+
+type balancePage {
+  items: [balance!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+input balanceFilter {
+  AND: [balanceFilter]
+  OR: [balanceFilter]
+  token: String
+  token_not: String
+  token_in: [String]
+  token_not_in: [String]
+  token_contains: String
+  token_not_contains: String
+  token_starts_with: String
+  token_ends_with: String
+  token_not_starts_with: String
+  token_not_ends_with: String
+  holder: String
+  holder_not: String
+  holder_in: [String]
+  holder_not_in: [String]
+  holder_contains: String
+  holder_not_contains: String
+  holder_starts_with: String
+  holder_ends_with: String
+  holder_not_starts_with: String
+  holder_not_ends_with: String
+  amount: BigInt
+  amount_not: BigInt
+  amount_in: [BigInt]
+  amount_not_in: [BigInt]
+  amount_gt: BigInt
+  amount_lt: BigInt
+  amount_gte: BigInt
+  amount_lte: BigInt
+}

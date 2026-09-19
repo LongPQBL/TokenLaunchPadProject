@@ -1,0 +1,30 @@
+{
+  "name": "evm-flow-example",
+  "private": true,
+  "type": "module",
+  "description": "Runnable viem examples for the Vezta launchpad contracts: create, quote, buy, sell, graduate, migrate, claim fees.",
+  "scripts": {
+    "flow": "tsx src/run-all.ts",
+    "typecheck": "tsc --noEmit",
+    "verify:quote": "tsx src/verify-quote.ts",
+    "verify:siwe": "tsx src/verify-siwe.ts",
+    "verify:metadata": "tsx src/verify-metadata.ts",
+    "bot:demo": "tsx src/bot-demo.ts"
+  },
+  "dependencies": {
+    "viem": "^2.47.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.9.3",
+    "@types/node": "^22.0.0",
+    "react": "^19.2.0",
+    "@types/react": "^19.2.0",
+    "wagmi": "^3.7.0",
+    "@tanstack/react-query": "^5.90.0",
+    "lightweight-charts": "^5.1.0",
+    "@reown/appkit": "^1.8.0",
+    "@reown/appkit-adapter-wagmi": "^1.8.0"
+  }
+}
