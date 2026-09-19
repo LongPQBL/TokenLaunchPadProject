@@ -1,0 +1,20 @@
+# Dependencies and build output
+node_modules/
+.next/
+out/
+build/
+coverage/
+
+# Secrets and local config: never commit
+.env
+.env.*
+!.env.example
+id.json
+*.pem
+*.keypair.json
+
+# OS / editor
+.DS_Store
+
+# Proprietary TradingView Charting Library (needs its own licence, do not publish)
+Solana-Pumpfun-Frontend/public/libraries/
