@@ -55,6 +55,17 @@ export function mapListRow(r: postgres.Row): TokenListItem {
   };
 }
 
+/**
+ * The columns `mapListRow` reads, for a query over `launchpad.token t` left-joined to `app.token_metadata m`. One place, so every
+ * list of tokens shows the same thing and none of them can take a name or an image from a row that is not `ok`.
+ */
+export const listColumns = (sql: postgres.Sql) => sql`
+      t.address, t.creator, t.ticker, t.progress_bps, t.volume_quote, t.trade_count, t.complete, t.migrated, t.created_at,
+      t.name as chain_name,
+      case when m.status = 'ok' then m.name end as meta_name,
+      case when m.status = 'ok' then m.description end as description,
+      case when m.status = 'ok' then m.image_cdn_url end as image_url`;
+
 export interface ListTokensOptions {
   chainId: number;
   sort: Sort;
@@ -128,11 +139,7 @@ export async function listTokens(opts: ListTokensOptions): Promise<{ items: Toke
   // Metadata fields are used only when status = 'ok': a pending or invalid row can hold partial or hostile data.
   const rows = await sql`
     select
-      t.address, t.creator, t.ticker, t.progress_bps, t.volume_quote, t.trade_count, t.complete, t.migrated, t.created_at,
-      t.name as chain_name,
-      case when m.status = 'ok' then m.name end as meta_name,
-      case when m.status = 'ok' then m.description end as description,
-      case when m.status = 'ok' then m.image_cdn_url end as image_url,
+      ${listColumns(sql)},
       t.${col}::text as sort_value
     from launchpad.token t
     left join app.token_metadata m on m.chain_id = t.chain_id and m.token = t.address

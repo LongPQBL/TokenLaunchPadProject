@@ -14,6 +14,7 @@ import { healthAdminRoutes } from "./routes/admin/health.js";
 import { reportsAdminRoutes } from "./routes/admin/reports.js";
 import { authRoutes } from "./routes/auth.js";
 import { holdingsRoutes } from "./routes/holdings.js";
+import { profileRoutes } from "./routes/profile.js";
 import { metadataRoutes } from "./routes/metadata.js";
 import { tokensRoutes } from "./routes/tokens.js";
 
@@ -96,6 +97,7 @@ export function createApp(deps: Partial<AppDeps> = {}): Hono<AppEnv> {
   });
   chain.route("/tokens", tokensRoutes({ launchpads: deps.launchpads ?? {}, ipfsGateway: deps.ipfsGateway, publishComment: deps.publishComment }));
   chain.route("/addresses", holdingsRoutes());
+  chain.route("/addresses", profileRoutes({ ipfsGateway: deps.ipfsGateway ?? "https://ipfs.io" }));
   // Under the chain, not beside it: an unknown chain is answered before anything here is reached, and a non-admin is then
   // answered exactly as for any other path under a real chain. At the top level, /admin/... would be "an unknown chain
   // called admin" for everyone but the admins, and that difference alone would say the routes are there.
