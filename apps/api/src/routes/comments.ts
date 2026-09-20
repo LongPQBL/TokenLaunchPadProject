@@ -1,3 +1,4 @@
+import { MAX_COMMENT_CHARS } from "@vezta/shared";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import type { AppEnv } from "../app.js";
@@ -10,8 +11,6 @@ import { consumeRateLimit } from "../middleware/rate-limit.js";
 import { BadCommentCursorError, listComments, type CommentView } from "../queries/comments.js";
 import type { CommentPublisher } from "../realtime/comments.js";
 
-/** Counted as a person counts: an emoji is one. The database's CHECK counts the same way. */
-export const MAX_COMMENT_CHARS = 500;
 const COMMENTS_PER_MINUTE = 10;
 /** A comment is at most 500 characters of at most four bytes each, plus JSON around it: nothing legitimate is bigger. */
 const MAX_REQUEST_BYTES = 8 * 1024;

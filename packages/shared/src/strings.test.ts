@@ -31,8 +31,12 @@ describe("UI strings", () => {
     expect(Object.values(UI.token.columns)).toEqual(["#", "Type", "Amount", "Value", "Trader", "Time", "Holder", "Balance", "Share"]);
   });
 
-  it("says comments are coming rather than showing an empty box", () => {
-    expect(UI.token.commentsSoon).toBe("Comments are coming soon.");
+  it("words the comment thread, its limit and each way a post can be refused", () => {
+    expect(UI.comments.empty).toBe("No comments yet. Be the first to say something.");
+    expect(UI.comments.counter(12, 500)).toBe("12 / 500");
+    expect(UI.comments.errors.banned).toMatch(/cannot post/i);
+    expect(UI.comments.errors.rateLimited).toMatch(/too fast/i);
+    expect(Object.keys(UI.comments.errors).sort()).toEqual(["banned", "generic", "hiddenToken", "network", "rateLimited", "tooLong"]);
   });
 
   it("offers the four launch-protection windows the contract accepts, in words", () => {
