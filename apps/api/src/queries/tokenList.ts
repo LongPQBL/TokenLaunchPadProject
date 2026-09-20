@@ -1,0 +1,115 @@
+import { getSql } from "../db.js";
+
+export type Sort = "new" | "volume" | "progress";
+
+/**
+ * Each sort key maps to a column and to the cast its cursor value needs. These are constants: nothing
+ * from a request ever becomes part of the SQL text, only bound parameters do.
+ */
+export const SORTS: Record<Sort, { column: string; cast: string }> = {
+  new: { column: "created_at", cast: "numeric" },
+  volume: { column: "volume_quote", cast: "numeric" },
+  progress: { column: "progress_bps", cast: "int" },
+};
+
+export class BadCursorError extends Error {
+  constructor() {
+    super("Malformed cursor");
+  }
+}
+
+export interface TokenListItem {
+  address: string;
+  creator: string;
+  name?: string;
+  ticker?: string;
+  description?: string;
+  imageUrl?: string;
+  progressBps: number;
+  volumeQuote: bigint;
+  tradeCount: number;
+  complete: boolean;
+  migrated: boolean;
+  createdAt: bigint;
+}
+
+export interface ListTokensOptions {
+  chainId: number;
+  sort: Sort;
+  cursor?: string;
+  limit: number;
+}
+
+/** A cursor is `[sortValue, address]`: a position in the ordering, not a row id, so it survives deletions. */
+function decodeCursor(cursor: string): [string, string] {
+  try {
+    const v: unknown = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8"));
+    if (
+      Array.isArray(v) &&
+      v.length === 2 &&
+      typeof v[0] === "string" &&
+      /^\d{1,78}$/.test(v[0]) &&
+      typeof v[1] === "string" &&
+      /^0x[0-9a-f]{1,64}$/.test(v[1])
+    ) {
+      return [v[0], v[1]];
+    }
+  } catch {
+    /* fall through */
+  }
+  throw new BadCursorError();
+}
+
+const encodeCursor = (sortValue: string, address: string) =>
+  Buffer.from(JSON.stringify([sortValue, address])).toString("base64url");
+
+export async function listTokens(opts: ListTokensOptions): Promise<{ items: TokenListItem[]; nextCursor?: string }> {
+  const sql = getSql();
+  const { column, cast } = SORTS[opts.sort];
+  const col = sql(column);
+
+  // The tuple comparison is the cursor. `address` breaks ties, so tokens that share a volume are still
+  // in a total order and pagination can neither repeat nor skip one.
+  const after = opts.cursor
+    ? (([value, address]) => sql`and (t.${col}, t.address) < (${value}::${sql.unsafe(cast)}, ${address})`)(decodeCursor(opts.cursor))
+    : sql``;
+
+  // LEFT JOIN, not JOIN: a token created seconds ago has no metadata row yet and must still appear.
+  // coalesce(m.status,'pending'): `NULL <> 'hidden'` is NULL in SQL, which would silently drop exactly
+  // those new tokens.
+  // Metadata fields are used only when status = 'ok': a pending or invalid row can hold partial or hostile data.
+  const rows = await sql`
+    select
+      t.address, t.creator, t.ticker, t.progress_bps, t.volume_quote, t.trade_count, t.complete, t.migrated, t.created_at,
+      t.name as chain_name,
+      case when m.status = 'ok' then m.name end as meta_name,
+      case when m.status = 'ok' then m.description end as description,
+      case when m.status = 'ok' then m.image_cdn_url end as image_url,
+      t.${col}::text as sort_value
+    from launchpad.token t
+    left join app.token_metadata m on m.chain_id = t.chain_id and m.token = t.address
+    where t.chain_id = ${opts.chainId}
+      and coalesce(m.status, 'pending') <> 'hidden'
+      ${after}
+    order by t.${col} desc, t.address desc
+    limit ${opts.limit + 1}`;
+
+  const page = rows.slice(0, opts.limit);
+  const items: TokenListItem[] = page.map((r) => ({
+    address: r.address,
+    creator: r.creator,
+    name: r.meta_name ?? r.chain_name ?? undefined,
+    ticker: r.ticker ?? undefined,
+    description: r.description ?? undefined,
+    imageUrl: r.image_url ?? undefined,
+    progressBps: r.progress_bps,
+    volumeQuote: BigInt(r.volume_quote),
+    tradeCount: r.trade_count,
+    complete: r.complete,
+    migrated: r.migrated,
+    createdAt: BigInt(r.created_at),
+  }));
+
+  const last = page.at(-1);
+  return rows.length > opts.limit && last ? { items, nextCursor: encodeCursor(last.sort_value, last.address) } : { items };
+}

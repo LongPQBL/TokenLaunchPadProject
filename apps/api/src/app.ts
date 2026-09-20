@@ -2,6 +2,7 @@ import { chainBySlug, type ChainConfig } from "@vezta/shared";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { apiError, errorHandler, notFoundHandler } from "./errors.js";
+import { tokensRoutes } from "./routes/tokens.js";
 
 export interface AppDeps {
   /** Origins allowed to call the API from a browser. Never "*": sessions are cookies (spec §5). */
@@ -51,6 +52,7 @@ export function createApp(deps: Partial<AppDeps> = {}): Hono<AppEnv> {
     c.set("chain", resolved);
     await next();
   });
+  chain.route("/tokens", tokensRoutes());
   app.route("/:chain", chain);
 
   return app;
