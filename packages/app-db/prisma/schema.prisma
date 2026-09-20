@@ -12,12 +12,16 @@ datasource db {
 
 model AppUser {
   address   String    @id // lower-case 0x…, from SIWE
+  // Unique ignoring case by an index on lower(username) that Prisma cannot model (see the profiles_and_bans migration), so
+  // it is not marked @unique here: the database is the authority, and a duplicate is refused there.
+  username  String?
+  avatarUri String?   @map("avatar_uri")
+  /// When set, the person's comments stop being served and they cannot post. Their rows are kept.
+  bannedAt  DateTime? @map("banned_at") @db.Timestamptz(3)
   createdAt DateTime  @default(now()) @map("created_at")
   comments  Comment[]
   reports   Report[]
 
-  // No username or avatarUri: nothing writes or reads them until group D adds comments, and columns
-  // nobody uses become columns nobody dares delete.
   @@map("app_user")
   @@schema("app")
 }
@@ -36,6 +40,9 @@ model TokenMetadata {
   attempts    Int       @default(0) // resolve attempts so far (spec §4.4)
   nextAttempt DateTime? @map("next_attempt")
   fetchedAt   DateTime? @map("fetched_at")
+  /// Who hid the token and when: an audit trail, since nothing can be removed from the chain, only from the app.
+  hiddenBy    String?   @map("hidden_by")
+  hiddenAt    DateTime? @map("hidden_at") @db.Timestamptz(3)
 
   @@id([chainId, token])
   @@index([status, nextAttempt])
