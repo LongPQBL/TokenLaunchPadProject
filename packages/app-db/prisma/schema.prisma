@@ -1,0 +1,74 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  // Scoped to `app` only, so Prisma migrations can never touch the schema Ponder owns (spec §4.3).
+  schemas  = ["app"]
+}
+
+model AppUser {
+  address   String    @id // lower-case 0x…, from SIWE
+  createdAt DateTime  @default(now()) @map("created_at")
+  comments  Comment[]
+  reports   Report[]
+
+  // No username or avatarUri: nothing writes or reads them until group D adds comments, and columns
+  // nobody uses become columns nobody dares delete.
+  @@map("app_user")
+  @@schema("app")
+}
+
+model TokenMetadata {
+  chainId     Int       @map("chain_id")
+  token       String
+  uri         String
+  name        String?
+  symbol      String?
+  description String?
+  imageUri    String?   @map("image_uri")
+  imageCdnUrl String?   @map("image_cdn_url")
+  socials     Json      @default("{}")
+  status      String    @default("pending") // ok | pending | invalid | hidden
+  attempts    Int       @default(0) // resolve attempts so far (spec §4.4)
+  nextAttempt DateTime? @map("next_attempt")
+  fetchedAt   DateTime? @map("fetched_at")
+
+  @@id([chainId, token])
+  @@index([status, nextAttempt])
+  @@map("token_metadata")
+  @@schema("app")
+}
+
+model Comment {
+  id        BigInt   @id @default(autoincrement())
+  chainId   Int      @map("chain_id")
+  token     String
+  author    String
+  body      String
+  hidden    Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  user      AppUser  @relation(fields: [author], references: [address])
+
+  @@index([chainId, token, createdAt(sort: Desc)])
+  @@map("comment")
+  @@schema("app")
+}
+
+model Report {
+  id        BigInt   @id @default(autoincrement())
+  chainId   Int      @map("chain_id")
+  token     String
+  reporter  String
+  reason    String
+  resolved  Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  user      AppUser  @relation(fields: [reporter], references: [address])
+
+  @@index([resolved, createdAt])
+  @@map("report")
+  @@schema("app")
+}

@@ -1,0 +1,25 @@
+{
+  "name": "@vezta/app-db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "generate": "prisma generate",
+    "migrate:dev": "prisma migrate dev",
+    "migrate:deploy": "prisma migrate deploy",
+    "test": "DATABASE_URL=${DATABASE_URL:-postgresql://${USER}@localhost:5432/vezta_test} vitest run",
+    "typecheck": "prisma generate > /dev/null && tsc --noEmit"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "prisma": "^6.0.0",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.0"
+  }
+}
