@@ -6,8 +6,44 @@ export const UI = {
   nav: { create: "Create token", search: "Search tokens" },
   // Named after the chain it is on, so a second testnet never says "SEPOLIA".
   badge: { testnet: (chainName: string) => `${chainName.toUpperCase()} TESTNET` },
-  // Until the create flow is built the header button still has to lead somewhere real.
-  create: { soon: "Token creation is coming soon." },
+  create: {
+    title: "Create a token",
+    intro: "Launch a token on a bonding curve. It costs a small creation fee plus network fees, and you can start trading it straight away.",
+    fields: {
+      name: "Name",
+      ticker: "Ticker",
+      description: "Description",
+      image: "Logo",
+      imageHint: "PNG, JPEG or WebP, up to 2 MB.",
+      website: "Website",
+      twitter: "Twitter",
+      telegram: "Telegram",
+      optional: "optional",
+    },
+    errors: {
+      name: "Enter a name of 1 to 32 characters.",
+      ticker: "Use 2 to 10 letters or digits, with no spaces.",
+      description: "Keep the description to 500 characters.",
+      link: "Enter a link that starts with http:// or https://.",
+      image: "Choose a PNG, JPEG or WebP image of 2 MB or less.",
+      imageMissing: "Choose a logo.",
+    },
+    window: {
+      title: "Launch protection",
+      help: "For the first minutes after launch a tax is charged on every buy, so bots cannot take the cheapest tokens. It falls to zero by the end of the window.",
+      warning: "You pay the launch tax too, on your own buys.",
+      options: { 0: "No protection", 60: "60 seconds", 600: "10 minutes", 5880: "98 minutes" },
+    },
+    cost: {
+      fee: "Creation fee",
+      gas: "Estimated network fee",
+      note: "Shown before your wallet opens. The creation fee is refunded in full if the transaction fails.",
+    },
+    submit: "Create token",
+    signInFirst: "Sign in with your wallet to upload the logo.",
+    steps: { label: "Progress", upload: "Upload details", confirm: "Confirm in your wallet", live: "Token live" },
+    failed: "Could not create the token.",
+  },
   discover: {
     tabs: { new: "New", trending: "Trending", progress: "Nearing graduation" },
     empty: "No tokens yet. Be the first to create one.",

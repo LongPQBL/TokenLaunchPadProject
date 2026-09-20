@@ -35,8 +35,10 @@ describe("UI strings", () => {
     expect(UI.token.commentsSoon).toBe("Comments are coming soon.");
   });
 
-  it("has a placeholder for the create page until token creation is built", () => {
-    expect(UI.create.soon).toBe("Token creation is coming soon.");
+  it("offers the four launch-protection windows the contract accepts, in words", () => {
+    expect(Object.keys(UI.create.window.options).map(Number)).toEqual([0, 60, 600, 5880]);
+    expect(UI.create.window.options[0]).toBe("No protection");
+    expect(UI.create.window.options[5880]).toBe("98 minutes");
   });
 
   it("has a label for paging on", () => {

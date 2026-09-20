@@ -46,11 +46,11 @@ test.describe("discover", () => {
   });
 
   // The header's main button must not lead anywhere broken, even before the create flow exists.
-  test("the Create token button leads to a real page, not a 404", async ({ page }) => {
+  test("the Create token button leads to the create form, not a 404", async ({ page }) => {
     await page.goto("/sepolia");
     await page.getByRole("link", { name: "Create token" }).click();
     await expect(page).toHaveURL(/\/sepolia\/create$/);
-    await expect(page.getByText("Token creation is coming soon.")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Create a token" })).toBeVisible();
   });
 
 });
