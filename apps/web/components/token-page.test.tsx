@@ -58,6 +58,14 @@ describe("GraduationProgress", () => {
     expect(screen.getByText("0.0052 / 0.05 ETH collected")).toBeInTheDocument();
   });
 
+  // The reserves of a real token that has graduated, read from the running stack. Its derived target is one wei SHORT
+  // of 0.05 ETH, which truncating would print as 0.0499: found by running everything together, so it stays as a test.
+  it("shows a graduated token's round target as itself, not one wei short", () => {
+    const graduated = { ...detail, complete: true, migrated: true, progressBps: 10000, virtualQuoteReserves: 66_666_666_666_666_665n, virtualTokenReserves: 266_666_666_666_666_666_666_666_666n };
+    render(<GraduationProgress token={graduated} decimals={18} symbol="ETH" />);
+    expect(screen.getByText("0.05 / 0.05 ETH collected")).toBeInTheDocument();
+  });
+
   it("draws the bar from the indexer's progress", () => {
     render(<GraduationProgress token={detail} decimals={18} symbol="ETH" />);
     const bar = screen.getByRole("progressbar", { name: "Graduation progress" });

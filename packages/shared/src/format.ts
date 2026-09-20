@@ -27,6 +27,19 @@ export function formatQuote(raw: bigint, quoteDecimals: number, maxFractionDigit
   return frac.length > maxFractionDigits ? trimZeros(`${whole}.${frac.slice(0, maxFractionDigits)}`) : s;
 }
 
+/**
+ * A quote amount rounded to the NEAREST step, for values that are themselves approximate. formatQuote truncates, which
+ * is right for money that moves: it can only understate. But the graduation target is derived from reserves and lands a
+ * wei or two either side of a round number, and truncating would print 49999999999999999 wei as "0.0499" rather than
+ * "0.05". Do not use this for an amount a person is about to pay or receive.
+ */
+export function formatQuoteApprox(raw: bigint, quoteDecimals: number, fractionDigits: number): string {
+  const digits = Math.min(fractionDigits, quoteDecimals);
+  const step = 10n ** BigInt(quoteDecimals - digits); // one unit at the chosen precision, in raw quote units
+  const rounded = ((raw + step / 2n) / step) * step;
+  return trimZeros(formatUnits(rounded, quoteDecimals));
+}
+
 /** Token amounts are always 18 decimals and always large; show them the way a trader reads them. */
 export function formatCompactTokens(raw: bigint): string {
   const whole = raw / 10n ** 18n;

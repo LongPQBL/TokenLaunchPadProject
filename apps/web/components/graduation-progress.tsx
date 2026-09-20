@@ -1,10 +1,11 @@
-import { collectedQuote, formatQuote, graduationAmountFromReserves, UI } from "@vezta/shared";
+import { collectedQuote, formatQuoteApprox, graduationAmountFromReserves, UI } from "@vezta/shared";
 import { formatPercentBps } from "@/lib/format";
 import type { TokenDetail } from "@/lib/types";
 
 /**
  * How close the curve is to graduating: a bar from the indexer's progress, and "collected / target" in the quote
- * currency. The target is not stored anywhere; it is worked out from the reserves (see graduationAmountFromReserves).
+ * currency. The target is not stored anywhere; it is worked out from the reserves (see graduationAmountFromReserves),
+ * so it is a wei or two off a round number and is shown rounded, not truncated.
  */
 export function GraduationProgress({ token, decimals, symbol }: { token: TokenDetail; decimals: number; symbol: string }) {
   const bps = Math.min(Math.max(token.progressBps, 0), 10_000);
@@ -28,7 +29,7 @@ export function GraduationProgress({ token, decimals, symbol }: { token: TokenDe
         <div className="h-full bg-primary" style={{ width: `${bps / 100}%` }} />
       </div>
       <p className="mt-1 font-mono text-xs text-muted-foreground">
-        {UI.token.collected(formatQuote(collected, decimals, 4), formatQuote(target, decimals, 4), symbol)}
+        {UI.token.collected(formatQuoteApprox(collected, decimals, 4), formatQuoteApprox(target, decimals, 4), symbol)}
       </p>
     </section>
   );
