@@ -3,7 +3,8 @@ import { launchpadAbi } from "../../../abi/index.ts";
 import { makeContext } from "./clients.ts";
 import { createToken } from "./create.ts";
 import type { Curve } from "./lib.ts";
-import { previewBuyLocal, previewSellLocal, tokensForBudget } from "./quote.ts";
+// The replica under test is the one the app ships, not a copy of it.
+import { previewBuyLocal, previewSellLocal, tokensForBudget } from "../../../packages/shared/src/quote.ts";
 import { buyWithEth } from "./trade.ts";
 
 // Compares the off-chain replicas with the contract on a live deployment, at several points of the curve.

@@ -86,6 +86,11 @@ E2E_TOKEN="$(grep -m1 -oE 'token 0x[0-9a-fA-F]{40}' "$LOGS/flow.log" | awk '{pri
 grep -q 'status=migrated' "$LOGS/flow.log" || die "the flow did not end with a migrated token"
 echo "graduated token: $E2E_TOKEN"
 
+log "Checking the app's off-chain quote maths against the contract"
+(cd "$ROOT/examples/evm-flow" && DEPLOYMENT_FILE="$ROOT/packages/deployments/local.json" RPC_URL="$RPC" pnpm --silent verify:quote) > "$LOGS/verify-quote.log" 2>&1 \
+  || { tail -20 "$LOGS/verify-quote.log"; die "the quote replica disagrees with the contract"; }
+tail -1 "$LOGS/verify-quote.log"
+
 log "Creating a token with three buys forced into one block"
 E2E_SAME_BLOCK_TOKEN="$(cd "$ROOT/apps/indexer" && DEPLOYMENT=local RPC_URL="$RPC" pnpm --silent fixture:same-block | tail -1)"
 case "$E2E_SAME_BLOCK_TOKEN" in 0x*) ;; *) die "the same-block fixture did not print a token address";; esac
