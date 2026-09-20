@@ -3,15 +3,14 @@ import { notFound } from "next/navigation";
 import { GraduationProgress } from "@/components/graduation-progress";
 import { IndexingNotice } from "@/components/indexing-notice";
 import { HoldersTable } from "@/components/holders-table";
-import { PriceChart } from "@/components/price-chart";
+import { LivePriceChart, LiveTradesTable } from "@/components/live-token-data";
 import { SessionBar } from "@/components/session/session-bar";
 import { SiteHeader } from "@/components/site-header";
 import { TokenHeader } from "@/components/token-header";
 import { TokenTabs } from "@/components/token-tabs";
 import { TradePanel } from "@/components/trade-panel/trade-panel";
-import { TradesTable } from "@/components/trades-table";
 import { api, ApiError } from "@/lib/api";
-import { fillGaps, toChartSeries } from "@/lib/candles";
+import { toChartSeries } from "@/lib/candles";
 import { isAddress } from "@/lib/format";
 
 /** One candle per minute. */
@@ -89,13 +88,13 @@ export default async function TokenPage({
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="flex min-w-0 flex-col gap-6">
           {candles ? (
-            <PriceChart candles={fillGaps(toChartSeries(candles.items, config.quoteDecimals), CHART_INTERVAL)} />
+            <LivePriceChart chain={chain} token={token} initial={toChartSeries(candles.items, config.quoteDecimals)} interval={CHART_INTERVAL} decimals={config.quoteDecimals} />
           ) : (
             <PanelError className="flex h-80 items-center justify-center border border-border text-muted-foreground" />
           )}
           <GraduationProgress token={detail} decimals={config.quoteDecimals} symbol={config.quoteSymbol} />
           <TokenTabs
-            trades={trades ? <TradesTable trades={trades.items} chain={chain} now={now} /> : <PanelError />}
+            trades={trades ? <LiveTradesTable chain={chain} token={token} initial={trades.items} now={now} /> : <PanelError />}
             holders={holders ? <HoldersTable holders={holders.items} chain={chain} /> : <PanelError />}
             comments={<p className="py-10 text-center text-muted-foreground">{UI.token.commentsSoon}</p>}
           />

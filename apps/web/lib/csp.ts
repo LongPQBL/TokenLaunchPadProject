@@ -32,9 +32,13 @@ function origin(value: string | undefined): string | undefined {
 export function buildCsp({ nonce, isDev, apiUrl, rpcUrl, imageOrigins, walletConnect }: CspInput): string {
   if (!/^[A-Za-z0-9+/=_-]+$/.test(nonce)) throw new Error("the CSP nonce must be base64");
 
+  // A websocket is a different scheme from the page that opens it, and not every browser counts wss: as a match for https:, so
+  // the API's own socket address is named as well as its https one.
+  const socketOf = (o: string | undefined) => (o ? o.replace(/^http/, "ws") : undefined);
   const connect = [
     "'self'",
     origin(apiUrl),
+    socketOf(origin(apiUrl)),
     origin(rpcUrl ?? sepolia.rpcUrls.default.http[0]),
     ...(walletConnect ? ["wss://relay.walletconnect.org", "https://rpc.walletconnect.org"] : []),
   ].filter((x): x is string => !!x);

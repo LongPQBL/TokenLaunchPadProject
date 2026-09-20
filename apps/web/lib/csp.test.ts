@@ -29,7 +29,12 @@ describe("buildCsp", () => {
   });
 
   it("lets the page talk to itself, the API and the chain's RPC, and nowhere else", () => {
-    expect(directive(buildCsp(base), "connect-src")).toBe("connect-src 'self' https://api.launchpad.example https://rpc.example");
+    expect(directive(buildCsp(base), "connect-src")).toBe("connect-src 'self' https://api.launchpad.example wss://api.launchpad.example https://rpc.example");
+  });
+
+  it("names the API's websocket address too, ws:// for http and wss:// for https", () => {
+    expect(directive(buildCsp({ ...base, apiUrl: "http://localhost:3101" }), "connect-src")).toContain("ws://localhost:3101");
+    expect(directive(buildCsp(base), "connect-src")).toContain("wss://api.launchpad.example");
   });
 
   it("names an RPC by its origin only, so a path or an API key in the URL is not repeated in a header", () => {
