@@ -1,0 +1,22 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -w lint
+      - run: pnpm -w typecheck
+      - run: pnpm -w test
+      - name: The dangerouslySetInnerHTML ban must still bite
+        run: |
+          cp tools/eslint-fixture/bad.tsx.txt tools/eslint-fixture/bad.tsx
+          if pnpm exec eslint tools/eslint-fixture/bad.tsx; then
+            echo "::error::The dangerouslySetInnerHTML ban is not enforced any more"
+            exit 1
+          fi
+          rm tools/eslint-fixture/bad.tsx
