@@ -58,6 +58,45 @@ export const UI = {
     wrongNetwork: (chainName: string) => `Your wallet is on another network. Switch to ${chainName} to continue.`,
     notConfigured: "Trading is not configured for this deployment.",
   },
+  // What a person is told when a transaction cannot happen. Keyed by the contract's custom error names
+  // (docs/02-contract-reference.md); the ones the reference marks internal or admin are deliberately absent.
+  tx: {
+    generic: "Something went wrong. Please try again.",
+    needGas: "You need more ETH for network fees.",
+    // One line for both stages: the seam does not tell the panel when the wallet has signed, and a transaction is
+    // mined a few seconds later.
+    pending: "Confirm in your wallet, then wait for the network…",
+    seam: {
+      wrong_chain: "Switch your wallet to the right network.",
+      not_connected: "Connect a wallet first.",
+      not_configured: "Trading is not configured for this deployment.",
+      reverted: "The transaction failed on chain.",
+      bad_amount: "Enter an amount.",
+      no_trade_event: "The transaction confirmed, but its result could not be read. Check the block explorer.",
+      no_created_event: "The transaction confirmed, but the new token could not be found. Check the block explorer.",
+    },
+    contract: {
+      AlreadyMigrated: "Already on Uniswap.",
+      BondingCurveNotSet: "Service not ready.",
+      CurveCompleted: "This token has finished its bonding curve and is moving to Uniswap.",
+      CurveNotFound: "Unknown token.",
+      ERC20InsufficientAllowance: "Approve the token first.",
+      ERC20InsufficientBalance: "Insufficient token balance.",
+      EthTransferFailed: "ETH transfer failed. Use a wallet that accepts ETH.",
+      InsufficientValue: "Not enough ETH sent.",
+      InvalidAntiSniperWindow: "Pick one of the allowed windows.",
+      NotCompleted: "Not ready to migrate yet.",
+      NothingToClaim: "Nothing to claim.",
+      PairMismatch: "Migration failed, contact support.",
+      QuoteNotEnabled: "This currency is not supported.",
+      QuoteNotWeth: "Use the token payment flow for this token.",
+      QuoteTransferMismatch: "This currency cannot be used.",
+      SafeERC20FailedOperation: "Token transfer failed.",
+      SlippageExceeded: "Price changed. Increase slippage or try again.",
+      TransferToPairLocked: "Transfers to the pool are locked until the token graduates.",
+      ZeroAmount: "Enter an amount.",
+    },
+  },
   errors: {
     notFound: "Token not found.",
     loadFailed: "Could not load this. Please try again in a moment.",

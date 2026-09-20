@@ -1,6 +1,6 @@
 import { CHAINS } from "@vezta/shared";
 import { describe, expect, it } from "vitest";
-import { explorerAddressUrl } from "./explorer";
+import { explorerAddressUrl, explorerTxUrl } from "./explorer";
 
 const ADDR = "0x8509aea46cef52be7cc3d07b3f2a4c4f08ae7744";
 const sepolia = CHAINS.sepolia;
@@ -19,5 +19,20 @@ describe("explorerAddressUrl", () => {
 
   it("returns undefined when the chain is unknown", () => {
     expect(explorerAddressUrl(undefined, ADDR)).toBeUndefined();
+  });
+});
+
+describe("explorerTxUrl", () => {
+  const chain = { explorerUrl: "https://sepolia.etherscan.io" } as never;
+  const hash = `0x${"ab".repeat(32)}`;
+
+  it("links a real transaction hash", () => {
+    expect(explorerTxUrl(chain, hash)).toBe(`https://sepolia.etherscan.io/tx/${hash}`);
+  });
+
+  it("links nothing that is not a 32-byte hash", () => {
+    expect(explorerTxUrl(chain, "javascript:alert(1)")).toBeUndefined();
+    expect(explorerTxUrl(chain, "0x1234")).toBeUndefined();
+    expect(explorerTxUrl(undefined, hash)).toBeUndefined();
   });
 });
