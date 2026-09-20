@@ -67,6 +67,31 @@ importers:
         specifier: ^3.2.0
         version: 3.2.7(@types/node@22.20.4)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.4)(typescript@5.9.3))(tsx@4.23.15)
 
+  apps/bot:
+    dependencies:
+      '@vezta/abi':
+        specifier: workspace:*
+        version: link:../../packages/abi
+      '@vezta/deployments':
+        specifier: workspace:*
+        version: link:../../packages/deployments
+      viem:
+        specifier: ^2.47.0
+        version: 2.56.8(typescript@5.9.3)(zod@3.25.76)
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.4
+      tsx:
+        specifier: ^4.19.0
+        version: 4.23.15
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.0
+        version: 3.2.7(@types/node@22.20.4)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.4)(typescript@5.9.3))(tsx@4.23.15)
+
   apps/indexer:
     dependencies:
       '@vezta/abi':
