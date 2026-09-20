@@ -82,4 +82,21 @@ describe("loadConfig", () => {
   it("refuses a PINNER it does not know", () => {
     expect(() => loadConfig({ ...base, PINNER: "ipfs-magic" })).toThrow(/PINNER/);
   });
+
+  it("has no Redis unless one is given: live updates are then off and the pages poll", () => {
+    expect(loadConfig(base).redisUrl).toBeUndefined();
+    expect(loadConfig({ ...base, REDIS_URL: "redis://localhost:6379" }).redisUrl).toBe("redis://localhost:6379");
+    expect(loadConfig({ ...base, REDIS_URL: "rediss://user:pw@host:6380" }).redisUrl).toBe("rediss://user:pw@host:6380");
+    expect(() => loadConfig({ ...base, REDIS_URL: "http://x" })).toThrow(/REDIS_URL/);
+  });
+
+  it("does not put the Redis password in the message when it refuses a url", () => {
+    try {
+      loadConfig({ ...base, REDIS_URL: "http://user:secretpw@host" });
+    } catch (e) {
+      expect((e as Error).message).not.toContain("secretpw");
+      return;
+    }
+    throw new Error("should have refused");
+  });
 });

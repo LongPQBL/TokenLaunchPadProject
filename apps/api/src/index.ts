@@ -1,5 +1,7 @@
+import type { Server } from "node:http";
 import { serve } from "@hono/node-server";
 import { loadDeployment } from "@vezta/deployments";
+import { CHAINS } from "@vezta/shared";
 import { createApp } from "./app.js";
 import { verifyEoaSignature, verifyWithChain } from "./auth/signature.js";
 import { loadConfig } from "./config.js";
@@ -7,6 +9,7 @@ import { isDatabaseReady } from "./db.js";
 import { startLoop } from "./loop.js";
 import { fakePinner, pinataPinner } from "./metadata/pin.js";
 import { resolvePending } from "./metadata/resolver.js";
+import { attachRealtime } from "./realtime/server.js";
 
 const config = loadConfig();
 const deployment = loadDeployment();
@@ -28,6 +31,13 @@ const app = createApp({
 // Safe to run in every API instance: the resolver claims rows with a compare-and-set lease.
 startLoop(() => resolvePending({ gateway: config.ipfsGatewayUrl }), 5_000);
 
-serve({ fetch: app.fetch, port: config.port }, (info) => {
+const server = serve({ fetch: app.fetch, port: config.port }, (info) => {
   console.log(`api listening on :${info.port}`);
 });
+
+// Live updates: this instance subscribes to what the watcher publishes and delivers to the browsers connected to it.
+if (config.redisUrl) {
+  attachRealtime(server as Server, { redisUrl: config.redisUrl, corsOrigins: config.corsOrigins, chains: Object.keys(CHAINS) });
+} else {
+  console.warn("REDIS_URL is not set: no live updates, pages will poll");
+}

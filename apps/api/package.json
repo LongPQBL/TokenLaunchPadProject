@@ -15,13 +15,16 @@
     "@vezta/deployments": "workspace:*",
     "@vezta/shared": "workspace:*",
     "hono": "^4.6.0",
+    "ioredis": "^6.0.0",
     "postgres": "^3.4.0",
     "sharp": "^0.34.5",
+    "socket.io": "^4.8.3",
     "viem": "^2.56.8",
     "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "socket.io-client": "^4.8.3",
     "tsx": "^4.19.0",
     "typescript": "^5.9.3",
     "vitest": "^3.2.0"

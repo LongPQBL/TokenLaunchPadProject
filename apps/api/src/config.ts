@@ -14,6 +14,8 @@ export interface Config {
   pinner?: "pinata" | "fake";
   /** Pinata's key. Exists only in the API's environment; nothing secret is ever put in a NEXT_PUBLIC_ variable. */
   pinataJwt?: string;
+  /** Where the watcher publishes live events. Absent: no websockets, and pages poll instead. */
+  redisUrl?: string;
 }
 
 function parseGateway(raw: string | undefined): string {
@@ -77,6 +79,11 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   const pinner = env.PINNER ?? (env.PINATA_JWT ? "pinata" : undefined);
   if (pinner === "pinata" && !env.PINATA_JWT) throw new Error('PINNER="pinata" needs PINATA_JWT');
 
+  if (env.REDIS_URL !== undefined && env.REDIS_URL !== "" && !/^rediss?:\/\//.test(env.REDIS_URL)) {
+    // The url can carry a password: the message says what is wrong, not what was given.
+    throw new Error("REDIS_URL must start with redis:// or rediss://");
+  }
+
   return {
     databaseUrl,
     port,
@@ -87,5 +94,6 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     trustProxy: env.TRUST_PROXY === "true",
     pinner,
     pinataJwt: env.PINATA_JWT || undefined,
+    redisUrl: env.REDIS_URL || undefined,
   };
 }
