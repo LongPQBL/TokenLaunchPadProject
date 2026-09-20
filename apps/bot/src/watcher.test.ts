@@ -51,7 +51,7 @@ function setup(over: { head?: bigint; logs?: RawLog[]; publish?: (channel: strin
   const asked: { fromBlock: bigint; toBlock: bigint }[] = [];
   const published: { channel: string; message: Record<string, unknown> }[] = [];
   const publishFn = over.publish ?? (async (channel: string, message: string) => void published.push({ channel, message: JSON.parse(message) }));
-  const migrator = { handleComplete: vi.fn(async (_t: Address) => "migrated" as const) };
+  const migrator = { handleComplete: vi.fn<(token: Address) => Promise<"migrated">>(async () => "migrated") };
   const errors: string[] = [];
   const watcher = createWatcher({
     publicClient: {
