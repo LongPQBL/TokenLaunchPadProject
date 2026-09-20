@@ -1,0 +1,118 @@
+"use client";
+
+import { useCallback, useMemo, useRef, useState } from "react";
+import { api } from "@/lib/api";
+import type { TokenListItem, TokenSort } from "@/lib/types";
+import type { LiveClient } from "@/lib/ws/client";
+import { applyTradeToItem, liveCreatedSchema, newTokenItem, sortItems } from "@/lib/ws/discover";
+import { liveTradeSchema, tradeKey } from "@/lib/ws/live";
+import { useLiveRoom } from "@/lib/ws/use-live-room";
+import { TokenGrid } from "./token-grid";
+
+/**
+ * The discover grid, kept current. New tokens appear at the top, each trade updates its card's volume, count and progress
+ * (flashing the number), and the cards re-sort as the numbers change. Nothing moves while the person is using the grid:
+ * with the pointer over it or a card focused, cards stay where they are (their numbers still update), and anything that
+ * would have moved waits until they let go. A reconnect or a dead socket refetches the first page.
+ *
+ * Only the plain "newest" view takes new tokens: in another sort, or a search, or on a later page, a token would not belong
+ * where it would land.
+ */
+export function LiveTokenGrid({
+  chain,
+  initial,
+  sort,
+  q,
+  firstPage,
+  nextCursor,
+  client,
+}: {
+  chain: string;
+  initial: TokenListItem[];
+  sort: TokenSort;
+  q: string;
+  firstPage: boolean;
+  nextCursor?: string;
+  client?: LiveClient;
+}) {
+  const [items, setItems] = useState<TokenListItem[]>(initial);
+  const [fresh, setFresh] = useState<ReadonlySet<string>>(new Set());
+  const [flashes, setFlashes] = useState<Record<string, number>>({});
+  const [busy, setBusy] = useState(false); // the pointer is over the grid, or a card has focus
+  const seen = useRef(new Set<string>());
+  const frozenOrder = useRef<string[]>([]);
+
+  const takesNewTokens = sort === "new" && q === "" && firstPage;
+
+  const refetch = useCallback(async () => {
+    if (!firstPage || q !== "") return; // a later page or a search is not the live view
+    const page = await api.tokens(chain, { sort, limit: initial.length || undefined });
+    setItems(page.items);
+  }, [chain, sort, q, firstPage, initial.length]);
+
+  useLiveRoom({
+    room: "trades",
+    client,
+    refetch,
+    onMessage: (message) => {
+      const parsed = liveTradeSchema.safeParse(message);
+      if (!parsed.success) return;
+      const key = tradeKey(`${parsed.data.txHash}-${parsed.data.logIndex}`);
+      if (seen.current.has(key)) return;
+      seen.current.add(key);
+      if (seen.current.size > 5_000) seen.current.delete(seen.current.values().next().value!);
+      const token = parsed.data.token;
+      setItems((prev) => (prev.some((i) => i.address === token) ? prev.map((i) => applyTradeToItem(i, parsed.data)) : prev));
+      setFlashes((prev) => (items.some((i) => i.address === token) ? { ...prev, [token]: (prev[token] ?? 0) + 1 } : prev));
+    },
+  });
+
+  useLiveRoom({
+    room: "tokens",
+    client,
+    poll: false, // the trades room already refetches this page
+    refetch: async () => {},
+    onMessage: (message) => {
+      const parsed = liveCreatedSchema.safeParse(message);
+      if (!parsed.success || !takesNewTokens) return;
+      const token = parsed.data.token;
+      if (items.some((i) => i.address === token)) return;
+      const created = newTokenItem(parsed.data, Math.floor(Date.now() / 1000));
+      setFresh((prev) => new Set(prev).add(token));
+      // While the pointer is over the grid the arrangement is frozen (see `ordered`), so a new card is in the data but not yet
+      // on screen: it appears when the pointer leaves.
+      setItems((prev) => [created, ...prev]);
+    },
+  });
+
+  const ordered = useMemo(() => {
+    if (busy && frozenOrder.current.length > 0) {
+      // Hold the arrangement the person is looking at: the same cards in the same places, with their current numbers.
+      const byAddress = new Map(items.map((i) => [i.address, i]));
+      return frozenOrder.current.map((a) => byAddress.get(a)).filter((i): i is TokenListItem => !!i);
+    }
+    return sortItems(items, sort);
+  }, [items, sort, busy]);
+
+  const startHolding = () => {
+    frozenOrder.current = ordered.map((i) => i.address);
+    setBusy(true);
+  };
+  const stopHolding = () => {
+    setBusy(false);
+    frozenOrder.current = [];
+  };
+
+  return (
+    <TokenGrid
+      chain={chain}
+      items={ordered}
+      sort={sort}
+      q={q}
+      nextCursor={nextCursor}
+      fresh={fresh}
+      flashes={flashes}
+      listProps={{ onPointerEnter: startHolding, onPointerLeave: stopHolding, onFocus: startHolding, onBlur: stopHolding }}
+    />
+  );
+}

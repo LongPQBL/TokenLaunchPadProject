@@ -16,6 +16,8 @@ interface Options {
   /** Fetches the current data again. Called after a reconnect and as the polling fallback. */
   refetch: () => Promise<unknown>;
   client?: LiveClient;
+  /** False to only listen: for a room whose data is refetched by some other listener of the same page. Default true. */
+  poll?: boolean;
 }
 
 /**
@@ -26,7 +28,7 @@ interface Options {
  *  - while it is up but quiet, it checks in every 30 s, in case a message was lost.
  * Never two refetches at once, and a failed one does not stop the polling.
  */
-export function useLiveRoom({ room, onMessage, refetch, client }: Options) {
+export function useLiveRoom({ room, onMessage, refetch, client, poll = true }: Options) {
   // The latest callbacks, without making the subscription depend on them: a new closure every render must not re-join the room.
   const handler = useRef(onMessage);
   const fetcher = useRef(refetch);
@@ -57,9 +59,9 @@ export function useLiveRoom({ room, onMessage, refetch, client }: Options) {
       lastMessage = Date.now();
       handler.current(message);
     });
-    const offReconnect = live.onReconnect(() => void run());
+    const offReconnect = poll ? live.onReconnect(() => void run()) : () => {};
 
-    const timer = setInterval(() => {
+    const timer = !poll ? undefined : setInterval(() => {
       const now = Date.now();
       if (live.isConnected()) {
         if (now - lastMessage < FRESH_MS) return;
@@ -70,9 +72,9 @@ export function useLiveRoom({ room, onMessage, refetch, client }: Options) {
 
     return () => {
       stopped = true;
-      clearInterval(timer);
+      if (timer) clearInterval(timer);
       off();
       offReconnect();
     };
-  }, [room, client]);
+  }, [room, client, poll]);
 }

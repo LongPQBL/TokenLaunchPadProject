@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { collectedQuote, graduationAmountFromReserves, marketCap, spotPrice, SUPPLY } from "./curve";
+import { collectedQuote, graduationAmountFromReserves, marketCap, progressBpsFromVirtualTokens, spotPrice, SUPPLY } from "./curve";
 
 const ceilDiv = (a: bigint, b: bigint) => (a + b - 1n) / b;
 const abs = (n: bigint) => (n < 0n ? -n : n);
@@ -78,5 +78,24 @@ describe("spotPrice and marketCap", () => {
 
   it("values the fully diluted supply of one billion tokens", () => {
     expect(marketCap(LIVE.vq, LIVE.vt)).toBe(spotPrice(LIVE.vq, LIVE.vt) * 1_000_000_000n);
+  });
+});
+
+describe("progressBpsFromVirtualTokens", () => {
+  const start = (SUPPLY * 16n) / 15n; // virtual tokens on a fresh curve
+
+  it("is 0 on a fresh curve and 10000 once the sellable 80% is gone: the same number the indexer stores", () => {
+    expect(progressBpsFromVirtualTokens(start)).toBe(0);
+    expect(progressBpsFromVirtualTokens(start - (SUPPLY * 4n) / 5n)).toBe(10_000);
+  });
+
+  it("is proportional in between", () => {
+    expect(progressBpsFromVirtualTokens(start - (SUPPLY * 2n) / 5n)).toBe(5_000);
+    expect(progressBpsFromVirtualTokens(start - SUPPLY / 5n)).toBe(2_500);
+  });
+
+  it("stays inside 0..10000 whatever the reserves say", () => {
+    expect(progressBpsFromVirtualTokens(start + SUPPLY)).toBe(0);
+    expect(progressBpsFromVirtualTokens(0n)).toBe(10_000);
   });
 });

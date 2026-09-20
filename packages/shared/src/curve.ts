@@ -40,3 +40,17 @@ export function spotPrice(virtualQuote: bigint, virtualToken: bigint): bigint {
 export function marketCap(virtualQuote: bigint, virtualToken: bigint): bigint {
   return spotPrice(virtualQuote, virtualToken) * WHOLE_TOKENS_IN_SUPPLY;
 }
+
+/**
+ * How far along the curve a token is, in basis points of the 80% that the curve sells, from its virtual token reserve
+ * alone: (initial virtual tokens - now) / sellable. It is the number the indexer stores as progressBps, worked out the
+ * same way, so a live update can move a progress bar without asking the API.
+ */
+export function progressBpsFromVirtualTokens(virtualTokenReserves: bigint): number {
+  const initial = (SUPPLY * 16n) / 15n;
+  const sellable = (SUPPLY * 4n) / 5n;
+  const sold = initial - virtualTokenReserves;
+  if (sold <= 0n) return 0;
+  const bps = (sold * 10_000n) / sellable;
+  return Number(bps > 10_000n ? 10_000n : bps);
+}

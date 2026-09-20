@@ -10,12 +10,21 @@ export function TokenGrid({
   sort,
   q,
   nextCursor,
+  fresh,
+  flashes,
+  listProps,
 }: {
   chain: string;
   items: TokenListItem[];
   sort: TokenSort;
   q: string;
   nextCursor?: string;
+  /** Addresses that arrived live, for the entrance animation. */
+  fresh?: ReadonlySet<string>;
+  /** How many times each card's volume has changed live: restarts its flash. */
+  flashes?: Readonly<Record<string, number>>;
+  /** Handlers for the list itself: the live grid uses them to know when the pointer is over it. */
+  listProps?: React.HTMLAttributes<HTMLUListElement>;
 }) {
   // Not a spinner: by the time this renders the answer is in, and the answer is "nothing".
   if (items.length === 0) {
@@ -28,10 +37,10 @@ export function TokenGrid({
 
   return (
     <div>
-      <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" {...listProps}>
         {items.map((token) => (
-          <li key={token.address}>
-            <TokenCard chain={chain} token={token} />
+          <li key={token.address} data-fresh={fresh?.has(token.address) ? "true" : undefined} className={fresh?.has(token.address) ? "animate-in fade-in slide-in-from-top-2 duration-500" : undefined}>
+            <TokenCard chain={chain} token={token} flash={flashes?.[token.address]} />
           </li>
         ))}
       </ul>

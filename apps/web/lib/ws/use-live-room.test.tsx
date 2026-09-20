@@ -135,4 +135,17 @@ describe("useLiveRoom", () => {
     expect(second).toHaveBeenCalledOnce();
     expect(fake.client.subscribe).toHaveBeenCalledTimes(1);
   });
+
+  it("with polling off, only listens: no timer, and no refetch after a reconnect", async () => {
+    const fake = fakeClient();
+    const refetch = vi.fn(async () => {});
+    const onMessage = vi.fn();
+    renderHook(() => useLiveRoom({ room: "tokens", onMessage, refetch, client: fake.client, poll: false }));
+    await act(() => vi.advanceTimersByTimeAsync(60_000));
+    act(() => fake.reconnect());
+    expect(refetch).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
+    fake.message("tokens", { type: "created" });
+    expect(onMessage).toHaveBeenCalledOnce();
+  });
 });
