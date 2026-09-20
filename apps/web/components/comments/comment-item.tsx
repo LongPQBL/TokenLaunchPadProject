@@ -1,4 +1,5 @@
 import { neutraliseBidi } from "@vezta/shared";
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { shortAddress, formatRelativeTime } from "@/lib/format";
 import type { Comment } from "@/lib/types";
@@ -11,7 +12,17 @@ import { TokenImage } from "../token-image";
  * direction (`dir="auto"`) so a right-to-left comment reads properly without touching the layout around it. `actions` is
  * whatever controls the page wants beside it (a moderator's hide button): this component knows nothing about who may see them.
  */
-export function CommentItem({ comment, now, actions }: { comment: Comment; now: number; actions?: ReactNode }) {
+export function CommentItem({
+  comment,
+  now,
+  actions,
+  profileHref,
+}: {
+  comment: Comment;
+  now: number;
+  actions?: ReactNode;
+  /** Where the author's profile is. Without it the name is plain text. */ profileHref?: string;
+}) {
   const name = comment.username ? neutraliseBidi(comment.username) : shortAddress(comment.author);
   return (
     <li data-testid="comment-item" className="flex gap-3 py-3">
@@ -19,7 +30,13 @@ export function CommentItem({ comment, now, actions }: { comment: Comment; now: 
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex items-baseline gap-2 text-xs text-muted-foreground">
           <span data-testid="comment-author" className={comment.username ? "min-w-0 break-all font-medium text-foreground" : "font-mono"}>
-            {name}
+            {profileHref ? (
+              <Link href={profileHref} className="hover:underline">
+                {name}
+              </Link>
+            ) : (
+              name
+            )}
           </span>
           <time>{formatRelativeTime(comment.createdAt, now)}</time>
           {actions && <span className="ml-auto">{actions}</span>}

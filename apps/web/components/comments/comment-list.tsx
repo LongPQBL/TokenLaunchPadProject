@@ -123,6 +123,7 @@ export function CommentList({
               key={comment.id}
               comment={comment}
               now={clock}
+              profileHref={`/${chain}/profile/${comment.author}`}
               actions={<HideCommentButton chain={chain} id={comment.id} onHidden={(id) => setGone((prev) => new Set(prev).add(id))} />}
             />
           ))}

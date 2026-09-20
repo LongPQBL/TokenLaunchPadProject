@@ -3,6 +3,7 @@ import {
   candleListSchema,
   commentPageSchema,
   holderListSchema,
+  profileSchema,
   holdingListSchema,
   tokenDetailSchema,
   tokenPageSchema,
@@ -111,6 +112,9 @@ export function createApi({ baseUrl, fetch: fetchImpl = (...args) => fetch(...ar
     /** A token's comments, newest first. `cursor` is the `nextCursor` of the page before. */
     comments: (chain: string, address: string, o: { cursor?: string; limit?: number } & Signal = {}) =>
       get(`${tokenPath(chain, address)}/comments`, commentPageSchema, { cursor: o.cursor, limit: o.limit }, o.signal),
+
+    /** What an address created and holds, with hidden tokens and zero balances left out. An unused address is two empty lists. */
+    profile: (chain: string, address: string, o: Signal = {}) => get(`/${seg(chain)}/addresses/${seg(address)}/profile`, profileSchema, {}, o.signal),
 
     candles: (chain: string, address: string, interval: number, o: { from?: number } & Signal = {}) =>
       get(`${tokenPath(chain, address)}/candles`, candleListSchema, { interval, from: o.from }, o.signal),

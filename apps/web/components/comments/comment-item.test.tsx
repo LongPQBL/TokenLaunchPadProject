@@ -66,6 +66,14 @@ describe("CommentItem", () => {
     expect(screen.queryByRole("button")).toBeNull();
   });
 
+  it("links the author to their profile when it is told where that is, and to nothing otherwise", () => {
+    const { unmount } = render(<CommentItem comment={base} now={NOW} profileHref={`/sepolia/profile/${AUTHOR}`} />);
+    expect(screen.getByRole("link", { name: "0x1a2b…9f9f" })).toHaveAttribute("href", `/sepolia/profile/${AUTHOR}`);
+    unmount();
+    item();
+    expect(screen.queryByRole("link")).toBeNull();
+  });
+
   it("shows when it was written", () => {
     item();
     expect(screen.getByText("30s ago")).toBeInTheDocument();

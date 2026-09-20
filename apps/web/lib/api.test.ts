@@ -260,3 +260,29 @@ describe("comments", () => {
     }
   });
 });
+
+describe("profile", () => {
+  it("reads what an address made and holds, with amounts as bigint and the name if it has one", async () => {
+    server.use(
+      http.get(`${API}/sepolia/addresses/:address/profile`, () =>
+        HttpResponse.json({ created: [wireToken()], holdings: [{ token: wireToken(), amount: "1000000000000000000000000001" }], user: { username: "alice" } }),
+      ),
+    );
+    const p = await api.profile("sepolia", T);
+    expect(p.created).toHaveLength(1);
+    expect(p.holdings[0]!.amount).toBe(1_000_000_000_000_000_000_000_000_001n);
+    expect(p.user).toEqual({ username: "alice" });
+  });
+
+  it("puts the address in the path, encoded, and takes an empty profile", async () => {
+    const seen: URL[] = [];
+    server.use(http.get(`${API}/sepolia/addresses/:address/profile`, ({ request }) => (seen.push(new URL(request.url)), HttpResponse.json({ created: [], holdings: [] }))));
+    expect(await api.profile("sepolia", "0xa b/c")).toEqual({ created: [], holdings: [] });
+    expect(seen[0]!.pathname).toBe("/sepolia/addresses/0xa%20b%2Fc/profile");
+  });
+
+  it("does not trust an amount that is not a whole number", async () => {
+    server.use(http.get(`${API}/sepolia/addresses/:address/profile`, () => HttpResponse.json({ created: [], holdings: [{ token: wireToken(), amount: "1e18" }] })));
+    await expect(api.profile("sepolia", T)).rejects.toMatchObject({ code: "bad_response" });
+  });
+});

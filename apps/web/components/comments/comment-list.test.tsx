@@ -102,6 +102,12 @@ describe("CommentList: what it shows", () => {
     expect(screen.queryByText(/No comments yet/)).toBeNull();
   });
 
+  it("links each author to their profile on this chain", async () => {
+    sessionApi();
+    await setup({ initial: [c(1)] });
+    expect(screen.getByRole("link", { name: "0x0000…00a9" })).toHaveAttribute("href", "/sepolia/profile/0x00000000000000000000000000000000000000a9");
+  });
+
   it("listens to its token's room, named in lower case", async () => {
     sessionApi();
     const { fake } = await setup();

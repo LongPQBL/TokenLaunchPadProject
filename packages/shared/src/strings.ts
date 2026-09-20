@@ -178,6 +178,22 @@ export const UI = {
     },
     loadFailed: "Could not load this section.",
   },
+  profile: {
+    tabs: { created: "Created", holdings: "Holdings" },
+    noCreated: "Nothing created yet.",
+    noHoldings: "Nothing held yet.",
+    balance: (amount: string, ticker: string) => `${amount} ${ticker}`,
+    mainWallet: "Main wallet",
+    sessionWallet: "Trading wallet",
+    fees: {
+      title: "Creator fees",
+      available: (amount: string, symbol: string) => `${amount} ${symbol} is waiting for you.`,
+      claim: "Claim creator fees",
+      claiming: "Claiming…",
+      claimed: "Claimed.",
+    },
+    loadFailed: "Could not load this profile. Please try again in a moment.",
+  },
   wallet: {
     connect: "Connect wallet",
     connectTitle: "Connect a wallet",

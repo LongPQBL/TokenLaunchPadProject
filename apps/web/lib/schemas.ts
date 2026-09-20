@@ -104,6 +104,13 @@ export const reportSchema = z.object({
 });
 export const reportListSchema = z.object({ items: z.array(reportSchema) });
 
+/** What an address made and holds, and who it is if they have said so. Names and pictures are strangers' input. */
+export const profileSchema = z.object({
+  created: z.array(tokenListItemSchema),
+  holdings: z.array(z.object({ token: tokenListItemSchema, amount })),
+  user: z.object({ username: z.string().optional(), avatarUrl: z.string().optional() }).optional(),
+});
+
 export type TokenListItem = z.output<typeof tokenListItemSchema>;
 export type TokenPage = z.output<typeof tokenPageSchema>;
 export type TokenDetail = z.output<typeof tokenDetailSchema>;
@@ -113,6 +120,7 @@ export type Holder = z.output<typeof holderSchema>;
 export type Candle = z.output<typeof candleSchema>;
 export type Comment = z.output<typeof commentSchema>;
 export type Health = z.output<typeof healthSchema>;
+export type Profile = z.output<typeof profileSchema>;
 export type Report = z.output<typeof reportSchema>;
 export type CommentPage = z.output<typeof commentPageSchema>;
 

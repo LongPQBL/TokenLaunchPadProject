@@ -10,7 +10,9 @@ const HASH = `0x${"ab".repeat(32)}`;
 
 function deps(over: Partial<MigrateDeps> = {}) {
   const writeContract = vi.fn<(args: unknown) => Promise<`0x${string}`>>(async () => HASH as `0x${string}`);
-  const waitForTransactionReceipt = vi.fn<(args: unknown) => Promise<{ status: "success" | "reverted" }>>(async () => ({ status: "success" }));
+  const waitForTransactionReceipt = vi.fn<(args: unknown) => Promise<{ status: "success" | "reverted" }>>(async () => ({
+    status: "success",
+  }));
   const d: MigrateDeps = {
     launchpad: LAUNCHPAD,
     expectedChainId: 11155111,
@@ -27,7 +29,9 @@ describe("migrateToken", () => {
   it("calls migrate(token) on the launchpad from the admin's own wallet, and waits for it", async () => {
     const { d, writeContract, waitForTransactionReceipt } = deps();
     expect(await migrateToken(d, TOKEN)).toEqual({ hash: HASH });
-    expect(writeContract).toHaveBeenCalledWith(expect.objectContaining({ address: LAUNCHPAD, abi: launchpadAbi, functionName: "migrate", args: [TOKEN], account: ME }));
+    expect(writeContract).toHaveBeenCalledWith(
+      expect.objectContaining({ address: LAUNCHPAD, abi: launchpadAbi, functionName: "migrate", args: [TOKEN], account: ME }),
+    );
     expect(waitForTransactionReceipt).toHaveBeenCalledWith({ hash: HASH });
   });
 
