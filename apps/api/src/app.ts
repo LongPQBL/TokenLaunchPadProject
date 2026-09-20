@@ -1,9 +1,23 @@
 import { chainBySlug, type ChainConfig } from "@vezta/shared";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import type { VerifySignature } from "./auth/signature.js";
 import { apiError, errorHandler, notFoundHandler } from "./errors.js";
 import type { TokenDetail } from "./queries/tokenDetail.js";
+import { authRoutes } from "./routes/auth.js";
 import { tokensRoutes } from "./routes/tokens.js";
+
+/** What sign-in needs to know about the site it serves. Absent, sign-in answers 503. */
+export interface AuthDeps {
+  /** The website's host (with port if it has one). A sign-in message written for any other domain is refused. */
+  domain: string;
+  uri: string;
+  chainId: number;
+  /** Defaults to plain-wallet verification; give one that asks the chain to accept smart-contract wallets too. */
+  verify?: VerifySignature;
+  /** True behind a reverse proxy, so rate limits count the real client and not the proxy. */
+  trustProxy?: boolean;
+}
 
 export interface AppDeps {
   /** Origins allowed to call the API from a browser. Never "*": sessions are cookies (spec §5). */
@@ -12,10 +26,11 @@ export interface AppDeps {
   ready: () => Promise<boolean>;
   /** Launchpad contract address per chain id, so the holders list can leave it out. */
   launchpads: Record<number, string>;
+  auth: AuthDeps;
 }
 
 /** `token` is set only inside the /:chain/tokens/:address routes, by the middleware that resolves it. */
-export type AppEnv = { Variables: { chain: ChainConfig; token: TokenDetail } };
+export type AppEnv = { Variables: { chain: ChainConfig; token: TokenDetail; address: string } };
 
 export function createApp(deps: Partial<AppDeps> = {}): Hono<AppEnv> {
   const allowed = new Set(deps.corsOrigins ?? []);
@@ -35,6 +50,8 @@ export function createApp(deps: Partial<AppDeps> = {}): Hono<AppEnv> {
       maxAge: 600,
     }),
   );
+
+  app.route("/", authRoutes(deps.auth));
 
   app.get("/health", (c) => c.json({ status: "ok" }));
   app.get("/ready", async (c) => {

@@ -40,4 +40,25 @@ describe("loadConfig", () => {
   it("rejects a non-numeric port", () => {
     expect(() => loadConfig({ ...base, PORT: "abc" })).toThrow(/PORT/);
   });
+
+  it("takes the website's origin for sign-in, defaulting to the local dev server, and rejects anything that is not an origin", () => {
+    expect(loadConfig(base).webOrigin).toBe("http://localhost:3000");
+    expect(loadConfig({ ...base, WEB_ORIGIN: "https://launchpad.example.com/" }).webOrigin).toBe("https://launchpad.example.com");
+    expect(() => loadConfig({ ...base, WEB_ORIGIN: "javascript:alert(1)" })).toThrow(/WEB_ORIGIN/);
+    expect(() => loadConfig({ ...base, WEB_ORIGIN: "not a url" })).toThrow(/WEB_ORIGIN/);
+    expect(() => loadConfig({ ...base, WEB_ORIGIN: "https://launchpad.example.com/some/path" })).toThrow(/WEB_ORIGIN/);
+  });
+
+  it("trusts a proxy's client address only when told to", () => {
+    expect(loadConfig(base).trustProxy).toBe(false);
+    expect(loadConfig({ ...base, TRUST_PROXY: "true" }).trustProxy).toBe(true);
+    expect(loadConfig({ ...base, TRUST_PROXY: "false" }).trustProxy).toBe(false);
+    expect(() => loadConfig({ ...base, TRUST_PROXY: "yes please" })).toThrow(/TRUST_PROXY/);
+  });
+
+  it("has an RPC url only when one is given, and it must be http(s)", () => {
+    expect(loadConfig(base).rpcUrl).toBeUndefined();
+    expect(loadConfig({ ...base, RPC_URL: "https://rpc.example" }).rpcUrl).toBe("https://rpc.example");
+    expect(() => loadConfig({ ...base, RPC_URL: "ftp://rpc.example" })).toThrow(/RPC_URL/);
+  });
 });
