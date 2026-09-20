@@ -1,6 +1,6 @@
 import { http, HttpResponse } from "msw";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import { ADDR, wireCandle, wireDetail, wireHolder, wireToken, wireTrade } from "../test/msw/fixtures";
+import { ADDR, wireDetail, wireHolder, wireToken, wireTrade } from "../test/msw/fixtures";
 import { API } from "../test/msw/handlers";
 import { server } from "../test/msw/server";
 import { ApiError, createApi } from "./api";
