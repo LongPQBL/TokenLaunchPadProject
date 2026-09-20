@@ -90,6 +90,12 @@ describe("SessionBar: on", () => {
     expect(within(row("trading-wallet")).getByText("Trading from this wallet")).toBeInTheDocument();
   });
 
+  it("offers Withdraw all, from the trading wallet's own row", async () => {
+    await setup();
+    expect(within(row("trading-wallet")).getByRole("button", { name: "Withdraw all" })).toBeInTheDocument();
+    expect(within(row("main-wallet")).queryByRole("button", { name: "Withdraw all" })).not.toBeInTheDocument();
+  });
+
   it("goes back to the main wallet", async () => {
     const { user } = await setup();
     await user.click(screen.getByRole("button", { name: "Use main wallet" }));

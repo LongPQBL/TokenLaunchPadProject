@@ -2,6 +2,7 @@ import type { z } from "zod";
 import {
   candleListSchema,
   holderListSchema,
+  holdingListSchema,
   tokenDetailSchema,
   tokenPageSchema,
   tradePageSchema,
@@ -98,6 +99,10 @@ export function createApi({ baseUrl, fetch: fetchImpl = (...args) => fetch(...ar
 
     holders: (chain: string, address: string, o: { limit?: number } & Signal = {}) =>
       get(`${tokenPath(chain, address)}/holders`, holderListSchema, { limit: o.limit }, o.signal),
+
+    /** Every token an address holds, hidden ones included: what someone can withdraw is not the moderator's to hide. */
+    holdings: (chain: string, address: string, o: Signal = {}) =>
+      get(`/${seg(chain)}/addresses/${seg(address)}/holdings`, holdingListSchema, {}, o.signal),
 
     candles: (chain: string, address: string, interval: number, o: { from?: number } & Signal = {}) =>
       get(`${tokenPath(chain, address)}/candles`, candleListSchema, { interval, from: o.from }, o.signal),

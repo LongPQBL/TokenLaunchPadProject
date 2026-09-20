@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { useAccount, useCapabilities, usePublicClient, useWalletClient } from "wagmi";
 import { getDeployment } from "../deployment";
+import { rememberToken } from "../session/holdings";
 import { createSessionTrade } from "../session/session-signer";
 import { useSession } from "../session/use-session";
 import { createSelfCustody } from "./self-custody";
@@ -52,7 +53,9 @@ export function useTrade(): UseTrade {
     if (!deployment || !publicClient) return UNCONFIGURED;
     // Trading from the session wallet needs no prompt. If it is turned on but not usable, the trade is REFUSED: quietly
     // falling back to the main wallet would spend from an account the person did not choose for this.
-    if (session.status === "ready" && session.account) return createSessionTrade({ account: session.account, deployment, publicClient });
+    if (session.status === "ready" && session.account) {
+      return createSessionTrade({ account: session.account, deployment, publicClient, onTokenHeld: (token) => address && rememberToken(address, token) });
+    }
     if (session.status !== "off") return NO_SESSION;
     return createSelfCustody({
       deployment,

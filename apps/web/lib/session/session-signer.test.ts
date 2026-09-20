@@ -30,7 +30,7 @@ const deployment = { launchpad: LAUNCHPAD, factory: FACTORY, weth: WETH };
  * (eth_sendTransaction, eth_accounts, personal_sign) this fake would throw, exactly as a real node would, and the trade
  * would fail. What it records is what really crossed the wire.
  */
-function fakeNode(state: { allowance: bigint }) {
+function fakeNode(state: { allowance: bigint; failSend?: boolean }) {
   const calls: string[] = [];
   const rawTransactions: Hex[] = [];
   const request = async ({ method, params }: { method: string; params?: unknown }) => {
@@ -57,6 +57,7 @@ function fakeNode(state: { allowance: bigint }) {
         throw new Error(`unhandled eth_call`);
       }
       case "eth_sendRawTransaction":
+        if (state.failSend) throw Object.assign(new Error("insufficient funds for gas * price + value"), { code: -32000 });
         rawTransactions.push(p[0] as Hex);
         return HASH;
       case "eth_getTransactionReceipt": {
@@ -79,12 +80,12 @@ function fakeNode(state: { allowance: bigint }) {
   return { calls, rawTransactions, request };
 }
 
-function setup(allowance = 0n) {
+function setup(allowance = 0n, onTokenHeld?: (token: Address) => void) {
   const account = privateKeyToAccount(generatePrivateKey());
-  const state = { allowance };
+  const state: { allowance: bigint; failSend?: boolean } = { allowance };
   const node = fakeNode(state);
   const publicClient = createPublicClient({ chain: sepolia, transport: custom({ request: node.request }, { retryCount: 0 }) });
-  const trade = createSessionTrade({ account, deployment, publicClient });
+  const trade = createSessionTrade({ account, deployment, publicClient, onTokenHeld });
   return { account, node, trade, state };
 }
 
@@ -135,5 +136,20 @@ describe("createSessionTrade", () => {
 
   it("cannot batch: a local key has no wallet to ask, and does not need to", () => {
     expect(setup().trade.capabilities.canBatch).toBe(false);
+  });
+
+  it("reports a token it has bought, so the browser can remember to withdraw it", async () => {
+    const held: Address[] = [];
+    const { trade } = setup(0n, (t) => held.push(t));
+    await trade.buyWithEth({ token: TOKEN, amount: 10n ** 18n, maxQuoteCost: 10n ** 16n });
+    expect(held).toEqual([TOKEN]);
+  });
+
+  it("does not report a token whose purchase failed", async () => {
+    const held: Address[] = [];
+    const { trade, state } = setup(0n, (t) => held.push(t));
+    state.failSend = true;
+    await expect(trade.buyWithEth({ token: TOKEN, amount: 10n ** 18n, maxQuoteCost: 10n ** 16n })).rejects.toBeDefined();
+    expect(held).toEqual([]);
   });
 });

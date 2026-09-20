@@ -179,3 +179,23 @@ describe("token detail", () => {
     expect((await api.holders("sepolia", T)).items).toHaveLength(2);
   });
 });
+
+describe("holdings of an address", () => {
+  it("reads every token held, with the amount as an exact bigint", async () => {
+    server.use(http.get(`${API}/sepolia/addresses/:address/holdings`, () => HttpResponse.json({ items: [{ token: T, amount: "1000000000000000000000000001" }] })));
+    const { items } = await api.holdings("sepolia", ADDR(9));
+    expect(items).toEqual([{ token: T, amount: 1_000_000_000_000_000_000_000_000_001n }]);
+  });
+
+  it("puts the address in the path, encoded", async () => {
+    const seen: URL[] = [];
+    server.use(http.get(`${API}/sepolia/addresses/:address/holdings`, ({ request }) => (seen.push(new URL(request.url)), HttpResponse.json({ items: [] }))));
+    await api.holdings("sepolia", "0xa b/c");
+    expect(seen[0]!.pathname).toBe("/sepolia/addresses/0xa%20b%2Fc/holdings");
+  });
+
+  it("does not trust an amount that is not a whole number", async () => {
+    server.use(http.get(`${API}/sepolia/addresses/:address/holdings`, () => HttpResponse.json({ items: [{ token: T, amount: "1e18" }] })));
+    await expect(api.holdings("sepolia", ADDR(9))).rejects.toMatchObject({ code: "bad_response" });
+  });
+});

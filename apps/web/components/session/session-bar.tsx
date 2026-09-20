@@ -8,6 +8,7 @@ import { getDeployment } from "@/lib/deployment";
 import { shortAddress } from "@/lib/format";
 import { useSession } from "@/lib/session/use-session";
 import { TopUpDialog } from "./top-up-dialog";
+import { WithdrawDialog } from "./withdraw-dialog";
 
 function WalletRow({ testId, label, address, balance, spending, children }: { testId: string; label: string; address: string; balance: bigint | undefined; spending: boolean; children?: ReactNode }) {
   return (
@@ -48,6 +49,7 @@ export function SessionBar({ chain }: { chain: string }) {
         <WalletRow testId="trading-wallet" label={UI.session.tradingWallet} address={session.account.address} balance={trading.data?.value} spending>
           <div className="flex gap-2">
             <TopUpDialog chain={chain} to={session.account.address} mainBalance={main.data?.value} />
+            <WithdrawDialog chain={chain} account={session.account} />
           </div>
         </WalletRow>
       )}

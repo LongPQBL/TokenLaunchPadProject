@@ -140,6 +140,15 @@ export const UI = {
     topUpInsufficient: "Your main wallet does not have enough ETH for this and network fees.",
     toppedUp: (sent: string, now: string) => `Sent ${sent} ETH. Your trading wallet now has ${now} ETH.`,
     withdrawAll: "Withdraw all",
+    withdrawTitle: "Withdraw everything to your main wallet",
+    withdrawBody: "Sends every token in your trading wallet, then the ETH that is left, to your main wallet. Each transfer is paid for by the trading wallet.",
+    withdrawTo: (address: string) => `Destination: ${address}`,
+    withdrawRun: "Withdraw everything",
+    withdrawDone: (tokens: number, eth: string) => `Sent ${tokens} ${tokens === 1 ? "token" : "tokens"} and ${eth} ETH to your main wallet.`,
+    withdrawNothing: "There is nothing left in your trading wallet.",
+    withdrawFailed: (count: number) => `${count} ${count === 1 ? "token" : "tokens"} could not be sent and ${count === 1 ? "is" : "are"} still in your trading wallet:`,
+    withdrawKeptForRetry: "Your ETH was kept, to pay for another try. Press the button again.",
+    withdrawDust: "The ETH left is too small to be worth sending.",
   },
   // What a person is told when a transaction cannot happen. Keyed by the contract's custom error names
   // (docs/02-contract-reference.md); the ones the reference marks internal or admin are deliberately absent.

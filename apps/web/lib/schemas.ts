@@ -77,3 +77,5 @@ export type Trade = z.output<typeof tradeSchema>;
 export type TradePage = z.output<typeof tradePageSchema>;
 export type Holder = z.output<typeof holderSchema>;
 export type Candle = z.output<typeof candleSchema>;
+
+export const holdingListSchema = z.object({ items: z.array(z.object({ token: z.string(), amount })) });
