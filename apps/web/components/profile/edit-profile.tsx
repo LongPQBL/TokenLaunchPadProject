@@ -64,15 +64,15 @@ export function EditProfile({ address, current }: { address: string; current: { 
   const changed = nameChanged || !!file || remove;
   const canSave = changed && validName(trimmed) && !fileProblem && !busy;
 
+  // Every time the box opens or closes it starts again from the profile AS IT IS NOW. `current` is the server's, and changes
+  // after a save (the page is refreshed): fields kept from before would show the old name, and Save would put it back.
   function reset(next: boolean) {
     setOpen(next);
-    if (!next) {
-      setName(current.username ?? "");
-      setFile(undefined);
-      setFileProblem(undefined);
-      setRemove(false);
-      setProblem(undefined);
-    }
+    setName(current.username ?? "");
+    setFile(undefined);
+    setFileProblem(undefined);
+    setRemove(false);
+    setProblem(undefined);
   }
 
   function choose(picked: File | undefined) {

@@ -4,6 +4,7 @@ import { http, HttpResponse } from "msw";
 import { connect } from "wagmi/actions";
 import { sepolia } from "wagmi/chains";
 import { ApiError } from "@/lib/api";
+import { useState } from "react";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { API } from "../../test/msw/handlers";
 import { server } from "../../test/msw/server";
@@ -116,6 +117,26 @@ describe("EditProfile: the form", () => {
     await waitFor(() => expect(router.refresh).toHaveBeenCalled());
     expect(api.puts).toEqual([{ username: "bob" }]);
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("opens with the username as it is NOW: after a save and a refresh it must not show the old one, or Save would put it back", async () => {
+    fakeApi({ session: TEST_USER, put: { status: 200, body: { address: TEST_USER, username: "bob" } } });
+    // What Next does on router.refresh(): the server sends the same component the profile as it now is.
+    function Refreshed() {
+      const [current, setCurrent] = useState<{ username?: string }>({ username: "alice" });
+      router.refresh.mockImplementation(() => setCurrent({ username: "bob" }));
+      return <EditProfile address={TEST_USER} current={current} />;
+    }
+    const wallet = renderWithWallet(<Refreshed />);
+    await act(() => connect(wallet.config, { connector: wallet.config.connectors[0]!, chainId: sepolia.id }));
+    await open();
+    await userEvent.clear(nameBox());
+    await userEvent.type(nameBox(), "bob");
+    await userEvent.click(save());
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await open();
+    expect(nameBox()).toHaveValue("bob");
+    expect(save()).toBeDisabled(); // nothing to change
   });
 
   it("clears the username when it is emptied", async () => {
