@@ -15,7 +15,9 @@
     "@vezta/deployments": "workspace:*",
     "@vezta/shared": "workspace:*",
     "hono": "^4.6.0",
-    "postgres": "^3.4.0"
+    "postgres": "^3.4.0",
+    "viem": "^2.56.8",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

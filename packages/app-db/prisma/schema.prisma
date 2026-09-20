@@ -72,3 +72,40 @@ model Report {
   @@map("report")
   @@schema("app")
 }
+
+/// A sign-in challenge. Single use: consuming it deletes it, so a signature can never be replayed.
+model SiweNonce {
+  nonce     String   @id
+  address   String // lower-case 0x…: the nonce is only good for the address it was issued to
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+
+  @@index([expiresAt])
+  @@map("siwe_nonce")
+  @@schema("app")
+}
+
+/// A signed-in browser. The cookie holds only the random id; everything else is looked up here, so a session can be
+/// revoked by deleting its row (a ban, a logout on another device).
+model Session {
+  id        String   @id
+  address   String // lower-case 0x…
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+
+  @@index([address])
+  @@index([expiresAt])
+  @@map("session")
+  @@schema("app")
+}
+
+/// One counted hit against a rate limit. Kept in Postgres so the limit holds across API instances without another service.
+model RateHit {
+  id     BigInt   @id @default(autoincrement())
+  bucket String // which limit: "upload", "nonce", ...
+  key    String // who: an address or an IP
+  at     DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([bucket, key, at])
+  @@map("rate_hit")
+  @@schema("app")
+}
