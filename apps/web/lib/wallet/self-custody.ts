@@ -1,6 +1,7 @@
 import { launchpadAbi, tokenAbi, tokenFactoryAbi } from "@vezta/abi";
+import type { Account } from "viem";
 import { BaseError, maxUint256, parseEventLogs, UserRejectedRequestError, type Address, type Hash, type PublicClient, type WalletClient } from "viem";
-import { TradeError, type CreateTokenArgs, type TradeResult, type UseTrade } from "./types";
+import { TradeError, type CreateTokenArgs, type SignerKind, type TradeResult, type UseTrade } from "./types";
 
 export interface SelfCustodyDeps {
   deployment: { launchpad: Address; factory: Address; weth: Address };
@@ -9,6 +10,14 @@ export interface SelfCustodyDeps {
   account: Address | undefined;
   chainId: number | undefined;
   walletClient: Pick<WalletClient, "writeContract" | "sendCalls" | "waitForCallsStatus"> | undefined;
+  /** Which signer this is. The default is the person's own wallet; the session wallet is this same seam over a local key. */
+  kind?: SignerKind;
+  /**
+   * What is handed to the client as `account` when sending. Defaults to `account`, an address, which the client sends to
+   * the wallet to sign (the person's own wallet). For a session wallet it is the LOCAL account object, which signs in
+   * the browser: passing just its address would ask the RPC node to sign, and a node has no such key.
+   */
+  signer?: Address | Account;
   /** True when the wallet said it can run several calls atomically (EIP-5792), so approve + sell can be one prompt. */
   canBatch?: boolean;
   publicClient: Pick<PublicClient, "readContract" | "waitForTransactionReceipt">;
@@ -42,10 +51,10 @@ export function createSelfCustody(deps: SelfCustodyDeps): UseTrade {
   const { deployment, publicClient } = deps;
 
   /** Narrows to a connected wallet on the right chain, or throws the calm, specific reason it is not. */
-  function ready(): { account: Address; walletClient: NonNullable<SelfCustodyDeps["walletClient"]> } {
+  function ready(): { account: Address | Account; address: Address; walletClient: NonNullable<SelfCustodyDeps["walletClient"]> } {
     if (!deps.account || !deps.walletClient) throw new TradeError("not_connected", "Connect a wallet first.");
     if (deps.chainId !== deps.expectedChainId) throw new TradeError("wrong_chain", "Switch your wallet to the right network.");
-    return { account: deps.account, walletClient: deps.walletClient };
+    return { account: deps.signer ?? deps.account, address: deps.account, walletClient: deps.walletClient };
   }
 
   /** Sends one contract call and waits for it. A rejection becomes user_rejected; a reverted receipt becomes reverted. */
@@ -72,7 +81,14 @@ export function createSelfCustody(deps: SelfCustodyDeps): UseTrade {
   }
 
   return {
-    capabilities: { kind: "self-custody", address: deps.account, chainId: deps.chainId, canBatch: deps.canBatch ?? false, isZeroPrompt: false },
+    capabilities: {
+      kind: deps.kind ?? "self-custody",
+      address: deps.account,
+      chainId: deps.chainId,
+      canBatch: deps.canBatch ?? false,
+      // A session wallet signs in the browser: nothing to confirm in a wallet.
+      isZeroPrompt: deps.kind === "session" || deps.kind === "embedded",
+    },
 
     async buyWithEth({ token, amount, maxQuoteCost }) {
       const { account, walletClient } = ready();
@@ -95,11 +111,11 @@ export function createSelfCustody(deps: SelfCustodyDeps): UseTrade {
     },
 
     async sell({ token, amount, minQuoteOutput, exactApproval = false }) {
-      const { account, walletClient } = ready();
+      const { account, address, walletClient } = ready();
       if (amount <= 0n || minQuoteOutput <= 0n) throw new TradeError("bad_amount", "That amount cannot be traded.");
 
       if (deps.canBatch) {
-        const allowance = await publicClient.readContract({ address: token, abi: tokenAbi, functionName: "allowance", args: [account, deployment.launchpad] });
+        const allowance = await publicClient.readContract({ address: token, abi: tokenAbi, functionName: "allowance", args: [address, deployment.launchpad] });
         if (allowance < amount) {
           // One prompt, atomic: either both happen or neither does, so a person is never left approved but unsold.
           let id: string;
@@ -138,12 +154,12 @@ export function createSelfCustody(deps: SelfCustodyDeps): UseTrade {
     },
 
     async approveIfNeeded({ token, amount, exact = false }) {
-      const { account, walletClient } = ready();
+      const { account, address, walletClient } = ready();
       const allowance = await publicClient.readContract({
         address: token,
         abi: tokenAbi,
         functionName: "allowance",
-        args: [account, deployment.launchpad],
+        args: [address, deployment.launchpad],
       });
       if (allowance >= amount) return;
       await send(() =>

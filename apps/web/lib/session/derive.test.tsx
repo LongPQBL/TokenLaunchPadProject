@@ -1,7 +1,7 @@
 import "fake-indexeddb/auto";
 import { IDBFactory } from "fake-indexeddb";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { clearSession, deriveSessionAccount, loadOrCreateSession, SESSION_MESSAGE, SessionMismatchError } from "./derive";
+import { clearSession, deriveSessionAccount, loadOrCreateSession, restoreSession, SESSION_MESSAGE, SessionMismatchError } from "./derive";
 
 const SIG_A = `0x${"ab".repeat(65)}` as const;
 const SIG_B = `0x${"cd".repeat(65)}` as const;
@@ -172,6 +172,26 @@ describe("the check value", () => {
     await loadOrCreateSession(MAIN, vi.fn().mockResolvedValue(SIG_A));
     const check = localStorage.getItem(`vezta.session.${MAIN}.address`);
     expect(check?.toLowerCase()).toBe("0xc680a94ec50481863188fe80d5aa08911b39cd52");
+  });
+});
+
+describe("restoreSession", () => {
+  it("returns the stored wallet without asking anyone to sign", async () => {
+    const created = await loadOrCreateSession(MAIN, vi.fn().mockResolvedValue(SIG_A));
+    const restored = await restoreSession(MAIN);
+    expect(restored?.address).toBe(created.address);
+  });
+
+  it("returns nothing when there is nothing stored: it never signs, that is for loadOrCreateSession", async () => {
+    expect(await restoreSession(MAIN)).toBeUndefined();
+  });
+
+  it("returns nothing when the stored copy cannot be opened or does not match the check value", async () => {
+    await loadOrCreateSession(MAIN, vi.fn().mockResolvedValue(SIG_A));
+    localStorage.setItem(`vezta.session.${MAIN}.address`, "0x00000000000000000000000000000000000000ff");
+    expect(await restoreSession(MAIN)).toBeUndefined();
+    wipeBrowser();
+    expect(await restoreSession(MAIN)).toBeUndefined();
   });
 });
 

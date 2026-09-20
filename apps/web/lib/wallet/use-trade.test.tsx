@@ -8,6 +8,11 @@ import { mock } from "wagmi/connectors";
 import { createConfig, http } from "wagmi";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useTrade } from "./use-trade";
+import { privateKeyToAccount } from "viem/accounts";
+
+// Which signer the person has chosen is the session provider's business; here it is simply set.
+const session = vi.hoisted(() => ({ value: { status: "off", account: undefined } as { status: string; account?: unknown } }));
+vi.mock("../session/use-session", () => ({ useSession: () => ({ ...session.value, enable: async () => false, disable: () => {} }) }));
 
 const USER = "0x00000000000000000000000000000000000000a1" as const;
 const TOKEN = "0x00000000000000000000000000000000000000b2" as const;
@@ -36,7 +41,10 @@ function harness() {
   return { config, connector, wrapper };
 }
 
-beforeEach(() => vi.stubEnv("NEXT_PUBLIC_DEPLOYMENT", DEPLOYMENT));
+beforeEach(() => {
+  vi.stubEnv("NEXT_PUBLIC_DEPLOYMENT", DEPLOYMENT);
+  session.value = { status: "off", account: undefined };
+});
 afterEach(() => vi.unstubAllEnvs());
 
 describe("useTrade", () => {
@@ -71,6 +79,30 @@ describe("useTrade", () => {
     await waitFor(() => expect(result.current.capabilities.address).toBeDefined());
     await act(() => new Promise((r) => setTimeout(r, 50)));
     expect(result.current.capabilities.canBatch).toBe(false);
+  });
+
+  it("with the session wallet ready, trades as the session wallet and says so", async () => {
+    const account = privateKeyToAccount(`0x${"11".repeat(32)}`);
+    session.value = { status: "ready", account };
+    const { config, connector, wrapper } = harness();
+    const { result } = renderHook(() => useTrade(), { wrapper });
+    await act(() => connect(config, { connector, chainId: sepolia.id }));
+    await waitFor(() => expect(result.current.capabilities.kind).toBe("session"));
+    expect(result.current.capabilities).toMatchObject({ address: account.address, isZeroPrompt: true });
+  });
+
+  it("with the session wallet turned on but not available, refuses to trade rather than falling back to the main wallet", async () => {
+    for (const status of ["restoring", "needs-signature", "mismatch"]) {
+      session.value = { status, account: undefined };
+      const { config, connector, wrapper } = harness();
+      const { result, unmount } = renderHook(() => useTrade(), { wrapper });
+      await act(() => connect(config, { connector, chainId: sepolia.id }));
+      expect(result.current.capabilities.kind, status).toBe("session");
+      expect(result.current.capabilities.address, status).toBeUndefined();
+      await expect(result.current.buyWithEth({ token: TOKEN, amount: 1n, maxQuoteCost: 2n }), status).rejects.toMatchObject({ code: "no_session" });
+      await expect(result.current.sell({ token: TOKEN, amount: 1n, minQuoteOutput: 1n }), status).rejects.toMatchObject({ code: "no_session" });
+      unmount();
+    }
   });
 
   it("when the build has no deployment: every trade rejects not_configured", async () => {

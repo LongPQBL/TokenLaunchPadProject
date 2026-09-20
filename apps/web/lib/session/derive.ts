@@ -48,12 +48,8 @@ export function loadOrCreateSession(mainAddress: string, sign: SignWithMainWalle
   const work = (async () => {
     const check = localStorage.getItem(checkName(main))?.toLowerCase();
 
-    const stored = await loadKey(main);
-    if (stored) {
-      const account = privateKeyToAccount(stored);
-      // A stored key that does not match the check value has been tampered with or mixed up: do not trust it.
-      if (!check || account.address.toLowerCase() === check) return account;
-    }
+    const restored = await restoreSession(main);
+    if (restored) return restored;
 
     const key = sessionKey(await sign(SESSION_MESSAGE));
     const account = privateKeyToAccount(key);
@@ -66,6 +62,19 @@ export function loadOrCreateSession(mainAddress: string, sign: SignWithMainWalle
 
   inFlight.set(main, work);
   return work.finally(() => inFlight.delete(main));
+}
+
+/**
+ * The stored wallet, if there is one that can be trusted, and nothing else: no signature is ever requested here. This is
+ * what a page load uses, so coming back to the site never prompts.
+ */
+export async function restoreSession(mainAddress: string): Promise<SessionAccount | undefined> {
+  const main = mainAddress.toLowerCase();
+  const stored = await loadKey(main);
+  if (!stored) return undefined;
+  const account = privateKeyToAccount(stored);
+  const check = localStorage.getItem(checkName(main))?.toLowerCase();
+  return !check || account.address.toLowerCase() === check ? account : undefined;
 }
 
 /** Forgets the stored key (and only that): the address check value stays, so recovery is still verified. */

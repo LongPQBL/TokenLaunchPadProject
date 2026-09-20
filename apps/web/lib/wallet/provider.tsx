@@ -5,6 +5,7 @@ import { useState, type ReactNode } from "react";
 import { WagmiProvider, type Config } from "wagmi";
 import { sepolia } from "wagmi/chains";
 import { getDeployment } from "../deployment";
+import { SessionProvider } from "../session/use-session";
 import { createWagmiConfig } from "./config";
 
 /**
@@ -26,7 +27,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={state.queryClient}>
       <WagmiProvider config={state.config} reconnectOnMount>
-        {children}
+        <SessionProvider>{children}</SessionProvider>
       </WagmiProvider>
     </QueryClientProvider>
   );

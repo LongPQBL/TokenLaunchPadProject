@@ -127,6 +127,7 @@ export const UI = {
     seam: {
       wrong_chain: "Switch your wallet to the right network.",
       not_connected: "Connect a wallet first.",
+      no_session: "Turn on your trading wallet first.",
       not_configured: "Trading is not configured for this deployment.",
       reverted: "The transaction failed on chain.",
       bad_amount: "Enter an amount.",

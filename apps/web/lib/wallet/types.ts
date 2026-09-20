@@ -48,6 +48,7 @@ export interface UseTrade {
 
 export type TradeErrorCode =
   | "not_configured"
+  | "no_session"
   | "not_connected"
   | "wrong_chain"
   | "user_rejected"
