@@ -6,6 +6,7 @@ import { PriceChart } from "@/components/price-chart";
 import { SiteHeader } from "@/components/site-header";
 import { TokenHeader } from "@/components/token-header";
 import { TokenTabs } from "@/components/token-tabs";
+import { TradePanel } from "@/components/trade-panel/trade-panel";
 import { TradesTable } from "@/components/trades-table";
 import { api, ApiError } from "@/lib/api";
 import { fillGaps, toChartSeries } from "@/lib/candles";
@@ -75,17 +76,25 @@ export default async function TokenPage({ params }: { params: Promise<{ chain: s
   return shell(
     <div className="flex flex-col gap-6">
       <TokenHeader chain={chain} token={detail} />
-      {candles ? (
-        <PriceChart candles={fillGaps(toChartSeries(candles.items, config.quoteDecimals), CHART_INTERVAL)} />
-      ) : (
-        <PanelError className="flex h-80 items-center justify-center border border-border text-muted-foreground" />
-      )}
-      <GraduationProgress token={detail} decimals={config.quoteDecimals} symbol={config.quoteSymbol} />
-      <TokenTabs
-        trades={trades ? <TradesTable trades={trades.items} chain={chain} now={now} /> : <PanelError />}
-        holders={holders ? <HoldersTable holders={holders.items} chain={chain} /> : <PanelError />}
-        comments={<p className="py-10 text-center text-muted-foreground">{UI.token.commentsSoon}</p>}
-      />
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+        <div className="flex min-w-0 flex-col gap-6">
+          {candles ? (
+            <PriceChart candles={fillGaps(toChartSeries(candles.items, config.quoteDecimals), CHART_INTERVAL)} />
+          ) : (
+            <PanelError className="flex h-80 items-center justify-center border border-border text-muted-foreground" />
+          )}
+          <GraduationProgress token={detail} decimals={config.quoteDecimals} symbol={config.quoteSymbol} />
+          <TokenTabs
+            trades={trades ? <TradesTable trades={trades.items} chain={chain} now={now} /> : <PanelError />}
+            holders={holders ? <HoldersTable holders={holders.items} chain={chain} /> : <PanelError />}
+            comments={<p className="py-10 text-center text-muted-foreground">{UI.token.commentsSoon}</p>}
+          />
+        </div>
+        {/* Trading happens on chain, straight from the person's wallet: this panel never asks the API for a price. */}
+        <aside className="lg:sticky lg:top-20 lg:self-start">
+          <TradePanel chain={chain} token={token as `0x${string}`} ticker={detail.ticker ?? "tokens"} />
+        </aside>
+      </div>
     </div>,
   );
 }

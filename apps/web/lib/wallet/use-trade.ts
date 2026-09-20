@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { usePublicClient, useAccount, useWalletClient } from "wagmi";
+import { useAccount, useCapabilities, usePublicClient, useWalletClient } from "wagmi";
 import { getDeployment } from "../deployment";
 import { createSelfCustody } from "./self-custody";
 import { TradeError, type UseTrade } from "./types";
@@ -27,6 +27,11 @@ export function useTrade(): UseTrade {
   const { address, chainId } = useAccount();
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient({ chainId: deployment?.chainId });
+  // EIP-5792: does the wallet say it can run approve + sell as one atomic batch? A wallet that does not know the
+  // method errors, and an error is simply "no": the two-step path always works.
+  const capabilities = useCapabilities({ account: address, query: { enabled: !!address && !!deployment, retry: false } });
+  const atomic = deployment ? capabilities.data?.[deployment.chainId]?.atomic?.status : undefined;
+  const canBatch = atomic === "supported" || atomic === "ready";
 
   return useMemo(() => {
     if (!deployment || !publicClient) return UNCONFIGURED;
@@ -37,6 +42,7 @@ export function useTrade(): UseTrade {
       chainId,
       walletClient,
       publicClient,
+      canBatch,
     });
-  }, [deployment?.launchpad, deployment?.factory, deployment?.chainId, address, chainId, walletClient, publicClient]);
+  }, [deployment?.launchpad, deployment?.factory, deployment?.chainId, address, chainId, walletClient, publicClient, canBatch]);
 }

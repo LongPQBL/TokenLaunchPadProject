@@ -31,7 +31,7 @@ function createdLog(token: Address) {
   return { address: FACTORY, topics, data, blockNumber: 1n, transactionHash: HASH, logIndex: 0, blockHash: HASH, transactionIndex: 0, removed: false };
 }
 
-function setup(over: Partial<SelfCustodyDeps> & { logs?: unknown[]; status?: "success" | "reverted"; allowance?: bigint } = {}) {
+function setup(over: Partial<SelfCustodyDeps> & { logs?: unknown[]; status?: "success" | "reverted"; allowance?: bigint; batchLogs?: unknown[] } = {}) {
   const writeContract = vi.fn<(call: unknown) => Promise<Hex>>(async () => HASH);
   const readContract = vi.fn(async ({ functionName }: { functionName: string }) => {
     if (functionName === "allowance") return over.allowance ?? 0n;
@@ -39,16 +39,21 @@ function setup(over: Partial<SelfCustodyDeps> & { logs?: unknown[]; status?: "su
     throw new Error(`unexpected read ${functionName}`);
   });
   const waitForTransactionReceipt = vi.fn(async () => ({ status: over.status ?? "success", logs: over.logs ?? [] }));
+  const sendCalls = vi.fn<(call: unknown) => Promise<{ id: string }>>(async () => ({ id: "0xbatch" }));
+  const waitForCallsStatus = vi.fn<(call: unknown) => Promise<unknown>>(async () => ({
+    status: "success",
+    receipts: [{ status: "success", transactionHash: HASH, logs: over.batchLogs ?? [] }],
+  }));
   const deps = {
     deployment: { launchpad: LAUNCHPAD, factory: FACTORY, weth: WETH },
     expectedChainId: CHAIN,
     account: USER,
     chainId: CHAIN,
-    walletClient: { writeContract },
+    walletClient: { writeContract, sendCalls, waitForCallsStatus },
     publicClient: { readContract, waitForTransactionReceipt },
     ...over,
   } as unknown as SelfCustodyDeps;
-  return { trade: createSelfCustody(deps), writeContract, readContract, waitForTransactionReceipt };
+  return { trade: createSelfCustody(deps), writeContract, readContract, waitForTransactionReceipt, sendCalls, waitForCallsStatus };
 }
 
 const buyArgs = { token: TOKEN, amount: 10n ** 24n, maxQuoteCost: 10n ** 16n };
@@ -165,6 +170,67 @@ describe("sell", () => {
     );
     expect(writeContract.mock.calls[0]![0]).not.toHaveProperty("value");
     expect(result.quoteAmount).toBe(5_000n);
+  });
+});
+
+describe("sell with a wallet that can batch (EIP-5792)", () => {
+  const sale = { token: TOKEN, amount: 10n ** 24n, minQuoteOutput: 4_000n };
+  const saleLog = tradeLog({ quoteAmount: 5_000n, tokenAmount: 10n ** 24n, isBuy: false, fee: 50n, launchTax: 0n });
+
+  it("reports that it can batch only when told the wallet can", () => {
+    expect(setup({ canBatch: true }).trade.capabilities.canBatch).toBe(true);
+    expect(setup({}).trade.capabilities.canBatch).toBe(false);
+  });
+
+  it("sends approve and sell as ONE atomic batch when the allowance is short, and reads the result from the sale's event", async () => {
+    const { trade, sendCalls, writeContract } = setup({ canBatch: true, allowance: 0n, batchLogs: [saleLog] });
+    const result = await trade.sell(sale);
+
+    expect(writeContract).not.toHaveBeenCalled();
+    expect(sendCalls).toHaveBeenCalledOnce();
+    const call = sendCalls.mock.calls[0]![0] as { calls: { to: string; functionName: string; args: unknown[] }[]; forceAtomic: boolean; account: string };
+    expect(call.forceAtomic).toBe(true);
+    expect(call.calls.map((c) => [c.to, c.functionName])).toEqual([
+      [TOKEN, "approve"],
+      [LAUNCHPAD, "sellForEth"],
+    ]);
+    expect(call.calls[0]!.args).toEqual([LAUNCHPAD, maxUint256]);
+    expect(call.calls[1]!.args).toEqual([TOKEN, 10n ** 24n, 4_000n]);
+    expect(result).toEqual({ hash: HASH, tokenAmount: 10n ** 24n, quoteAmount: 5_000n, fee: 50n, launchTax: 0n });
+  });
+
+  it("approves only the sale's amount in the batch when asked to", async () => {
+    const { trade, sendCalls } = setup({ canBatch: true, allowance: 0n, batchLogs: [saleLog] });
+    await trade.sell({ ...sale, exactApproval: true });
+    const call = sendCalls.mock.calls[0]![0] as { calls: { args: unknown[] }[] };
+    expect(call.calls[0]!.args).toEqual([LAUNCHPAD, 10n ** 24n]);
+  });
+
+  it("does not batch when the allowance already covers the sale: it is a single ordinary transaction", async () => {
+    const { trade, sendCalls, writeContract } = setup({ canBatch: true, allowance: 10n ** 25n, logs: [saleLog] });
+    await trade.sell(sale);
+    expect(sendCalls).not.toHaveBeenCalled();
+    expect(writeContract).toHaveBeenCalledOnce();
+  });
+
+  it("never batches for a wallet that cannot", async () => {
+    const { trade, sendCalls, writeContract } = setup({ canBatch: false, allowance: 0n, logs: [saleLog] });
+    await trade.sell(sale);
+    expect(sendCalls).not.toHaveBeenCalled();
+    expect(writeContract).toHaveBeenCalledOnce();
+  });
+
+  it("a person declining the batch is user_rejected", async () => {
+    const { trade, sendCalls } = setup({ canBatch: true, allowance: 0n });
+    sendCalls.mockRejectedValueOnce(Object.assign(new Error("declined"), { code: 4001 }));
+    await expect(trade.sell(sale)).rejects.toMatchObject({ code: "user_rejected" });
+  });
+
+  it("a batch that failed on chain is reverted, not a result", async () => {
+    const { trade, waitForCallsStatus } = setup({ canBatch: true, allowance: 0n });
+    // A failed batch can still carry receipts (a partial run): the status, not their presence, decides.
+    waitForCallsStatus.mockResolvedValueOnce({ status: "failure", receipts: [{ status: "reverted", transactionHash: HASH, logs: [saleLog] }] } as never);
+    await expect(trade.sell(sale)).rejects.toMatchObject({ code: "reverted" });
   });
 });
 

@@ -36,7 +36,11 @@ export interface CreateTokenArgs {
 export interface UseTrade {
   capabilities: TradeCapabilities;
   buyWithEth(args: { token: Address; amount: bigint; maxQuoteCost: bigint }): Promise<TradeResult>;
-  sell(args: { token: Address; amount: bigint; minQuoteOutput: bigint }): Promise<TradeResult>;
+  /**
+   * With a wallet that can batch (`capabilities.canBatch`) a sale that needs an approval sends approve + sell as one
+   * prompt. `exactApproval` limits that approval to this sale instead of the default maximum.
+   */
+  sell(args: { token: Address; amount: bigint; minQuoteOutput: bigint; exactApproval?: boolean }): Promise<TradeResult>;
   /** Makes sure the launchpad may take `amount` of the token; a no-op when the allowance already covers it. */
   approveIfNeeded(args: { token: Address; amount: bigint; exact?: boolean }): Promise<void>;
   createToken(args: CreateTokenArgs): Promise<{ token: Address; hash: Hash }>;

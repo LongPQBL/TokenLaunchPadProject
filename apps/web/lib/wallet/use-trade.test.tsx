@@ -64,6 +64,15 @@ describe("useTrade", () => {
     await expect(result.current.buyWithEth({ token: TOKEN, amount: 1n, maxQuoteCost: 2n })).rejects.toMatchObject({ code: "wrong_chain" });
   });
 
+  it("a wallet that cannot report its capabilities is not assumed to batch: the two-step path is the safe default", async () => {
+    const { config, connector, wrapper } = harness();
+    const { result } = renderHook(() => useTrade(), { wrapper });
+    await act(() => connect(config, { connector, chainId: sepolia.id }));
+    await waitFor(() => expect(result.current.capabilities.address).toBeDefined());
+    await act(() => new Promise((r) => setTimeout(r, 50)));
+    expect(result.current.capabilities.canBatch).toBe(false);
+  });
+
   it("when the build has no deployment: every trade rejects not_configured", async () => {
     vi.stubEnv("NEXT_PUBLIC_DEPLOYMENT", "");
     const { wrapper } = harness();

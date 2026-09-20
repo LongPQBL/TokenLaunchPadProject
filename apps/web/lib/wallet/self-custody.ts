@@ -8,7 +8,9 @@ export interface SelfCustodyDeps {
   expectedChainId: number;
   account: Address | undefined;
   chainId: number | undefined;
-  walletClient: Pick<WalletClient, "writeContract"> | undefined;
+  walletClient: Pick<WalletClient, "writeContract" | "sendCalls" | "waitForCallsStatus"> | undefined;
+  /** True when the wallet said it can run several calls atomically (EIP-5792), so approve + sell can be one prompt. */
+  canBatch?: boolean;
   publicClient: Pick<PublicClient, "readContract" | "waitForTransactionReceipt">;
 }
 
@@ -27,7 +29,7 @@ export function createSelfCustody(deps: SelfCustodyDeps): UseTrade {
   const { deployment, publicClient } = deps;
 
   /** Narrows to a connected wallet on the right chain, or throws the calm, specific reason it is not. */
-  function ready(): { account: Address; walletClient: Pick<WalletClient, "writeContract"> } {
+  function ready(): { account: Address; walletClient: NonNullable<SelfCustodyDeps["walletClient"]> } {
     if (!deps.account || !deps.walletClient) throw new TradeError("not_connected", "Connect a wallet first.");
     if (deps.chainId !== deps.expectedChainId) throw new TradeError("wrong_chain", "Switch your wallet to the right network.");
     return { account: deps.account, walletClient: deps.walletClient };
@@ -57,7 +59,7 @@ export function createSelfCustody(deps: SelfCustodyDeps): UseTrade {
   }
 
   return {
-    capabilities: { kind: "self-custody", address: deps.account, chainId: deps.chainId, canBatch: false, isZeroPrompt: false },
+    capabilities: { kind: "self-custody", address: deps.account, chainId: deps.chainId, canBatch: deps.canBatch ?? false, isZeroPrompt: false },
 
     async buyWithEth({ token, amount, maxQuoteCost }) {
       const { account, walletClient } = ready();
@@ -79,9 +81,36 @@ export function createSelfCustody(deps: SelfCustodyDeps): UseTrade {
       return tradeResult(hash, receipt.logs);
     },
 
-    async sell({ token, amount, minQuoteOutput }) {
+    async sell({ token, amount, minQuoteOutput, exactApproval = false }) {
       const { account, walletClient } = ready();
       if (amount <= 0n || minQuoteOutput <= 0n) throw new TradeError("bad_amount", "That amount cannot be traded.");
+
+      if (deps.canBatch) {
+        const allowance = await publicClient.readContract({ address: token, abi: tokenAbi, functionName: "allowance", args: [account, deployment.launchpad] });
+        if (allowance < amount) {
+          // One prompt, atomic: either both happen or neither does, so a person is never left approved but unsold.
+          let id: string;
+          try {
+            ({ id } = await walletClient.sendCalls({
+              account,
+              forceAtomic: true,
+              calls: [
+                { to: token, abi: tokenAbi, functionName: "approve", args: [deployment.launchpad, exactApproval ? amount : maxUint256] },
+                { to: deployment.launchpad, abi: launchpadAbi, functionName: "sellForEth", args: [token, amount, minQuoteOutput] },
+              ],
+            }));
+          } catch (e) {
+            if (isUserRejection(e)) throw new TradeError("user_rejected", "The request was declined in the wallet.", { cause: e });
+            throw e;
+          }
+          const status = await walletClient.waitForCallsStatus({ id });
+          const receipts = status.receipts ?? [];
+          if (status.status !== "success" || receipts.length === 0) throw new TradeError("reverted", "The transaction failed on chain.");
+          // A batch receipt's logs carry the three fields the event parser reads (address, topics, data), which is all it needs.
+          return tradeResult(receipts.at(-1)!.transactionHash, receipts.flatMap((r) => r.logs) as Parameters<typeof tradeResult>[1]);
+        }
+      }
+
       const { hash, receipt } = await send(() =>
         walletClient.writeContract({
           address: deployment.launchpad,
