@@ -24,6 +24,9 @@ Solana-Pumpfun-Frontend/public/libraries/
 ponder-env.d.ts
 package-lock.json
 
+# A local-chain deployment differs on every Anvil run; scripts/local-chain.sh regenerates it
+packages/deployments/local.json
+
 # Monorepo tooling
 .turbo/
 dist/
