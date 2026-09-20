@@ -121,4 +121,21 @@ describe("loadConfig", () => {
       expect(() => loadConfig({ ...base, ADMIN_ADDRESSES: `${A},oops` })).toThrow(/oops/);
     });
   });
+
+  describe("INDEXER_URL", () => {
+    it("is optional: without it the admin page shows the indexer's lag as unknown", () => {
+      expect(loadConfig(base).indexerUrl).toBeUndefined();
+      expect(loadConfig({ ...base, INDEXER_URL: "" }).indexerUrl).toBeUndefined();
+    });
+
+    it("takes an http(s) address, and trims a trailing slash", () => {
+      expect(loadConfig({ ...base, INDEXER_URL: "http://localhost:42069/" }).indexerUrl).toBe("http://localhost:42069");
+    });
+
+    it("refuses anything else: it is the one host this is allowed to call", () => {
+      for (const bad of ["localhost:42069", "ftp://x", "file:///etc/passwd", "javascript:alert(1)"]) {
+        expect(() => loadConfig({ ...base, INDEXER_URL: bad }), bad).toThrow(/INDEXER_URL/);
+      }
+    });
+  });
 });

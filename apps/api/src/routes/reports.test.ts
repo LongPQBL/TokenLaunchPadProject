@@ -4,6 +4,7 @@ import { randomAccount, signIn, TEST_CHAIN, TEST_DOMAIN, TEST_URI } from "../../
 import { addr, seedToken } from "../../test/seed.js";
 import { createApp } from "../app.js";
 import { getSql } from "../db.js";
+import { resetAppData } from "../../test/app-data.js";
 
 const app = createApp({ auth: { domain: TEST_DOMAIN, uri: TEST_URI, chainId: TEST_CHAIN } });
 const T = addr(0x61);
@@ -11,10 +12,7 @@ const NUL = String.fromCharCode(0);
 
 beforeEach(async () => {
   await getSql()`truncate app.siwe_nonce, app.session, app.rate_hit`;
-  await prisma.report.deleteMany();
-  await prisma.comment.deleteMany();
-  await prisma.tokenMetadata.deleteMany();
-  await prisma.appUser.deleteMany();
+  await resetAppData();
   await seedToken.reset();
   await seedToken({ address: T, name: "Demo", ticker: "DEMO" });
 });

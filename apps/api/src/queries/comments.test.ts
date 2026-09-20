@@ -2,6 +2,7 @@ import { prisma } from "@vezta/app-db";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { addr } from "../../test/seed.js";
 import { BadCommentCursorError, listComments } from "./comments.js";
+import { resetAppData } from "../../test/app-data.js";
 
 const SEPOLIA = 11155111;
 const GATEWAY = "https://gateway.test";
@@ -10,9 +11,7 @@ const ME = addr(0xa1);
 const YOU = addr(0xa2);
 
 beforeEach(async () => {
-  await prisma.comment.deleteMany();
-  await prisma.tokenMetadata.deleteMany();
-  await prisma.appUser.deleteMany();
+  await resetAppData();
   await prisma.appUser.createMany({ data: [{ address: ME, username: "alice" }, { address: YOU }] });
 });
 afterAll(() => prisma.$disconnect());

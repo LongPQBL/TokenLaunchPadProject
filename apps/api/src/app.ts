@@ -5,10 +5,12 @@ import type { VerifySignature } from "./auth/signature.js";
 import { apiError, errorHandler, notFoundHandler } from "./errors.js";
 import { createRequireAdmin } from "./middleware/admin.js";
 import { requireJsonPosts } from "./middleware/require-json.js";
+import type { HealthDeps } from "./queries/health.js";
 import type { TokenDetail } from "./queries/tokenDetail.js";
 import type { Pinner } from "./metadata/pin.js";
 import type { CommentPublisher } from "./realtime/comments.js";
 import { moderationRoutes } from "./routes/admin/moderation.js";
+import { healthAdminRoutes } from "./routes/admin/health.js";
 import { reportsAdminRoutes } from "./routes/admin/reports.js";
 import { authRoutes } from "./routes/auth.js";
 import { holdingsRoutes } from "./routes/holdings.js";
@@ -43,6 +45,8 @@ export interface AppDeps {
   publishComment: CommentPublisher;
   /** Who may moderate, lower-case. Empty or absent: nobody, and the admin routes answer as if they were not there. */
   adminAddresses: string[];
+  /** Where the admin health page gets its figures from outside the database. Each is optional: what is absent reads as unknown. */
+  health: HealthDeps;
 }
 
 /** `token` is set only inside the /:chain/tokens/:address routes, by the middleware that resolves it. */
@@ -100,6 +104,7 @@ export function createApp(deps: Partial<AppDeps> = {}): Hono<AppEnv> {
   admin.use("*", requireJsonPosts);
   admin.route("/", moderationRoutes());
   admin.route("/", reportsAdminRoutes());
+  admin.route("/", healthAdminRoutes(deps.health ?? {}));
   chain.route("/admin", admin);
   app.route("/:chain", chain);
 

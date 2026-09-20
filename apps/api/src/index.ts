@@ -1,11 +1,13 @@
 import type { Server } from "node:http";
 import { serve } from "@hono/node-server";
 import { loadDeployment } from "@vezta/deployments";
-import { CHAINS } from "@vezta/shared";
+import { CHAINS, chainSlugById } from "@vezta/shared";
+import { createPublicClient, http } from "viem";
 import { createApp } from "./app.js";
 import { verifyEoaSignature, verifyWithChain } from "./auth/signature.js";
 import { loadConfig } from "./config.js";
 import { isDatabaseReady } from "./db.js";
+import { readHeartbeat, readIndexerBlock } from "./health/sources.js";
 import { startLoop } from "./loop.js";
 import { fakePinner, pinataPinner } from "./metadata/pin.js";
 import { resolvePending } from "./metadata/resolver.js";
@@ -23,6 +25,11 @@ const app = createApp({
   publishComment: createCommentPublisher(redis ? (channel, message) => redis.publish(channel, message) : undefined),
   corsOrigins: config.corsOrigins,
   adminAddresses: config.adminAddresses,
+  health: {
+    chainHead: config.rpcUrl ? () => createPublicClient({ transport: http(config.rpcUrl) }).getBlockNumber() : undefined,
+    indexerBlock: config.indexerUrl ? () => readIndexerBlock(config.indexerUrl, deployment.chainId) : undefined,
+    heartbeat: () => readHeartbeat(redis ? (key) => redis.get(key) : undefined, chainSlugById(deployment.chainId) ?? String(deployment.chainId)),
+  },
   ipfsGateway: config.ipfsGatewayUrl,
   ready: isDatabaseReady,
   launchpads: { [deployment.chainId]: deployment.launchpad },

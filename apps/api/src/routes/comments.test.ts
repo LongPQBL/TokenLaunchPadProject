@@ -2,6 +2,7 @@ import { prisma } from "@vezta/app-db";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { addr, seedToken } from "../../test/seed.js";
 import { createApp } from "../app.js";
+import { resetAppData } from "../../test/app-data.js";
 
 const app = createApp({});
 const get = (path: string) => app.request(path);
@@ -9,9 +10,7 @@ const T = addr(0x77);
 const ME = addr(0xa1);
 
 beforeEach(async () => {
-  await prisma.comment.deleteMany();
-  await prisma.tokenMetadata.deleteMany();
-  await prisma.appUser.deleteMany();
+  await resetAppData();
   await seedToken.reset();
   await seedToken({ address: T, name: "Demo", ticker: "DEMO" });
   await prisma.appUser.create({ data: { address: ME, username: "alice" } });

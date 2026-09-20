@@ -18,6 +18,8 @@ export interface Config {
   redisUrl?: string;
   /** Who may use the moderation tools, lower-case. Empty: nobody, and the admin routes look like they do not exist. */
   adminAddresses: string[];
+  /** The indexer's own HTTP address (Ponder's /status tells how far it has got). Optional: without it the lag reads as unknown. */
+  indexerUrl?: string;
 }
 
 function parseGateway(raw: string | undefined): string {
@@ -83,6 +85,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   }
 
   if (env.RPC_URL) parseHttpUrl("RPC_URL", env.RPC_URL); // validated here, used as given
+  if (env.INDEXER_URL) parseHttpUrl("INDEXER_URL", env.INDEXER_URL);
 
   if (env.PINNER !== undefined && env.PINNER !== "pinata" && env.PINNER !== "fake") {
     throw new Error(`PINNER must be "pinata" or "fake" (got "${env.PINNER}")`);
@@ -110,5 +113,6 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     pinataJwt: env.PINATA_JWT || undefined,
     redisUrl: env.REDIS_URL || undefined,
     adminAddresses: parseAdminAddresses(env.ADMIN_ADDRESSES),
+    indexerUrl: env.INDEXER_URL ? env.INDEXER_URL.replace(/\/+$/, "") : undefined,
   };
 }

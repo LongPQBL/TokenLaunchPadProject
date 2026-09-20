@@ -4,6 +4,7 @@ import { randomAccount, signIn, TEST_CHAIN, TEST_DOMAIN, TEST_URI } from "../../
 import { addr, seedBalance, seedTrade, seedToken } from "../../../test/seed.js";
 import { createApp } from "../../app.js";
 import { getSql } from "../../db.js";
+import { resetAppData } from "../../../test/app-data.js";
 
 const admin = randomAccount();
 const otherAdmin = randomAccount();
@@ -28,10 +29,7 @@ async function session(account: ReturnType<typeof randomAccount>) {
 
 beforeEach(async () => {
   await getSql()`truncate app.siwe_nonce, app.session, app.rate_hit`;
-  await prisma.comment.deleteMany();
-  await prisma.report.deleteMany();
-  await prisma.tokenMetadata.deleteMany();
-  await prisma.appUser.deleteMany();
+  await resetAppData();
   await seedToken.reset();
   await seedToken({ address: SPAM, name: "Spam Coin", ticker: "SPAM", metadataUri: "ipfs://spam" });
   await seedToken({ address: GOOD, name: "Good Coin", ticker: "GOOD", metadataUri: "ipfs://good" });
