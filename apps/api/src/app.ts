@@ -14,6 +14,7 @@ import { healthAdminRoutes } from "./routes/admin/health.js";
 import { reportsAdminRoutes } from "./routes/admin/reports.js";
 import { authRoutes } from "./routes/auth.js";
 import { holdingsRoutes } from "./routes/holdings.js";
+import { meRoutes } from "./routes/me.js";
 import { profileRoutes } from "./routes/profile.js";
 import { metadataRoutes } from "./routes/metadata.js";
 import { tokensRoutes } from "./routes/tokens.js";
@@ -74,6 +75,7 @@ export function createApp(deps: Partial<AppDeps> = {}): Hono<AppEnv> {
 
   app.route("/", authRoutes(deps.auth, deps.adminAddresses));
   app.route("/", metadataRoutes({ pinner: deps.pinner }));
+  app.route("/", meRoutes({ pinner: deps.pinner, ipfsGateway: deps.ipfsGateway ?? "https://ipfs.io" }));
 
   app.get("/health", (c) => c.json({ status: "ok" }));
   app.get("/ready", async (c) => {
