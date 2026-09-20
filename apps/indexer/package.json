@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "ponder dev",
     "start": "ponder start",
+    "start:views": "ponder start --schema $PONDER_SCHEMA --views-schema launchpad",
     "codegen": "ponder codegen",
     "test": "vitest run",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
