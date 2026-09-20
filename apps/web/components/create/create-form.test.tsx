@@ -116,7 +116,7 @@ describe("CreateForm: creating", () => {
     await user.click(screen.getByRole("radio", { name: "10 minutes" }));
     await user.click(submit());
 
-    await waitFor(() => expect(router.push).toHaveBeenCalledWith(`/sepolia/token/${NEW_TOKEN.toLowerCase()}`));
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith(`/sepolia/token/${NEW_TOKEN.toLowerCase()}?new=1`));
     expect(upload).toHaveBeenCalledWith(expect.objectContaining({ name: "Demo Token", ticker: "demo", website: "https://example.com", antiSniperWindow: 600 }), expect.any(File));
     expect(trade.createToken).toHaveBeenCalledWith({ name: "Demo Token", ticker: "demo", metadataURI: "ipfs://bafyabcde", quoteToken: WETH, antiSniperWindow: 600 });
     expect(upload.mock.invocationCallOrder[0]).toBeLessThan(trade.createToken.mock.invocationCallOrder[0]!);

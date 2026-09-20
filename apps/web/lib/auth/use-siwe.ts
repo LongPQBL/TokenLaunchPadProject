@@ -22,7 +22,7 @@ export function useSiwe() {
 
   // null, not undefined, for "nobody": react-query refuses a query that resolves to undefined and keeps the old answer,
   // which would leave a person looking signed in after they signed out.
-  const session = useQuery({ queryKey: ME, queryFn: async () => (await api.me()) ?? null, staleTime: 60_000 });
+  const session = useQuery({ queryKey: [...ME, address], queryFn: async () => (await api.me()) ?? null, staleTime: 60_000, enabled: !!address });
   const isSignedIn = !!address && session.data?.toLowerCase() === address.toLowerCase();
 
   /** True once signed in, false if the person declined to sign. Any other failure is thrown for the caller to explain. */

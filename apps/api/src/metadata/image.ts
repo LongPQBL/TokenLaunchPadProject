@@ -1,4 +1,3 @@
-import sharp from "sharp";
 export type ImageType = "png" | "jpeg" | "webp";
 
 const ascii = (b: Uint8Array, from: number, to: number) => String.fromCharCode(...b.subarray(from, to));
@@ -36,6 +35,9 @@ export async function normaliseImage(input: Buffer): Promise<{ buffer: Buffer; c
   if (!type) throw new BadImageError("The image must be a PNG, JPEG or WebP.");
 
   try {
+    // Loaded on first use: the metadata resolver imports this file only for sniffImageType, and loading a native image
+    // library there would slow every start-up (and its tests) for nothing.
+    const { default: sharp } = await import("sharp");
     // failOn "error": a truncated or corrupt file is refused rather than quietly repaired into something else.
     const pipeline = sharp(input, { limitInputPixels: MAX_PIXELS, failOn: "error" })
       .rotate() // apply the EXIF orientation now, because the EXIF is about to be dropped

@@ -1,6 +1,7 @@
 import { chainBySlug, UI } from "@vezta/shared";
 import { notFound } from "next/navigation";
 import { GraduationProgress } from "@/components/graduation-progress";
+import { IndexingNotice } from "@/components/indexing-notice";
 import { HoldersTable } from "@/components/holders-table";
 import { PriceChart } from "@/components/price-chart";
 import { SiteHeader } from "@/components/site-header";
@@ -39,8 +40,15 @@ function PanelError({ className }: { className?: string }) {
   );
 }
 
-export default async function TokenPage({ params }: { params: Promise<{ chain: string; address: string }> }) {
+export default async function TokenPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ chain: string; address: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { chain, address } = await params;
+  const justCreated = (await searchParams).new === "1";
   const config = chainBySlug(chain);
   if (!config) notFound();
 
@@ -65,7 +73,8 @@ export default async function TokenPage({ params }: { params: Promise<{ chain: s
     detail = await api.token(chain, token);
   } catch (error) {
     // A missing or hidden token is a plain "not found". Anything else is logged for the operator and shown calmly.
-    if (error instanceof ApiError && error.status === 404) return shell(<NotFound />);
+    // Just created: the indexer takes a few seconds to see it, so say that and keep looking.
+    if (error instanceof ApiError && error.status === 404) return shell(justCreated ? <IndexingNotice /> : <NotFound />);
     console.error("token page: could not load the token", error);
     return shell(<PanelError className="py-16 text-center text-muted-foreground" />);
   }

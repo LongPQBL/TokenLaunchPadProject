@@ -115,6 +115,31 @@ describe("guards: nothing reaches the wallet unless it should", () => {
     await expect(trade.buyWithEth(buyArgs)).rejects.toMatchObject({ code: "user_rejected" });
   });
 
+  it("finds the rejection however many wrappers of any class sit around it: wagmi adds its own", async () => {
+    const { trade, writeContract } = setup();
+    const inner = Object.assign(new Error("User rejected the request."), { code: 4001 });
+    const wrapped = Object.assign(new Error("signing failed"), { cause: Object.assign(new Error("connector"), { cause: inner }) });
+    writeContract.mockRejectedValueOnce(wrapped);
+    await expect(trade.buyWithEth(buyArgs)).rejects.toMatchObject({ code: "user_rejected" });
+  });
+
+  it("recognises a rejection by its class name when the code has been lost on the way", async () => {
+    const { trade, writeContract } = setup();
+    // Another library's error class with the well-known name (defined by name, since a local class would be renamed to
+    // avoid clashing with the viem import of the same name).
+    const Foreign = Object.defineProperty(class extends Error {}, "name", { value: "UserRejectedRequestError" });
+    writeContract.mockRejectedValueOnce(Object.assign(new Error("outer"), { cause: new Foreign("no") }));
+    await expect(trade.buyWithEth(buyArgs)).rejects.toMatchObject({ code: "user_rejected" });
+  });
+
+  it("does not mistake an ordinary failure, or a cyclic cause chain, for a rejection", async () => {
+    const { trade, writeContract } = setup();
+    const a = new Error("a") as Error & { cause?: unknown };
+    a.cause = a;
+    writeContract.mockRejectedValueOnce(a);
+    await expect(trade.buyWithEth(buyArgs)).rejects.toBe(a);
+  });
+
   it("passes any other wallet failure through unchanged, for the error mapper to read", async () => {
     const { trade, writeContract } = setup();
     const boom = new Error("insufficient funds");

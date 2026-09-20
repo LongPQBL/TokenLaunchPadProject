@@ -13,6 +13,8 @@ export const FILLED = need("E2E_TOKEN").toLowerCase();
 export const SAME_BLOCK = need("E2E_SAME_BLOCK_TOKEN").toLowerCase();
 export const LAUNCHPAD = need("E2E_LAUNCHPAD").toLowerCase();
 export const CHAIN_ID = 11155111;
+/** The local fork the browser wallet sends transactions to. */
+export const RPC_URL = need("E2E_RPC_URL");
 
 export const sql = postgres(need("E2E_DATABASE_URL"), { onnotice: () => {} });
 
@@ -61,7 +63,9 @@ export const test = base.extend<{ expectedNotFound: string[] }>({
       if (message.type() === "error" && !message.text().startsWith("Failed to load resource")) problems.push(`console.error: ${message.text()}`);
     });
     page.on("response", (response) => {
-      const expected = response.status() === 404 && expectedNotFound.includes(new URL(response.url()).pathname);
+      const { pathname } = new URL(response.url());
+      // "Nobody is signed in" is /me's ordinary answer for a wallet that has not signed in yet: a 401, by design.
+      const expected = (response.status() === 404 && expectedNotFound.includes(pathname)) || (response.status() === 401 && pathname === "/me");
       if (response.status() >= 400 && !expected) problems.push(`HTTP ${response.status()} ${response.url()}`);
     });
     await use(page);

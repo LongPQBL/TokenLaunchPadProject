@@ -109,7 +109,8 @@ export function CreateForm({ chain }: { chain: string }) {
 
       setStep("done");
       // Read from the TokenCreated event by the seam, never assumed.
-      router.push(`/${chain}/token/${token.toLowerCase()}`);
+      // ?new=1: the indexer may not have seen it yet, and the page says so instead of "not found".
+      router.push(`/${chain}/token/${token.toLowerCase()}?new=1`);
     } catch (err) {
       setStep(undefined);
       setFailure(explain(err));

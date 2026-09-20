@@ -12,6 +12,7 @@ beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 beforeEach(() => {
+  localStorage.clear(); // wagmi remembers a connection there, which would leak from one test into the next
   signer.signMessageAsync.mockReset().mockResolvedValue(`0x${"11".repeat(65)}`);
   vi.stubEnv("NEXT_PUBLIC_DEPLOYMENT", TEST_DEPLOYMENT);
   vi.stubEnv("NEXT_PUBLIC_API_URL", API);
@@ -63,6 +64,14 @@ describe("useSiwe", () => {
     const { result } = await setup();
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.isSignedIn).toBe(false);
+  });
+
+  it("does not ask the API who is signed in while no wallet is connected: there is nobody to ask about", async () => {
+    const api = fakeApi();
+    const { result } = await setup(false);
+    await act(() => new Promise((r) => setTimeout(r, 50)));
+    expect(result.current.isSignedIn).toBe(false);
+    expect(api.calls).not.toContain("me");
   });
 
   it("is signed in when the session belongs to the connected wallet", async () => {

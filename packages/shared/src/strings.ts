@@ -156,6 +156,7 @@ export const UI = {
     },
   },
   errors: {
+    indexing: "Your token is being set up. This page will update in a moment.",
     notFound: "Token not found.",
     loadFailed: "Could not load this. Please try again in a moment.",
   },

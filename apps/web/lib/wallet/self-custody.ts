@@ -14,10 +14,23 @@ export interface SelfCustodyDeps {
   publicClient: Pick<PublicClient, "readContract" | "waitForTransactionReceipt">;
 }
 
-/** EIP-1193 says a person declining is error code 4001; viem wraps it, and some wallets throw it bare. */
+/**
+ * Did the person say no in their wallet? EIP-1193 calls that error code 4001, but by the time it reaches here it has been
+ * wrapped by viem, by wagmi, by the connector, each with its own error class, and any of them may have dropped the
+ * code. So the whole `cause` chain is searched (bounded, and safe against a chain that loops) for either the code or
+ * the well-known class name.
+ */
 export function isUserRejection(e: unknown): boolean {
-  if (e instanceof BaseError && e.walk((x) => x instanceof UserRejectedRequestError)) return true;
-  return typeof e === "object" && e !== null && (e as { code?: unknown }).code === 4001;
+  const seen = new Set<unknown>();
+  for (let current = e, depth = 0; current && typeof current === "object" && !seen.has(current) && depth < 8; depth++) {
+    seen.add(current);
+    const { code, name, cause } = current as { code?: unknown; name?: unknown; cause?: unknown };
+    const className = (current as object).constructor?.name;
+    if (code === 4001 || code === "ACTION_REJECTED" || name === "UserRejectedRequestError" || className === "UserRejectedRequestError") return true;
+    if (current instanceof BaseError && current.walk((x) => x instanceof UserRejectedRequestError)) return true;
+    current = cause;
+  }
+  return false;
 }
 
 /**

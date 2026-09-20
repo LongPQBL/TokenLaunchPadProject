@@ -12,7 +12,9 @@
 # Not in CI yet: the contracts live in a separate repository, so a CI job would have to check that out and fork a
 # public RPC. That is a decision for whoever wires CI, not something to guess at here.
 #
-#   ./scripts/e2e.sh
+#   ./scripts/e2e.sh                      (everything)
+#   ./scripts/e2e.sh -g "create, buy"     (extra arguments go to Playwright)
+#   E2E_HOLD=1800 ./scripts/e2e.sh trading  (then leave the stack running for 30 minutes)
 #   ANVIL_PORT=8600 WEB_PORT=3200 API_PORT=3201 ./scripts/e2e.sh
 set -euo pipefail
 
@@ -73,7 +75,7 @@ log "Starting an Anvil fork of Sepolia on :$ANVIL_PORT and deploying the launchp
 rm -f "$ROOT/packages/deployments/local.json"
 ANVIL_PORT="$ANVIL_PORT" CONTRACTS_DIR="$CONTRACTS" "$ROOT/scripts/local-chain.sh" > "$LOGS/chain.log" 2>&1 &
 PIDS+=($!)
-wait_for "the deployment file" 180 test -s "$ROOT/packages/deployments/local.json"
+wait_for "the deployment file" 420 test -s "$ROOT/packages/deployments/local.json"
 LAUNCHPAD="$(node -pe "require('$ROOT/packages/deployments/local.json').launchpad")"
 echo "launchpad: $LAUNCHPAD"
 
@@ -107,19 +109,26 @@ log "Starting the indexer"
 (cd "$ROOT/apps/indexer" && DEPLOYMENT=local DATABASE_URL="$DB_URL" PONDER_RPC_URL_11155111="$RPC" PONDER_SCHEMA="e2e_$$" \
   pnpm start:views --port "$PONDER_PORT" > "$LOGS/indexer.log" 2>&1) &
 PIDS+=($!)
-tokens_indexed() { [ "$("$PGBIN/psql" -d "$DB" -Atc 'select count(*) from launchpad.token' 2>/dev/null)" = "2" ]; }
+# The two tokens the tests rely on, by address: other tokens exist too (the quote check makes one, the trading tests make more).
+tokens_indexed() {
+  [ "$("$PGBIN/psql" -d "$DB" -Atc "select count(*) from launchpad.token where address in ('$E2E_TOKEN', '$E2E_SAME_BLOCK_TOKEN')" 2>/dev/null)" = "2" ]
+}
 wait_for "the indexer to find both tokens" 120 tokens_indexed
 
 # --- 5. the API ----------------------------------------------------------------------------------------------------------
 log "Starting the API on :$API_PORT"
+# WEB_ORIGIN is the domain a sign-in message must name; PINNER=fake because there is no Pinata key here (and it pins nothing).
 (cd "$ROOT/apps/api" && DATABASE_URL="$DB_URL" DEPLOYMENT=local PORT="$API_PORT" CORS_ORIGINS="http://localhost:$WEB_PORT" \
-  pnpm start > "$LOGS/api.log" 2>&1) &
+  WEB_ORIGIN="http://localhost:$WEB_PORT" PINNER=fake pnpm start > "$LOGS/api.log" 2>&1) &
 PIDS+=($!)
 wait_for "the API" 60 curl -sf "http://localhost:$API_PORT/ready"
 
 # --- 6. the web app ------------------------------------------------------------------------------------------------------
 log "Building and starting the web app on :$WEB_PORT"
-(cd "$ROOT/apps/web" && NEXT_PUBLIC_API_URL="http://localhost:$API_PORT" pnpm exec next build > "$LOGS/web-build.log" 2>&1) \
+# The browser reads the chain through the fork directly (NEXT_PUBLIC_RPC_URL) and gets the launchpad's addresses from the
+# same deployment file as everything else (DEPLOYMENT=local, read by next.config.ts).
+(cd "$ROOT/apps/web" && DEPLOYMENT=local NEXT_PUBLIC_API_URL="http://localhost:$API_PORT" NEXT_PUBLIC_RPC_URL="$RPC" \
+  pnpm exec next build > "$LOGS/web-build.log" 2>&1) \
   || { tail -20 "$LOGS/web-build.log"; die "the web build failed"; }
 (cd "$ROOT/apps/web" && pnpm exec next start -p "$WEB_PORT" > "$LOGS/web.log" 2>&1) &
 PIDS+=($!)
@@ -129,4 +138,13 @@ wait_for "the web app" 60 curl -sf "http://localhost:$WEB_PORT/sepolia"
 log "Running the browser tests"
 cd "$ROOT/apps/web"
 E2E_BASE_URL="http://localhost:$WEB_PORT" E2E_TOKEN="$E2E_TOKEN" E2E_SAME_BLOCK_TOKEN="$E2E_SAME_BLOCK_TOKEN" \
-  E2E_LAUNCHPAD="$LAUNCHPAD" E2E_DATABASE_URL="$DB_URL" pnpm exec playwright test
+  E2E_LAUNCHPAD="$LAUNCHPAD" E2E_DATABASE_URL="$DB_URL" E2E_RPC_URL="$RPC" \
+  pnpm exec playwright test "$@" || STATUS=$?
+
+# E2E_HOLD=<seconds> keeps the whole stack up after the tests, for poking at it by hand or with a script.
+if [ -n "${E2E_HOLD:-}" ]; then
+  echo "holding the stack for ${E2E_HOLD}s: web http://localhost:$WEB_PORT  api :$API_PORT  chain $RPC  (logs: $LOGS)"
+  echo "E2E_TOKEN=$E2E_TOKEN E2E_SAME_BLOCK_TOKEN=$E2E_SAME_BLOCK_TOKEN E2E_LAUNCHPAD=$LAUNCHPAD E2E_DATABASE_URL=$DB_URL E2E_RPC_URL=$RPC E2E_BASE_URL=http://localhost:$WEB_PORT"
+  sleep "$E2E_HOLD"
+fi
+exit "${STATUS:-0}"
