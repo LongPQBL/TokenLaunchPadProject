@@ -2,6 +2,7 @@ import { chainBySlug, neutraliseBidi, UI } from "@vezta/shared";
 import { notFound } from "next/navigation";
 import { CreatedTab } from "@/components/profile/created-tab";
 import { ClaimFees } from "@/components/profile/claim-fees";
+import { EditProfile } from "@/components/profile/edit-profile";
 import { HoldingsTab } from "@/components/profile/holdings-tab";
 import { ProfileAddresses } from "@/components/profile/profile-addresses";
 import { ProfileTabs } from "@/components/profile/profile-tabs";
@@ -61,6 +62,9 @@ export default async function ProfilePage({ params }: { params: Promise<{ chain:
         <div className="min-w-0">
           <h1 className="break-all text-2xl font-semibold">{name}</h1>
           <ProfileAddresses chain={chain} address={owner} />
+        </div>
+        <div className="ml-auto">
+          <EditProfile address={owner} current={profile.user ?? {}} />
         </div>
       </header>
       <ClaimFees chain={chain} address={owner} />
