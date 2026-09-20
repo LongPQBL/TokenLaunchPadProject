@@ -34,6 +34,8 @@ export interface FakeChainState {
   tokenBalance: bigint;
   allowance: bigint;
   ethBalance: bigint;
+  /** Per-address ETH balances (lower-case address), taking precedence over `ethBalance`. */
+  balances?: Record<string, bigint>;
   createFee: bigint;
   /** Makes previewBuy disagree with the local replica, to exercise the reconciliation. */
   previewBuyOverride?: (amount: bigint) => readonly [bigint, bigint, bigint];
@@ -112,7 +114,7 @@ export function fakeChain(initial: Partial<FakeChainState> = {}) {
           case "eth_blockNumber":
             return toHex(100);
           case "eth_getBalance":
-            return toHex(state.ethBalance);
+            return toHex(state.balances?.[String(p[0]).toLowerCase()] ?? state.ethBalance);
           case "eth_gasPrice":
           case "eth_maxPriorityFeePerGas":
             return toHex(1_000_000_000n);
@@ -129,7 +131,14 @@ export function fakeChain(initial: Partial<FakeChainState> = {}) {
               gasUsed: toHex(0n),
               transactions: [],
             };
-          case "eth_call": {
+          case "eth_getTransactionReceipt":
+          // Every transaction "mines" at once and succeeds, with no logs.
+          return {
+            status: "0x1", transactionHash: p[0], blockNumber: "0x65", blockHash: `0x${"22".repeat(32)}`, transactionIndex: "0x0",
+            from: `0x${"00".repeat(20)}`, to: `0x${"00".repeat(20)}`, cumulativeGasUsed: "0x5208", gasUsed: "0x5208",
+            effectiveGasPrice: "0x3b9aca00", contractAddress: null, logsBloom: `0x${"00".repeat(256)}`, type: "0x2", logs: [],
+          };
+        case "eth_call": {
             const { to, data } = p[0] as { to: Address; data: Hex };
             return ethCall(to, data);
           }

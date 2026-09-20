@@ -1,0 +1,184 @@
+import { act, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { parseEther } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
+import { connect } from "wagmi/actions";
+import { sepolia } from "wagmi/chains";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { fakeChain } from "@/test/fake-chain";
+import { renderWithWallet, TEST_DEPLOYMENT, TEST_USER } from "@/test/wallet";
+import { SessionBar } from "./session-bar";
+
+const SESSION = privateKeyToAccount(`0x${"22".repeat(32)}`);
+const HASH = `0x${"ab".repeat(32)}` as const;
+
+const session = vi.hoisted(() => ({
+  value: { status: "off", account: undefined } as { status: string; account?: { address: string } },
+  enable: vi.fn(),
+  disable: vi.fn(),
+}));
+vi.mock("@/lib/session/use-session", () => ({ useSession: () => ({ ...session.value, enable: session.enable, disable: session.disable }) }));
+
+const send = vi.hoisted(() => ({ sendTransactionAsync: vi.fn() }));
+vi.mock("wagmi", async (importOriginal) => ({ ...(await importOriginal<typeof import("wagmi")>()), useSendTransaction: () => send }));
+
+beforeEach(() => {
+  vi.stubEnv("NEXT_PUBLIC_DEPLOYMENT", TEST_DEPLOYMENT);
+  session.value = { status: "off", account: undefined };
+  session.enable.mockReset().mockResolvedValue(true);
+  session.disable.mockReset();
+  send.sendTransactionAsync.mockReset().mockResolvedValue(HASH);
+});
+afterEach(() => vi.unstubAllEnvs());
+
+async function setup(balances: { main?: bigint; session?: bigint } = {}) {
+  const chain = fakeChain({
+    balances: {
+      [TEST_USER.toLowerCase()]: balances.main ?? parseEther("1.5"),
+      [SESSION.address.toLowerCase()]: balances.session ?? parseEther("0.25"),
+    },
+  });
+  const view = renderWithWallet(<SessionBar chain="sepolia" />, undefined, chain.transport);
+  await act(() => connect(view.config, { connector: view.config.connectors[0]!, chainId: sepolia.id }));
+  return { chain, user: userEvent.setup(), ...view };
+}
+
+const row = (name: string) => screen.getByTestId(name);
+
+describe("SessionBar: off", () => {
+  it("shows the main wallet and its balance, and offers a trading wallet, saying what the signature does", async () => {
+    await setup();
+    await waitFor(() => expect(within(row("main-wallet")).getByText("1.5 ETH")).toBeInTheDocument());
+    expect(within(row("main-wallet")).getByText("Main wallet")).toBeInTheDocument();
+    expect(screen.queryByTestId("trading-wallet")).not.toBeInTheDocument();
+    expect(screen.getByText(/signs one message with your main wallet/)).toBeInTheDocument();
+    expect(screen.getByText(/Only keep small amounts in it/)).toBeInTheDocument();
+  });
+
+  it("turns it on with a click", async () => {
+    const { user } = await setup();
+    await user.click(screen.getByRole("button", { name: "Turn on trading wallet" }));
+    expect(session.enable).toHaveBeenCalledOnce();
+  });
+
+  it("shows nothing at all with no wallet connected", () => {
+    const { container } = renderWithWallet(<SessionBar chain="sepolia" />, undefined, fakeChain().transport);
+    expect(container).toBeEmptyDOMElement();
+  });
+});
+
+describe("SessionBar: on", () => {
+  beforeEach(() => {
+    session.value = { status: "ready", account: SESSION };
+  });
+
+  it("always shows BOTH wallets, each with its own address and balance and its own label, never merged into one figure", async () => {
+    await setup();
+    await waitFor(() => expect(within(row("trading-wallet")).getByText("0.25 ETH")).toBeInTheDocument());
+    expect(within(row("main-wallet")).getByText("1.5 ETH")).toBeInTheDocument();
+    expect(within(row("main-wallet")).getByText("Main wallet")).toBeInTheDocument();
+    expect(within(row("trading-wallet")).getByText("Trading wallet")).toBeInTheDocument();
+    expect(within(row("trading-wallet")).getByText(new RegExp(SESSION.address.slice(0, 6), "i"))).toBeInTheDocument();
+    expect(within(row("main-wallet")).getByText(new RegExp(TEST_USER.slice(0, 6), "i"))).toBeInTheDocument();
+    expect(screen.queryByText("1.75 ETH")).not.toBeInTheDocument(); // no total
+  });
+
+  it("marks the trading wallet as the one being spent, and only that one", async () => {
+    await setup();
+    expect(row("trading-wallet")).toHaveAttribute("data-spending", "true");
+    expect(row("main-wallet")).toHaveAttribute("data-spending", "false");
+    expect(within(row("trading-wallet")).getByText("Trading from this wallet")).toBeInTheDocument();
+  });
+
+  it("goes back to the main wallet", async () => {
+    const { user } = await setup();
+    await user.click(screen.getByRole("button", { name: "Use main wallet" }));
+    expect(session.disable).toHaveBeenCalledOnce();
+  });
+});
+
+describe("SessionBar: top up", () => {
+  beforeEach(() => {
+    session.value = { status: "ready", account: SESSION };
+  });
+
+  async function openTopUp() {
+    const view = await setup();
+    await view.user.click(screen.getByRole("button", { name: "Top up" }));
+    return view;
+  }
+
+  it("suggests 0.1 to 0.3 ETH and says why: a key in a browser should not hold a whole balance", async () => {
+    await openTopUp();
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText(/should not hold your whole balance/)).toBeInTheDocument();
+    for (const amount of ["0.1", "0.2", "0.3"]) expect(within(dialog).getByRole("button", { name: `${amount} ETH` })).toBeInTheDocument();
+  });
+
+  it("sends the amount from the main wallet to the trading wallet, and shows the resulting balance", async () => {
+    const { user, chain } = await openTopUp();
+    const dialog = screen.getByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "0.2 ETH" }));
+    expect(within(dialog).getByLabelText("Amount (ETH)")).toHaveValue("0.2");
+    // after the transfer the trading wallet holds 0.45
+    send.sendTransactionAsync.mockImplementation(async () => {
+      chain.set({ balances: { [TEST_USER.toLowerCase()]: parseEther("1.3"), [SESSION.address.toLowerCase()]: parseEther("0.45") } });
+      return HASH;
+    });
+    await user.click(within(dialog).getByRole("button", { name: "Send from main wallet" }));
+
+    expect(send.sendTransactionAsync).toHaveBeenCalledWith({ to: SESSION.address, value: parseEther("0.2") });
+    expect(await screen.findByText("Sent 0.2 ETH. Your trading wallet now has 0.45 ETH.")).toBeInTheDocument();
+  });
+
+  it("will not send more than the main wallet holds, and says so", async () => {
+    const { user } = await setup({ main: parseEther("0.05") });
+    await user.click(screen.getByRole("button", { name: "Top up" }));
+    const dialog = screen.getByRole("dialog");
+    await user.type(within(dialog).getByLabelText("Amount (ETH)"), "0.1");
+    expect(within(dialog).getByText("Your main wallet does not have enough ETH for this and network fees.")).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Send from main wallet" })).toBeDisabled();
+  });
+
+  it.each(["", "0", "-1", "abc", "1e2"])("will not send an amount of %j, without an error message", async (text) => {
+    const { user } = await openTopUp();
+    const dialog = screen.getByRole("dialog");
+    if (text) await user.type(within(dialog).getByLabelText("Amount (ETH)"), text);
+    expect(within(dialog).getByRole("button", { name: "Send from main wallet" })).toBeDisabled();
+    expect(within(dialog).queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("stays calm when the person declines the transfer", async () => {
+    const { UserRejectedRequestError } = await import("viem");
+    send.sendTransactionAsync.mockRejectedValue(new UserRejectedRequestError(new Error("no")));
+    const { user } = await openTopUp();
+    const dialog = screen.getByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "0.1 ETH" }));
+    await user.click(within(dialog).getByRole("button", { name: "Send from main wallet" }));
+    await waitFor(() => expect(send.sendTransactionAsync).toHaveBeenCalled());
+    expect(within(dialog).queryByRole("alert")).not.toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Send from main wallet" })).toBeEnabled();
+  });
+});
+
+describe("SessionBar: the trading wallet cannot be used", () => {
+  it("offers one signature to bring it back, and does not pretend to trade from the main wallet", async () => {
+    session.value = { status: "needs-signature", account: undefined };
+    const { user } = await setup();
+    expect(screen.getByText("Your trading wallet needs one signature")).toBeInTheDocument();
+    expect(screen.queryByTestId("trading-wallet")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Restore trading wallet" }));
+    expect(session.enable).toHaveBeenCalledOnce();
+    expect(screen.getByRole("button", { name: "Use main wallet" })).toBeInTheDocument(); // and a way out
+  });
+
+  it("says plainly that nothing is lost when the wallet signed differently, and offers no way to make another", async () => {
+    session.value = { status: "mismatch", account: undefined };
+    await setup();
+    expect(screen.getByText("Your wallet signed differently than before")).toBeInTheDocument();
+    expect(screen.getByText(/no funds are lost/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Restore trading wallet" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Turn on trading wallet" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Use main wallet" })).toBeInTheDocument();
+  });
+});

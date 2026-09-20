@@ -116,6 +116,31 @@ export const UI = {
       exact: "Approve only this sale",
     },
   },
+  session: {
+    mainWallet: "Main wallet",
+    tradingWallet: "Trading wallet",
+    tradingWithThis: "Trading from this wallet",
+    balance: "Balance",
+    offTitle: "Trade without confirmations",
+    offBody:
+      "Turn on a trading wallet and buys and sells need no wallet pop-up. It signs one message with your main wallet to create the trading wallet, which lives in this browser and can be recovered on any device by signing the same message again. Only keep small amounts in it.",
+    turnOn: "Turn on trading wallet",
+    turnOff: "Use main wallet",
+    restoreTitle: "Your trading wallet needs one signature",
+    restoreBody: "This browser no longer has your trading wallet's key. Sign once with your main wallet to bring back the same wallet and its funds.",
+    restore: "Restore trading wallet",
+    mismatchTitle: "Your wallet signed differently than before",
+    mismatchBody:
+      "Your main wallet did not produce the same signature it did when the trading wallet was created, so the trading wallet cannot be recovered here. Nothing has been created or changed, and no funds are lost. Use the main wallet to trade, and contact support before putting more funds in a trading wallet.",
+    topUp: "Top up",
+    topUpTitle: "Move ETH to your trading wallet",
+    topUpWhy: "A key kept in a browser should not hold your whole balance. 0.1 to 0.3 ETH is plenty for many trades.",
+    topUpAmount: "Amount (ETH)",
+    topUpSend: "Send from main wallet",
+    topUpInsufficient: "Your main wallet does not have enough ETH for this and network fees.",
+    toppedUp: (sent: string, now: string) => `Sent ${sent} ETH. Your trading wallet now has ${now} ETH.`,
+    withdrawAll: "Withdraw all",
+  },
   // What a person is told when a transaction cannot happen. Keyed by the contract's custom error names
   // (docs/02-contract-reference.md); the ones the reference marks internal or admin are deliberately absent.
   tx: {
