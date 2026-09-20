@@ -2,6 +2,22 @@ export interface Config {
   databaseUrl: string;
   port: number;
   corsOrigins: string[];
+  /** The one host the metadata resolver may contact. Never taken from anything on-chain. */
+  ipfsGatewayUrl: string;
+}
+
+function parseGateway(raw: string | undefined): string {
+  const value = raw ?? "https://ipfs.io";
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error(`IPFS_GATEWAY_URL must be an http(s) URL (got "${value}")`);
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error(`IPFS_GATEWAY_URL must be an http(s) URL (got "${value}")`);
+  }
+  return value.replace(/\/+$/, "");
 }
 
 /** Everything the API reads from the environment, validated once at start-up rather than at first use. */
@@ -22,5 +38,5 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     throw new Error("CORS_ORIGINS must list origins explicitly: a wildcard is refused because the API uses cookies");
   }
 
-  return { databaseUrl, port, corsOrigins };
+  return { databaseUrl, port, corsOrigins, ipfsGatewayUrl: parseGateway(env.IPFS_GATEWAY_URL) };
 }
