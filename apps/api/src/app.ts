@@ -6,6 +6,7 @@ import { apiError, errorHandler, notFoundHandler } from "./errors.js";
 import type { TokenDetail } from "./queries/tokenDetail.js";
 import type { Pinner } from "./metadata/pin.js";
 import { authRoutes } from "./routes/auth.js";
+import { holdingsRoutes } from "./routes/holdings.js";
 import { metadataRoutes } from "./routes/metadata.js";
 import { tokensRoutes } from "./routes/tokens.js";
 
@@ -79,6 +80,7 @@ export function createApp(deps: Partial<AppDeps> = {}): Hono<AppEnv> {
     await next();
   });
   chain.route("/tokens", tokensRoutes({ launchpads: deps.launchpads ?? {} }));
+  chain.route("/addresses", holdingsRoutes());
   app.route("/:chain", chain);
 
   return app;
