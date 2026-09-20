@@ -58,6 +58,28 @@ export const UI = {
     wrongNetwork: (chainName: string) => `Your wallet is on another network. Switch to ${chainName} to continue.`,
     notConfigured: "Trading is not configured for this deployment.",
   },
+  trade: {
+    buy: "Buy",
+    sell: "Sell",
+    amountToSpend: (symbol: string) => `Amount to spend (${symbol})`,
+    amountToSell: (ticker: string) => `Amount to sell (${ticker})`,
+    max: "Max",
+    breakdown: { price: "Price", fee: "Fee", launchTax: "Launch tax", total: "Total", youReceive: "You receive (est.)", youGet: "You get (est.)", minimum: "Minimum after slippage" },
+    slippage: { label: (percent: string) => `Slippage ${percent}%`, custom: "Custom (%)", title: "Slippage tolerance", help: "The most the price may move against you before the trade is refused." },
+    insufficientEth: "Not enough ETH for this purchase and network fees.",
+    insufficientTokens: "Insufficient token balance",
+    stale: "The price has moved. The figures above are being refreshed.",
+    bought: (tokens: string, ticker: string, paid: string, symbol: string) => `You bought ${tokens} ${ticker} for ${paid} ${symbol}.`,
+    sold: (tokens: string, ticker: string, received: string, symbol: string) => `You sold ${tokens} ${ticker} and received ${received} ${symbol}.`,
+    graduating: "GRADUATING…",
+    graduatingNote: "This token has filled its curve and is moving to Uniswap. Trading here is paused.",
+    approve: {
+      step: "Step 1 of 2: approve selling",
+      sellStep: "Step 2 of 2: sell",
+      explain: "Approve once, and every future sale of this token is a single confirmation. You can limit it to this sale instead.",
+      exact: "Approve only this sale",
+    },
+  },
   // What a person is told when a transaction cannot happen. Keyed by the contract's custom error names
   // (docs/02-contract-reference.md); the ones the reference marks internal or admin are deliberately absent.
   tx: {

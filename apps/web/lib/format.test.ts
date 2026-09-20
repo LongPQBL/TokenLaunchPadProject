@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatCountdown, formatMultiplier, formatPercentBps, formatRelativeTime, formatShareOfSupply, isAddress, shortAddress } from "./format";
+import { parseAmount, formatCountdown, formatMultiplier, formatPercentBps, formatRelativeTime, formatShareOfSupply, isAddress, shortAddress } from "./format";
 
 describe("formatRelativeTime", () => {
   const now = 1_700_000_000;
@@ -110,5 +110,32 @@ describe("formatMultiplier", () => {
   it("shows one decimal", () => {
     expect(formatMultiplier(50.2)).toBe("50.2");
     expect(formatMultiplier(10)).toBe("10.0");
+  });
+});
+
+describe("parseAmount", () => {
+  it("reads plain decimals exactly", () => {
+    expect(parseAmount("1")).toBe(10n ** 18n);
+    expect(parseAmount("0.01")).toBe(10n ** 16n);
+    expect(parseAmount(".5")).toBe(5n * 10n ** 17n);
+    expect(parseAmount("2.")).toBe(2n * 10n ** 18n);
+    expect(parseAmount("0.000000000000000001")).toBe(1n);
+    expect(parseAmount(" 3 ")).toBe(3n * 10n ** 18n);
+  });
+
+  it("reads zero as zero, so the caller can say buying nothing is not an action", () => {
+    expect(parseAmount("0")).toBe(0n);
+    expect(parseAmount("0.0")).toBe(0n);
+  });
+
+  it("refuses everything else: signs, exponents, words, more decimals than the token has", () => {
+    for (const bad of ["", "-1", "+1", "1e5", "abc", ".", "--1", "1,5", "0x10", "1.0000000000000000001", "1 000"]) {
+      expect(parseAmount(bad), JSON.stringify(bad)).toBeUndefined();
+    }
+  });
+
+  it("works for a quote with fewer decimals", () => {
+    expect(parseAmount("1.5", 6)).toBe(1_500_000n);
+    expect(parseAmount("0.0000001", 6)).toBeUndefined();
   });
 });

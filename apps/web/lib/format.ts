@@ -56,3 +56,18 @@ export function formatCountdown(seconds: number): string {
 
 /** A multiplier to one decimal place, without the sign: 50.2 -> "50.2". */
 export const formatMultiplier = (multiplier: number): string => multiplier.toFixed(1);
+
+/**
+ * A typed ETH amount -> wei, or undefined for anything that is not a plain positive decimal. Strict on purpose: no
+ * sign, no exponent, at most 18 decimals, so what is typed is exactly what is spent. Zero is valid here; the caller
+ * decides that buying nothing is not an action.
+ */
+export function parseAmount(text: string, decimals = 18): bigint | undefined {
+  const t = text.trim();
+  const m = /^(\d+)(?:\.(\d*))?$|^\.(\d+)$/.exec(t);
+  if (!m) return undefined;
+  const whole = m[1] ?? "0";
+  const frac = m[2] ?? m[3] ?? "";
+  if (frac.length > decimals) return undefined;
+  return BigInt(whole) * 10n ** BigInt(decimals) + BigInt(frac.padEnd(decimals, "0") || "0");
+}
