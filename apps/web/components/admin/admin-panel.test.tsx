@@ -47,13 +47,19 @@ const wireReport = {
 
 /** The API as an admin (or not), counting every request made to the admin routes. */
 function fakeApi(who: { session?: string; admin?: boolean } = {}, over: { health?: () => Response; reports?: () => Response } = {}) {
-  const calls = { me: 0, health: 0, reports: 0, retry: 0, resolved: [] as string[] };
+  const calls = { me: 0, health: 0, reports: 0, retry: 0, resolved: [] as string[], verified: 0, session: who.session };
   server.use(
     http.get(`${API}/me`, () => {
       calls.me += 1;
-      return who.session
-        ? HttpResponse.json({ address: who.session, admin: who.admin ?? false })
+      return calls.session
+        ? HttpResponse.json({ address: calls.session, admin: who.admin ?? false })
         : HttpResponse.json({ error: "unauthenticated", message: "x" }, { status: 401 });
+    }),
+    http.get(`${API}/auth/nonce`, () => HttpResponse.json({ message: "Sign in to Vezta", nonce: "n" })),
+    http.post(`${API}/auth/verify`, () => {
+      calls.verified += 1;
+      calls.session = TEST_USER; // the cookie the real API would set
+      return HttpResponse.json({ address: TEST_USER });
     }),
     http.get(`${API}/sepolia/admin/health`, () => {
       calls.health += 1;
@@ -91,6 +97,30 @@ describe("AdminPanel: who sees it", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Page not found.");
     expect(screen.queryByText("System health")).toBeNull();
     expect(api.health + api.reports).toBe(0);
+  });
+
+  it("offers a connected wallet with no session a way to sign in, and shows the page once it has and it is an admin's", async () => {
+    const api = fakeApi({ admin: true });
+    await show();
+    await userEvent.click(await screen.findByRole("button", { name: "Sign in" }));
+    await waitFor(() => expect(api.verified).toBe(1));
+    expect(await screen.findByLabelText("System health")).toBeInTheDocument();
+  });
+
+  it("does not offer to sign in to a stranger with no wallet, who has nothing to sign in with", async () => {
+    fakeApi({});
+    await show(false);
+    await quiet();
+    expect(screen.queryByRole("button", { name: "Sign in" })).toBeNull();
+  });
+
+  it("offers no sign-in to someone already signed in who is not an admin", async () => {
+    const api = fakeApi({ session: TEST_USER, admin: false });
+    await show();
+    await waitFor(() => expect(api.me).toBeGreaterThan(0));
+    await quiet();
+    expect(screen.queryByRole("button", { name: "Sign in" })).toBeNull();
+    expect(screen.getByRole("alert")).toHaveTextContent("Page not found.");
   });
 
   it("shows a stranger with no wallet the same, and asks nothing", async () => {

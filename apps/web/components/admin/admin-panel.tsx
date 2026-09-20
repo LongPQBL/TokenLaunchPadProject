@@ -6,6 +6,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useAccount } from "wagmi";
 import { useSiwe } from "@/lib/auth/use-siwe";
 import { getModerationApi } from "@/lib/moderation/client";
+import { Button } from "../ui/button";
 import { BanForm } from "./ban-form";
 import { HealthPanel } from "./health-panel";
 import { ReportsTable } from "./reports-table";
@@ -33,7 +34,7 @@ const Failed = () => (
  */
 export function AdminPanel({ chain }: { chain: string }) {
   const { address } = useAccount();
-  const { isAdmin, isLoading } = useSiwe();
+  const { isAdmin, isSignedIn, isLoading, signIn } = useSiwe();
   const queryClient = useQueryClient();
   const config = chainBySlug(chain);
   const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
@@ -63,9 +64,16 @@ export function AdminPanel({ chain }: { chain: string }) {
   if (address && isLoading) return null;
   if (!isAdmin) {
     return (
-      <p role="alert" className="py-16 text-center text-muted-foreground">
-        {UI.errors.pageNotFound}
-      </p>
+      <div className="flex flex-col items-center gap-3 py-16 text-center text-muted-foreground">
+        <p role="alert">{UI.errors.pageNotFound}</p>
+        {/* A wallet with no session cannot be told from an admin's until it signs in. (The API is what keeps this page's data
+            from anyone else; this route exists for everyone.) Someone already signed in has no need of it. */}
+        {address && !isSignedIn && (
+          <Button size="xs" variant="ghost" onClick={() => void signIn().catch(() => undefined)}>
+            {UI.comments.signIn}
+          </Button>
+        )}
+      </div>
     );
   }
 
