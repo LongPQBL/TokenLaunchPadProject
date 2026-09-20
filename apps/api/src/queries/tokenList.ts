@@ -7,10 +7,10 @@ export type Sort = "new" | "volume" | "progress";
  * Each sort key maps to a column and to the cast its cursor value needs. These are constants: nothing
  * from a request ever becomes part of the SQL text, only bound parameters do.
  */
-export const SORTS: Record<Sort, { column: string; cast: string }> = {
-  new: { column: "created_at", cast: "numeric" },
-  volume: { column: "volume_quote", cast: "numeric" },
-  progress: { column: "progress_bps", cast: "int" },
+export const SORTS: Record<Sort, { column: string; cast: string; max: bigint }> = {
+  new: { column: "created_at", cast: "numeric", max: 10n ** 78n - 1n }, // numeric(78,0)
+  volume: { column: "volume_quote", cast: "numeric", max: 10n ** 78n - 1n },
+  progress: { column: "progress_bps", cast: "int", max: 2_147_483_647n }, // a value past this makes Postgres throw
 };
 
 export class BadCursorError extends Error {
@@ -83,8 +83,12 @@ function searchFilter(sql: ReturnType<typeof getSql>, q: string | undefined) {
   return sql`and (coalesce(case when m.status = 'ok' then m.name end, t.name) ilike ${pattern} or t.ticker ilike ${pattern})`;
 }
 
-/** A cursor is `[sortValue, address]`: a position in the ordering, not a row id, so it survives deletions. */
-function decodeCursor(cursor: string): [string, string] {
+/**
+ * A cursor is `[sortValue, address]`: a position in the ordering, not a row id, so it survives deletions.
+ * The value must also fit the sort's column: it is cast to that type in SQL, and one that does not fit would
+ * be a database error, a 500, for what is really a bad request.
+ */
+function decodeCursor(cursor: string, max: bigint): [string, string] {
   try {
     const v: unknown = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8"));
     if (
@@ -92,6 +96,7 @@ function decodeCursor(cursor: string): [string, string] {
       v.length === 2 &&
       typeof v[0] === "string" &&
       /^\d{1,78}$/.test(v[0]) &&
+      BigInt(v[0]) <= max &&
       typeof v[1] === "string" &&
       /^0x[0-9a-f]{1,64}$/.test(v[1])
     ) {
@@ -108,13 +113,13 @@ const encodeCursor = (sortValue: string, address: string) =>
 
 export async function listTokens(opts: ListTokensOptions): Promise<{ items: TokenListItem[]; nextCursor?: string }> {
   const sql = getSql();
-  const { column, cast } = SORTS[opts.sort];
+  const { column, cast, max } = SORTS[opts.sort];
   const col = sql(column);
 
   // The tuple comparison is the cursor. `address` breaks ties, so tokens that share a volume are still
   // in a total order and pagination can neither repeat nor skip one.
   const after = opts.cursor
-    ? (([value, address]) => sql`and (t.${col}, t.address) < (${value}::${sql.unsafe(cast)}, ${address})`)(decodeCursor(opts.cursor))
+    ? (([value, address]) => sql`and (t.${col}, t.address) < (${value}::${sql.unsafe(cast)}, ${address})`)(decodeCursor(opts.cursor, max))
     : sql``;
 
   // LEFT JOIN, not JOIN: a token created seconds ago has no metadata row yet and must still appear.

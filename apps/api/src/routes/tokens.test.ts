@@ -58,6 +58,15 @@ describe("GET /:chain/tokens", () => {
     expect((await res.json()).error).toBe("bad_cursor");
   });
 
+  // A cursor is client input. One that is well-formed but does not fit the sort's column (progress is an int) must be
+  // refused like any other bad cursor, not reach the database and come back as a 500.
+  it("rejects a cursor whose value does not fit the sort column, as a bad cursor and not a server error", async () => {
+    const cursor = Buffer.from(JSON.stringify(["99999999999", "0xab"])).toString("base64url");
+    const res = await get(`/sepolia/tokens?sort=progress&cursor=${cursor}`);
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("bad_cursor");
+  });
+
   it("treats a non-numeric or non-positive limit as a default or a minimum, never an error", async () => {
     for (let i = 0; i < 3; i++) await seedToken({ address: `0xc${i}`, name: `T${i}`, ticker: "T" });
     expect((await (await get("/sepolia/tokens?limit=abc")).json()).items).toHaveLength(3);
