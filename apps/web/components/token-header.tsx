@@ -1,6 +1,6 @@
 import { chainBySlug, formatQuote, formatTokenPrice, marketCap, safeHttpUrl, spotPrice, UI } from "@vezta/shared";
-import { explorerAddressUrl } from "@/lib/explorer";
-import { isAddress, shortAddress } from "@/lib/format";
+import { explorerAddressUrl, uniswapSwapUrl } from "@/lib/explorer";
+import { shortAddress } from "@/lib/format";
 import type { TokenDetail } from "@/lib/types";
 import { StatusBadge } from "./status-badge";
 import { TokenImage } from "./token-image";
@@ -34,10 +34,7 @@ export function TokenHeader({ chain, token }: { chain: string; token: TokenDetai
     return href ? [{ label, href }] : [];
   });
 
-  const uniswap =
-    token.migrated && config && isAddress(token.address)
-      ? `https://app.uniswap.org/swap?${new URLSearchParams({ chain: config.uniswapSlug, outputCurrency: token.address })}`
-      : undefined;
+  const uniswap = token.migrated ? uniswapSwapUrl(config, token.address) : undefined;
 
   const contract = explorerAddressUrl(config, token.address);
   const creator = explorerAddressUrl(config, token.creator);

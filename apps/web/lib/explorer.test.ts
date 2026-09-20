@@ -1,6 +1,6 @@
 import { CHAINS } from "@vezta/shared";
 import { describe, expect, it } from "vitest";
-import { explorerAddressUrl, explorerTxUrl } from "./explorer";
+import { explorerAddressUrl, explorerTxUrl, uniswapSwapUrl } from "./explorer";
 
 const ADDR = "0x8509aea46cef52be7cc3d07b3f2a4c4f08ae7744";
 const sepolia = CHAINS.sepolia;
@@ -34,5 +34,16 @@ describe("explorerTxUrl", () => {
     expect(explorerTxUrl(chain, "javascript:alert(1)")).toBeUndefined();
     expect(explorerTxUrl(chain, "0x1234")).toBeUndefined();
     expect(explorerTxUrl(undefined, hash)).toBeUndefined();
+  });
+});
+
+describe("uniswapSwapUrl", () => {
+  it("points Uniswap at the token on the right chain", () => {
+    expect(uniswapSwapUrl(sepolia, ADDR)).toBe(`https://app.uniswap.org/swap?chain=sepolia&outputCurrency=${ADDR}`);
+  });
+
+  it("links nothing for a value that is not an address, or an unknown chain", () => {
+    expect(uniswapSwapUrl(sepolia, "javascript:alert(1)")).toBeUndefined();
+    expect(uniswapSwapUrl(undefined, ADDR)).toBeUndefined();
   });
 });

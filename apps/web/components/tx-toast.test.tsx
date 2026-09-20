@@ -27,7 +27,7 @@ describe("TxToast", () => {
   });
 
   it("shows an error as an alert", () => {
-    render(<TxToast state={{ status: "error", message: "Price changed. Increase slippage or try again." }} chain="sepolia" />);
+    render(<TxToast state={{ status: "error", message: "Price changed. Increase slippage or try again.", code: "SlippageExceeded" }} chain="sepolia" />);
     expect(screen.getByRole("alert")).toHaveTextContent("Price changed");
   });
 });

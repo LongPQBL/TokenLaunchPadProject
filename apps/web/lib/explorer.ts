@@ -13,3 +13,10 @@ export function explorerAddressUrl(chain: ChainConfig | undefined, address: stri
 export function explorerTxUrl(chain: ChainConfig | undefined, hash: string): string | undefined {
   return chain && /^0x[0-9a-fA-F]{64}$/.test(hash) ? `${chain.explorerUrl}/tx/${hash}` : undefined;
 }
+
+/** Uniswap's swap page for a token on this chain, or undefined unless the token is a real address. */
+export function uniswapSwapUrl(chain: ChainConfig | undefined, token: string): string | undefined {
+  return chain && isAddress(token)
+    ? `https://app.uniswap.org/swap?${new URLSearchParams({ chain: chain.uniswapSlug, outputCurrency: token })}`
+    : undefined;
+}

@@ -8,9 +8,13 @@ import { getDeployment } from "../deployment";
 
 /**
  * A token's curve, straight from the chain (never the indexer: the indexer is a few seconds behind and a price is
- * money). Refetched every 5 s, and by whoever invalidates the query after the person's own transaction lands.
+ * money). Refetched every 5 s (every `graduatingMs` once the curve is complete), and by whoever invalidates the
+ * query after the person's own transaction lands.
  */
-export function useCurve(token: Address | undefined, { refetchMs = 5_000 }: { refetchMs?: number } = {}) {
+export function useCurve(
+  token: Address | undefined,
+  { refetchMs = 5_000, graduatingMs = refetchMs }: { refetchMs?: number; graduatingMs?: number } = {},
+) {
   const deployment = getDeployment();
   const query = useReadContract({
     address: deployment?.launchpad,
@@ -18,7 +22,8 @@ export function useCurve(token: Address | undefined, { refetchMs = 5_000 }: { re
     functionName: "getCurve",
     args: token ? [token] : undefined,
     chainId: deployment?.chainId,
-    query: { enabled: !!deployment && !!token, refetchInterval: refetchMs },
+    // Faster once the curve is full: the person is waiting for it to move to Uniswap.
+    query: { enabled: !!deployment && !!token, refetchInterval: (q) => ((q.state.data as Curve | undefined)?.complete ? graduatingMs : refetchMs) },
   });
   const curve = query.data as Curve | undefined;
   return {

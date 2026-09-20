@@ -43,7 +43,7 @@ describe("useTxRun", () => {
     await act(async () => {
       outcome = await result.current.run(() => Promise.reject(new TradeError("wrong_chain", "raw")), () => ({ message: "x" }));
     });
-    expect(result.current.state).toEqual({ status: "error", message: "Switch your wallet to the right network." });
+    expect(result.current.state).toEqual({ status: "error", message: "Switch your wallet to the right network.", code: "wrong_chain" });
     expect(outcome).toBeUndefined();
   });
 

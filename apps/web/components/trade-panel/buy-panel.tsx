@@ -19,6 +19,7 @@ import { useTxRun } from "@/lib/tx/use-tx-run";
 import { useSlippage } from "@/lib/use-slippage";
 import { useTrade } from "@/lib/wallet/use-trade";
 import { CostBreakdown } from "./cost-breakdown";
+import { Graduating, useRefreshCurveWhen } from "./curve-state";
 import { SlippagePopover } from "./slippage-popover";
 
 /** A buy costs about this much gas; the balance has to cover it on top of the most the purchase can cost. */
@@ -51,6 +52,10 @@ export function BuyPanel({ chain, token, ticker }: { chain: string; token: Addre
   const blocker = wantsToBuy && !canAfford ? UI.trade.insufficientEth : undefined;
   const canBuy = wantsToBuy && canAfford && !quote.isLoading && !quote.curveCompleted && state.status !== "pending";
 
+  // The curve completing is a state, not a mistake: whether the preview noticed or the transaction reverted with it.
+  const graduating = quote.curveCompleted || (state.status === "error" && state.code === "CurveCompleted");
+  useRefreshCurveWhen(graduating);
+
   function buy() {
     void run(
       () => trade.buyWithEth({ token, amount: quote.amount, maxQuoteCost }),
@@ -65,6 +70,8 @@ export function BuyPanel({ chain, token, ticker }: { chain: string; token: Addre
       },
     );
   }
+
+  if (graduating) return <Graduating />;
 
   return (
     <section aria-label={UI.trade.buy} className="flex flex-col gap-4 border border-border p-4">

@@ -8,7 +8,7 @@ export type TxState =
   | { status: "idle" }
   | { status: "pending" }
   | { status: "success"; message: string; hash?: Hash }
-  | { status: "error"; message: string };
+  | { status: "error"; message: string; /** The friendlyError code: a panel can treat some failures as a state, not an error. */ code: string };
 
 /**
  * Runs one transaction-shaped piece of work and keeps the state the panel shows for it. A person declining in their
@@ -29,7 +29,7 @@ export function useTxRun() {
       return result;
     } catch (e) {
       const friendly = friendlyError(e);
-      setState(friendly.silent ? { status: "idle" } : { status: "error", message: friendly.message });
+      setState(friendly.silent ? { status: "idle" } : { status: "error", message: friendly.message, code: friendly.code });
       return undefined;
     } finally {
       inFlight.current = false;
