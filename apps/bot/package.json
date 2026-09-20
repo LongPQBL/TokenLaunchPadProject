@@ -11,6 +11,8 @@
   "dependencies": {
     "@vezta/abi": "workspace:*",
     "@vezta/deployments": "workspace:*",
+    "@vezta/shared": "workspace:*",
+    "ioredis": "^6.0.0",
     "viem": "^2.47.0"
   },
   "devDependencies": {
