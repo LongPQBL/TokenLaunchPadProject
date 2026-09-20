@@ -8,6 +8,7 @@ import { jsonSafe } from "../json.js";
 import { ipfsToHttp } from "../metadata/ipfs.js";
 import { consumeRateLimit } from "../middleware/rate-limit.js";
 import { BadCommentCursorError, listComments, type CommentView } from "../queries/comments.js";
+import type { CommentPublisher } from "../realtime/comments.js";
 
 /** Counted as a person counts: an emoji is one. The database's CHECK counts the same way. */
 export const MAX_COMMENT_CHARS = 500;
@@ -23,6 +24,8 @@ function parseLimit(raw: string | undefined): number {
 
 export interface CommentsRoutesDeps {
   ipfsGateway: string;
+  /** Tells the token's live room about a saved comment. Absent: nothing is published. */
+  publishComment?: CommentPublisher;
 }
 
 /**
@@ -99,6 +102,8 @@ export function commentsRoutes(deps: CommentsRoutesDeps): Hono<AppEnv> {
         body: text,
         createdAt: BigInt(row!.created_at),
       };
+      // Not awaited: the person's answer does not wait for Redis, and the publisher swallows its own failures.
+      void deps.publishComment?.(c.get("chain").slug, c.get("token").address, comment).catch(() => {});
       return c.json(jsonSafe(comment) as object, 201);
     },
   );

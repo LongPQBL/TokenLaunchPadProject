@@ -5,6 +5,7 @@ import type { VerifySignature } from "./auth/signature.js";
 import { apiError, errorHandler, notFoundHandler } from "./errors.js";
 import type { TokenDetail } from "./queries/tokenDetail.js";
 import type { Pinner } from "./metadata/pin.js";
+import type { CommentPublisher } from "./realtime/comments.js";
 import { authRoutes } from "./routes/auth.js";
 import { holdingsRoutes } from "./routes/holdings.js";
 import { metadataRoutes } from "./routes/metadata.js";
@@ -34,6 +35,8 @@ export interface AppDeps {
   pinner: Pinner;
   /** The one IPFS gateway avatars and images are fetched through. */
   ipfsGateway: string;
+  /** Tells a token's live room about a new comment (best-effort). Absent when there is no Redis. */
+  publishComment: CommentPublisher;
 }
 
 /** `token` is set only inside the /:chain/tokens/:address routes, by the middleware that resolves it. */
@@ -81,7 +84,7 @@ export function createApp(deps: Partial<AppDeps> = {}): Hono<AppEnv> {
     c.set("chain", resolved);
     await next();
   });
-  chain.route("/tokens", tokensRoutes({ launchpads: deps.launchpads ?? {}, ipfsGateway: deps.ipfsGateway }));
+  chain.route("/tokens", tokensRoutes({ launchpads: deps.launchpads ?? {}, ipfsGateway: deps.ipfsGateway, publishComment: deps.publishComment }));
   chain.route("/addresses", holdingsRoutes());
   app.route("/:chain", chain);
 

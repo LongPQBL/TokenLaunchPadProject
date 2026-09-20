@@ -3,6 +3,7 @@ import type { AppEnv } from "../app.js";
 import { apiError } from "../errors.js";
 import { jsonSafe } from "../json.js";
 import { getCandles } from "../queries/candles.js";
+import type { CommentPublisher } from "../realtime/comments.js";
 import { commentsRoutes } from "./comments.js";
 import { listHolders } from "../queries/holders.js";
 import { getToken } from "../queries/tokenDetail.js";
@@ -28,6 +29,7 @@ export interface TokensRoutesDeps {
   launchpads: Record<number, string>;
   /** Where avatars are fetched from: the same one gateway as token images. */
   ipfsGateway?: string;
+  publishComment?: CommentPublisher;
 }
 
 export function tokensRoutes(deps: TokensRoutesDeps): Hono<AppEnv> {
@@ -69,7 +71,7 @@ export function tokensRoutes(deps: TokensRoutesDeps): Hono<AppEnv> {
   });
 
   routes.get("/:address", (c) => json(c, c.get("token")));
-  routes.route("/:address/comments", commentsRoutes({ ipfsGateway: deps.ipfsGateway ?? "https://ipfs.io" }));
+  routes.route("/:address/comments", commentsRoutes({ ipfsGateway: deps.ipfsGateway ?? "https://ipfs.io", publishComment: deps.publishComment }));
 
   routes.get("/:address/trades", async (c) => {
     try {

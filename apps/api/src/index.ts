@@ -9,11 +9,18 @@ import { isDatabaseReady } from "./db.js";
 import { startLoop } from "./loop.js";
 import { fakePinner, pinataPinner } from "./metadata/pin.js";
 import { resolvePending } from "./metadata/resolver.js";
+import { Redis } from "ioredis";
+import { createCommentPublisher } from "./realtime/comments.js";
 import { attachRealtime } from "./realtime/server.js";
 
 const config = loadConfig();
 const deployment = loadDeployment();
+// Comments are not chain events, so the API tells the live room about them itself. No queueing while Redis is down: a comment
+// is saved either way, and pages backfill by REST.
+const redis = config.redisUrl ? new Redis(config.redisUrl, { enableOfflineQueue: false, maxRetriesPerRequest: 0 }) : undefined;
+redis?.on("error", () => {});
 const app = createApp({
+  publishComment: createCommentPublisher(redis ? (channel, message) => redis.publish(channel, message) : undefined),
   corsOrigins: config.corsOrigins,
   ipfsGateway: config.ipfsGatewayUrl,
   ready: isDatabaseReady,

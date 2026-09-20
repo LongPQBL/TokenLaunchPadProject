@@ -5,11 +5,16 @@ import { addr, seedToken } from "../../test/seed.js";
 import { createApp } from "../app.js";
 import { getSql } from "../db.js";
 
-const app = createApp({ auth: { domain: TEST_DOMAIN, uri: TEST_URI, chainId: TEST_CHAIN } });
+const published: { chain: string; token: string; comment: { id: string; body: string; author: string } }[] = [];
+const app = createApp({
+  auth: { domain: TEST_DOMAIN, uri: TEST_URI, chainId: TEST_CHAIN },
+  publishComment: async (chain, token, comment) => void published.push({ chain, token, comment }),
+});
 const T = addr(0x77);
 const NUL = String.fromCharCode(0);
 
 beforeEach(async () => {
+  published.length = 0;
   await getSql()`truncate app.siwe_nonce, app.session, app.rate_hit`;
   await prisma.comment.deleteMany();
   await prisma.tokenMetadata.deleteMany();
@@ -156,5 +161,39 @@ describe("POST /:chain/tokens/:address/comments", () => {
     const { cookie } = await asUser();
     for (let i = 0; i < 20; i++) await post(cookie, { body: "" });
     for (let i = 0; i < 10; i++) expect((await post(cookie, { body: `c${i}` })).status).toBe(201);
+  });
+
+  describe("telling the live room", () => {
+    it("publishes a saved comment to the token's room, once", async () => {
+      const { cookie, address } = await asUser();
+      await post(cookie, { body: "live!" });
+      expect(published).toHaveLength(1);
+      expect(published[0]).toMatchObject({ chain: "sepolia", token: T, comment: { body: "live!", author: address } });
+    });
+
+    it("publishes nothing for a comment that was refused: not banned, not hidden token, not rate-limited, not invalid, not anonymous", async () => {
+      const { cookie, address } = await asUser();
+      await post(undefined, { body: "anon" });
+      await post(cookie, { body: "" });
+      await prisma.tokenMetadata.create({ data: { chainId: 11155111, token: T, uri: "ipfs://x", status: "hidden" } });
+      await post(cookie, { body: "on a hidden token" });
+      await prisma.tokenMetadata.deleteMany();
+      await prisma.appUser.upsert({ where: { address }, create: { address, bannedAt: new Date() }, update: { bannedAt: new Date() } });
+      await post(cookie, { body: "banned" });
+      expect(published).toEqual([]);
+    });
+
+    it("still saves and answers when publishing fails", async () => {
+      const failing = createApp({
+        auth: { domain: TEST_DOMAIN, uri: TEST_URI, chainId: TEST_CHAIN },
+        publishComment: async () => {
+          throw new Error("redis down");
+        },
+      });
+      const { cookie } = await signIn(failing);
+      const res = await failing.request(`/sepolia/tokens/${T}/comments`, { method: "POST", headers: { "content-type": "application/json", cookie }, body: JSON.stringify({ body: "saved anyway" }) });
+      expect(res.status).toBe(201);
+      expect(await prisma.comment.count()).toBe(1);
+    });
   });
 });
