@@ -29,7 +29,8 @@ export function SellPanel({ chain, token, ticker }: { chain: string; token: Addr
   const trade = useTrade();
   const queryClient = useQueryClient();
   const { isConnected } = useAccount();
-  const { balance, allowance } = useTokenAccount(token);
+  // The wallet that HOLDS the tokens: the trading wallet when one is in use, with its own balance and its own approval.
+  const { balance, allowance } = useTokenAccount(token, trade.capabilities.address);
   const { bps: slippageBps, setBps: setSlippage } = useSlippage();
   const { state, run } = useTxRun();
   const { setLast } = useLastTrade();

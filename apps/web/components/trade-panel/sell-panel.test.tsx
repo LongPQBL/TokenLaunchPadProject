@@ -5,7 +5,7 @@ import { connect } from "wagmi/actions";
 import { sepolia } from "wagmi/chains";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeChain, freshCurve } from "@/test/fake-chain";
-import { renderWithWallet, TEST_DEPLOYMENT } from "@/test/wallet";
+import { renderWithWallet, TEST_DEPLOYMENT, TEST_USER } from "@/test/wallet";
 import { SellPanel } from "./sell-panel";
 
 const TOKEN = "0x00000000000000000000000000000000000000b2" as const;
@@ -124,6 +124,41 @@ describe("SellPanel: allowance", () => {
     await waitFor(() => expect(trade.approveIfNeeded).toHaveBeenCalled());
     expect(trade.sell).not.toHaveBeenCalled();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+});
+
+describe("SellPanel: whose tokens", () => {
+  const SESSION = "0x00000000000000000000000000000000000000c5";
+  const withSession = async (over: { main?: bigint; session?: bigint; sessionAllowance?: bigint; mainAllowance?: bigint }) => {
+    trade.capabilities.address = SESSION as never;
+    return setup({
+      tokenBalances: { [TEST_USER.toLowerCase()]: over.main ?? 0n, [SESSION]: over.session ?? 0n },
+      allowances: { [TEST_USER.toLowerCase()]: over.mainAllowance ?? 0n, [SESSION]: over.sessionAllowance ?? 0n },
+    });
+  };
+  afterEach(() => {
+    trade.capabilities.address = undefined as never;
+  });
+
+  it("sells from the trading wallet's balance, not the main wallet's, when a trading wallet is in use", async () => {
+    // the main wallet holds nothing, the trading wallet holds 5M tokens
+    const { user } = await withSession({ main: 0n, session: 5_000_000n * E18, sessionAllowance: 10n ** 30n });
+    await user.type(amountInput(), "1000000");
+    expect(screen.queryByText("Insufficient token balance")).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Sell" })).toBeEnabled());
+  });
+
+  it("says insufficient when the TRADING wallet holds too little, however much the main wallet holds", async () => {
+    const { user } = await withSession({ main: 9_000_000n * E18, session: 10n * E18, sessionAllowance: 10n ** 30n });
+    await user.type(amountInput(), "1000000");
+    expect(await screen.findByText("Insufficient token balance")).toBeInTheDocument();
+  });
+
+  it("looks at the trading wallet's allowance too: its approval is its own", async () => {
+    // the main wallet approved everything, the trading wallet nothing: the sale needs the approval step
+    const { user } = await withSession({ session: 5_000_000n * E18, mainAllowance: 10n ** 30n, sessionAllowance: 0n });
+    await user.type(amountInput(), "1000000");
+    expect(await screen.findByRole("button", { name: "Step 1 of 2: approve selling" })).toBeInTheDocument();
   });
 });
 

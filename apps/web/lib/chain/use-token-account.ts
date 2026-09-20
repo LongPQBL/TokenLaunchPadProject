@@ -5,10 +5,15 @@ import type { Address } from "viem";
 import { useAccount, useReadContract } from "wagmi";
 import { getDeployment } from "../deployment";
 
-/** The connected person's balance of a token, and how much of it the launchpad may already take. From the chain. */
-export function useTokenAccount(token: Address | undefined) {
+/**
+ * An account's balance of a token, and how much of it the launchpad may already take. From the chain. `owner` is the
+ * account that TRADES: the trading wallet when one is in use, whose balance and approval are its own and not the main
+ * wallet's. It defaults to the connected wallet.
+ */
+export function useTokenAccount(token: Address | undefined, owner?: Address) {
   const deployment = getDeployment();
-  const { address } = useAccount();
+  const connected = useAccount().address;
+  const address = owner ?? connected;
   const enabled = !!deployment && !!token && !!address;
   const common = { address: token, abi: tokenAbi, chainId: deployment?.chainId } as const;
 

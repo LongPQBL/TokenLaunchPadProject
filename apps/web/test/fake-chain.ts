@@ -33,6 +33,9 @@ export interface FakeChainState {
   /** The person's token balance and their allowance to the launchpad. */
   tokenBalance: bigint;
   allowance: bigint;
+  /** Per-address token balances and allowances (lower-case address), taking precedence over the two above. */
+  tokenBalances?: Record<string, bigint>;
+  allowances?: Record<string, bigint>;
   ethBalance: bigint;
   /** Per-address ETH balances (lower-case address), taking precedence over `ethBalance`. */
   balances?: Record<string, bigint>;
@@ -64,10 +67,11 @@ export function fakeChain(initial: Partial<FakeChainState> = {}) {
   function ethCall(to: Address, data: Hex): Hex {
     const isToken = to.toLowerCase() !== "0x00000000000000000000000000000000000000c3";
     if (isToken) {
-      const { functionName } = decodeFunctionData({ abi: tokenAbi, data });
+      const { functionName, args } = decodeFunctionData({ abi: tokenAbi, data });
       calls.push(functionName);
-      if (functionName === "allowance") return encodeFunctionResult({ abi: tokenAbi, functionName, result: state.allowance });
-      if (functionName === "balanceOf") return encodeFunctionResult({ abi: tokenAbi, functionName, result: state.tokenBalance });
+      const who = String((args as readonly unknown[] | undefined)?.[0] ?? "").toLowerCase();
+      if (functionName === "allowance") return encodeFunctionResult({ abi: tokenAbi, functionName, result: state.allowances?.[who] ?? state.allowance });
+      if (functionName === "balanceOf") return encodeFunctionResult({ abi: tokenAbi, functionName, result: state.tokenBalances?.[who] ?? state.tokenBalance });
       throw new Error(`fakeChain: unhandled token call ${functionName}`);
     }
     const { functionName, args } = decodeFunctionData({ abi: launchpadAbi, data });

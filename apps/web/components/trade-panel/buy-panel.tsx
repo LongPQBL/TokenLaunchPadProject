@@ -35,7 +35,9 @@ export function BuyPanel({ chain, token, ticker }: { chain: string; token: Addre
   const queryClient = useQueryClient();
   const { address, isConnected } = useAccount();
   const deployment = getDeployment();
-  const balance = useBalance({ address, chainId: deployment?.chainId, query: { enabled: !!address } });
+  // The wallet that PAYS: the trading wallet when one is in use. Its balance, not the main wallet's, is what has to cover the buy.
+  const payer = trade.capabilities.address ?? address;
+  const balance = useBalance({ address: payer, chainId: deployment?.chainId, query: { enabled: !!payer } });
   const gasPrice = useGasPrice({ chainId: deployment?.chainId });
   const { bps: slippageBps, setBps: setSlippage } = useSlippage();
   const { state, run } = useTxRun();
