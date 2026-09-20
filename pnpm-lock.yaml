@@ -32,6 +32,9 @@ importers:
       '@vezta/app-db':
         specifier: workspace:*
         version: link:../../packages/app-db
+      '@vezta/deployments':
+        specifier: workspace:*
+        version: link:../../packages/deployments
       '@vezta/shared':
         specifier: workspace:*
         version: link:../../packages/shared

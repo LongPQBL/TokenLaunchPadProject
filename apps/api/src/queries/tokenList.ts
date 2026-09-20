@@ -33,6 +33,27 @@ export interface TokenListItem {
   createdAt: bigint;
 }
 
+/**
+ * Row -> item, shared with the detail query. Expects the columns both select: `meta_name` is already null
+ * unless the metadata is ok, so a pending or invalid row can never rename or re-image a token.
+ */
+export function mapListRow(r: Record<string, any>): TokenListItem {
+  return {
+    address: r.address,
+    creator: r.creator,
+    name: r.meta_name ?? r.chain_name ?? undefined,
+    ticker: r.ticker ?? undefined,
+    description: r.description ?? undefined,
+    imageUrl: r.image_url ?? undefined,
+    progressBps: r.progress_bps,
+    volumeQuote: BigInt(r.volume_quote),
+    tradeCount: r.trade_count,
+    complete: r.complete,
+    migrated: r.migrated,
+    createdAt: BigInt(r.created_at),
+  };
+}
+
 export interface ListTokensOptions {
   chainId: number;
   sort: Sort;
@@ -117,20 +138,7 @@ export async function listTokens(opts: ListTokensOptions): Promise<{ items: Toke
     limit ${opts.limit + 1}`;
 
   const page = rows.slice(0, opts.limit);
-  const items: TokenListItem[] = page.map((r) => ({
-    address: r.address,
-    creator: r.creator,
-    name: r.meta_name ?? r.chain_name ?? undefined,
-    ticker: r.ticker ?? undefined,
-    description: r.description ?? undefined,
-    imageUrl: r.image_url ?? undefined,
-    progressBps: r.progress_bps,
-    volumeQuote: BigInt(r.volume_quote),
-    tradeCount: r.trade_count,
-    complete: r.complete,
-    migrated: r.migrated,
-    createdAt: BigInt(r.created_at),
-  }));
+  const items = page.map(mapListRow);
 
   const last = page.at(-1);
   return rows.length > opts.limit && last ? { items, nextCursor: encodeCursor(last.sort_value, last.address) } : { items };

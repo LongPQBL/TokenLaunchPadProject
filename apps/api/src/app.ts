@@ -2,6 +2,7 @@ import { chainBySlug, type ChainConfig } from "@vezta/shared";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { apiError, errorHandler, notFoundHandler } from "./errors.js";
+import type { TokenDetail } from "./queries/tokenDetail.js";
 import { tokensRoutes } from "./routes/tokens.js";
 
 export interface AppDeps {
@@ -9,9 +10,12 @@ export interface AppDeps {
   corsOrigins: string[];
   /** True when the database answers. Injected so the app can be built and tested without one. */
   ready: () => Promise<boolean>;
+  /** Launchpad contract address per chain id, so the holders list can leave it out. */
+  launchpads: Record<number, string>;
 }
 
-export type AppEnv = { Variables: { chain: ChainConfig } };
+/** `token` is set only inside the /:chain/tokens/:address routes, by the middleware that resolves it. */
+export type AppEnv = { Variables: { chain: ChainConfig; token: TokenDetail } };
 
 export function createApp(deps: Partial<AppDeps> = {}): Hono<AppEnv> {
   const allowed = new Set(deps.corsOrigins ?? []);
@@ -52,7 +56,7 @@ export function createApp(deps: Partial<AppDeps> = {}): Hono<AppEnv> {
     c.set("chain", resolved);
     await next();
   });
-  chain.route("/tokens", tokensRoutes());
+  chain.route("/tokens", tokensRoutes({ launchpads: deps.launchpads ?? {} }));
   app.route("/:chain", chain);
 
   return app;

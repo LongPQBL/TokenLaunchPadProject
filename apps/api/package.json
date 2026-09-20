@@ -12,6 +12,7 @@
   "dependencies": {
     "@hono/node-server": "^1.13.0",
     "@vezta/app-db": "workspace:*",
+    "@vezta/deployments": "workspace:*",
     "@vezta/shared": "workspace:*",
     "hono": "^4.6.0",
     "postgres": "^3.4.0"
