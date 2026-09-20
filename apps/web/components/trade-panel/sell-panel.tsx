@@ -16,6 +16,7 @@ import { useTxRun } from "@/lib/tx/use-tx-run";
 import { useSlippage } from "@/lib/use-slippage";
 import { useTrade } from "@/lib/wallet/use-trade";
 import { Graduating, useRefreshCurveWhen } from "./curve-state";
+import { useLastTrade } from "./last-trade";
 import { SlippagePopover } from "./slippage-popover";
 
 const TOKEN_DECIMALS = 18;
@@ -31,6 +32,7 @@ export function SellPanel({ chain, token, ticker }: { chain: string; token: Addr
   const { balance, allowance } = useTokenAccount(token);
   const { bps: slippageBps, setBps: setSlippage } = useSlippage();
   const { state, run } = useTxRun();
+  const { setLast } = useLastTrade();
 
   const [text, setText] = useState("");
   const [exactApproval, setExactApproval] = useState(false);
@@ -64,10 +66,12 @@ export function SellPanel({ chain, token, ticker }: { chain: string; token: Addr
         setText("");
         void queryClient.invalidateQueries();
         // What the Trade event says: the payout is the curve price less the fee.
-        return {
+        const done = {
           message: UI.trade.sold(formatCompactTokens(r.tokenAmount), ticker, formatQuote(r.quoteAmount - r.fee, decimals, 6), symbol),
           hash: r.hash,
         };
+        setLast(done);
+        return done;
       },
     );
   }

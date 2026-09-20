@@ -20,6 +20,7 @@ import { useSlippage } from "@/lib/use-slippage";
 import { useTrade } from "@/lib/wallet/use-trade";
 import { CostBreakdown } from "./cost-breakdown";
 import { Graduating, useRefreshCurveWhen } from "./curve-state";
+import { useLastTrade } from "./last-trade";
 import { SlippagePopover } from "./slippage-popover";
 
 /** A buy costs about this much gas; the balance has to cover it on top of the most the purchase can cost. */
@@ -38,6 +39,7 @@ export function BuyPanel({ chain, token, ticker }: { chain: string; token: Addre
   const gasPrice = useGasPrice({ chainId: deployment?.chainId });
   const { bps: slippageBps, setBps: setSlippage } = useSlippage();
   const { state, run } = useTxRun();
+  const { setLast } = useLastTrade();
 
   const [text, setText] = useState("");
   const budget = parseAmount(text, decimals) ?? 0n;
@@ -63,10 +65,12 @@ export function BuyPanel({ chain, token, ticker }: { chain: string; token: Addre
         setText("");
         void queryClient.invalidateQueries(); // the curve, the balance, the allowance: all of it just changed
         // What the Trade event says, never what was asked for: the last buy on a curve is clipped.
-        return {
+        const done = {
           message: UI.trade.bought(formatCompactTokens(r.tokenAmount), ticker, formatQuote(r.quoteAmount + r.fee, decimals, 6), symbol),
           hash: r.hash,
         };
+        setLast(done);
+        return done;
       },
     );
   }

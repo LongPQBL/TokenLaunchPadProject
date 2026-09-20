@@ -5,7 +5,9 @@ import { chainBySlug, UI } from "@vezta/shared";
 import { useEffect, type ReactNode } from "react";
 import type { Address } from "viem";
 import { useCurve } from "@/lib/chain/use-curve";
+import { TxToast } from "@/components/tx-toast";
 import { uniswapSwapUrl } from "@/lib/explorer";
+import { useLastTrade } from "./last-trade";
 
 /** The curve is full and the pool is not made yet: nothing can be bought or sold here for a minute or two. */
 export function Graduating() {
@@ -50,7 +52,13 @@ export function useRefreshCurveWhen(when: boolean) {
  */
 export function CurveGate({ chain, token, children, graduatingPollMs = 2_000 }: { chain: string; token: Address; children: ReactNode; graduatingPollMs?: number }) {
   const { status } = useCurve(token, { graduatingMs: graduatingPollMs });
-  if (status === "migrated") return <MigratedLink chain={chain} token={token} />;
-  if (status === "awaiting-migration") return <Graduating />;
-  return <>{children}</>;
+  const { last } = useLastTrade();
+  if (status !== "migrated" && status !== "awaiting-migration") return <>{children}</>;
+  return (
+    <div className="flex flex-col gap-3">
+      {/* What the person's last trade was, kept: the purchase that filled the curve is what brought them here. */}
+      {last && <TxToast state={{ status: "success", message: last.message, hash: last.hash }} chain={chain} />}
+      {status === "migrated" ? <MigratedLink chain={chain} token={token} /> : <Graduating />}
+    </div>
+  );
 }

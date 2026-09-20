@@ -73,7 +73,8 @@ test.describe("token page: a graduated token", () => {
     await expect(page.getByRole("heading", { name: "Demo Token" })).toBeVisible();
     await expect(page.getByTestId("status-badge")).toHaveText("GRADUATED");
     await expect(page.getByRole("link", { name: FILLED })).toHaveAttribute("href", `https://sepolia.etherscan.io/address/${FILLED}`);
-    const uniswap = page.getByRole("link", { name: "Trade on Uniswap" });
+    // The header carries the link, and so does the trading area once the token has moved to Uniswap.
+    const uniswap = page.getByRole("link", { name: "Trade on Uniswap" }).first();
     await expect(uniswap).toHaveAttribute("href", new RegExp(`outputCurrency=${FILLED}`));
   });
 
