@@ -34,6 +34,17 @@ describe("createRedisPublisher", () => {
     await Promise.all([wanted.close(), other.close(), publisher.close()]);
   });
 
+  it("stores a value under a key that expires by itself, so a bot that stops leaves nothing behind", async () => {
+    const publisher = createRedisPublisher(redis.url);
+    const reader = new Redis(redis.url);
+    await publisher.set("bot:heartbeat:test", "alive", 30);
+    expect(await reader.get("bot:heartbeat:test")).toBe("alive");
+    const ttl = await reader.ttl("bot:heartbeat:test");
+    expect(ttl).toBeGreaterThan(0);
+    expect(ttl).toBeLessThanOrEqual(30);
+    await Promise.all([reader.quit(), publisher.close()]);
+  });
+
   it("fails fast when Redis is down instead of queueing messages without limit", async () => {
     const publisher = createRedisPublisher(redis.url);
     await publisher.publish("trades", "warm up");

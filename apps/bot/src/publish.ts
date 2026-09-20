@@ -37,6 +37,11 @@ export function createRedisPublisher(url: string) {
       await ready();
       return redis.publish(channel, message);
     },
+    /** Stores a value that expires by itself: a key nobody refreshes is gone, so silence reads as "not running". */
+    set: async (key: string, value: string, ttlSeconds: number) => {
+      await ready();
+      return redis.set(key, value, "EX", ttlSeconds);
+    },
     close: async () => {
       redis.disconnect();
     },

@@ -1,8 +1,9 @@
 import { loadDeployment } from "@vezta/deployments";
-import { chainSlugById } from "@vezta/shared";
+import { chainSlugById, HEARTBEAT_EVERY_SECONDS } from "@vezta/shared";
 import { createPublicClient, createWalletClient, defineChain, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { loadBotConfig } from "./config";
+import { createHeartbeat } from "./heartbeat";
 import { createMigrator } from "./migrate";
 import { createRedisPublisher } from "./publish";
 import { createWatcher } from "./watcher";
@@ -52,6 +53,15 @@ const caught = await migrator.catchUp();
 if (caught.length > 0) console.log(`caught up: migrated ${caught.length} curve(s) that had filled`);
 
 watcher.start(config.pollMs);
+// Tells the admin page this process is alive and what its wallet holds. Without Redis there is nowhere to say it.
+if (publisher) {
+  createHeartbeat({
+    chain: chainSlugById(deployment.chainId) ?? String(deployment.chainId),
+    address: account.address,
+    getBalance: () => publicClient.getBalance({ address: account.address }),
+    set: (key, value, ttl) => publisher.set(key, value, ttl),
+  }).start(HEARTBEAT_EVERY_SECONDS);
+}
 // A safety net, on a slow timer: a curve whose Complete event this process somehow missed still gets migrated.
 setInterval(() => void migrator.catchUp(BigInt(deployment.deployBlock)).catch((e) => console.error(e)), config.catchUpMinutes * 60_000);
 setInterval(() => void migrator.checkBalance(), 60 * 60_000);
