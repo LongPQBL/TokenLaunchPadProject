@@ -4,11 +4,13 @@
  */
 export const UI = {
   nav: { create: "Create token", search: "Search tokens" },
-  badge: { testnet: "SEPOLIA TESTNET" },
+  // Named after the chain it is on, so a second testnet never says "SEPOLIA".
+  badge: { testnet: (chainName: string) => `${chainName.toUpperCase()} TESTNET` },
   discover: {
     tabs: { new: "New", trending: "Trending", progress: "Nearing graduation" },
     empty: "No tokens yet. Be the first to create one.",
     searchEmpty: "No tokens match that search.",
+    next: "Next page",
   },
   token: {
     status: { trading: "TRADING", graduating: "GRADUATING…", graduated: "GRADUATED" },
@@ -19,11 +21,12 @@ export const UI = {
     creator: "creator",
     marketCap: "mcap",
     price: "price",
+    trades: (n: number) => `${n} ${n === 1 ? "trade" : "trades"}`,
     noTrades: "No trades yet.",
     noHolders: "No holders yet.",
   },
   errors: {
     notFound: "Token not found.",
-    loadFailed: "Could not load this. Retrying…",
+    loadFailed: "Could not load this. Please try again in a moment.",
   },
 } as const;
