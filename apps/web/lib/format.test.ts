@@ -1,5 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { formatPercentBps, shortAddress } from "./format";
+import { formatPercentBps, isAddress, shortAddress } from "./format";
+
+describe("isAddress", () => {
+  it("accepts a 40-digit hex address in any case", () => {
+    expect(isAddress("0x8509aea46cef52be7cc3d07b3f2a4c4f08ae7744")).toBe(true);
+    expect(isAddress("0x8509AEA46CEF52BE7CC3D07B3F2A4C4F08AE7744")).toBe(true);
+  });
+
+  // It comes from the URL, and decides whether to ask the API at all.
+  it("rejects anything else", () => {
+    for (const bad of ["", "0x", "0xa1", "8509aea46cef52be7cc3d07b3f2a4c4f08ae7744", `0x${"z".repeat(40)}`, `0x${"a".repeat(41)}`, "../etc/passwd"]) {
+      expect(isAddress(bad), bad).toBe(false);
+    }
+  });
+});
 
 describe("shortAddress", () => {
   it("keeps the start and the end, which is what people compare", () => {

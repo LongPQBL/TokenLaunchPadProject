@@ -6,6 +6,8 @@ export interface ChainConfig {
   quoteSymbol: string;
   quoteDecimals: number;
   isTestnet: boolean;
+  /** How Uniswap's own URLs name this chain (app.uniswap.org/swap?chain=<this>). */
+  uniswapSlug: string;
 }
 
 /** Adding a chain is adding an entry here plus a deployments/<slug>.json. Nothing else. */
@@ -18,6 +20,7 @@ export const CHAINS: Record<string, ChainConfig> = {
     quoteSymbol: "ETH",
     quoteDecimals: 18,
     isTestnet: true,
+    uniswapSlug: "sepolia",
   },
 };
 

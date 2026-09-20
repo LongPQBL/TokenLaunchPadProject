@@ -1,7 +1,8 @@
-import { chainBySlug, formatQuote, safeHttpUrl, UI } from "@vezta/shared";
+import { chainBySlug, formatQuote, UI } from "@vezta/shared";
 import Link from "next/link";
 import { formatPercentBps, shortAddress } from "@/lib/format";
 import type { TokenListItem } from "@/lib/types";
+import { TokenImage } from "./token-image";
 
 /**
  * One token in the grid. The name, ticker, description and image URL are all written by strangers, so every one of
@@ -14,7 +15,6 @@ export function TokenCard({ chain, token }: { chain: string; token: TokenListIte
   const symbol = config?.quoteSymbol ?? "ETH";
 
   const title = token.name ?? token.ticker ?? shortAddress(token.address);
-  const image = safeHttpUrl(token.imageUrl);
   const bps = Math.min(Math.max(token.progressBps, 0), 10_000);
   const status = token.migrated ? UI.token.status.graduated : token.complete ? UI.token.status.graduating : undefined;
 
@@ -24,19 +24,7 @@ export function TokenCard({ chain, token }: { chain: string; token: TokenListIte
       data-testid="token-card"
       className="flex gap-3 border border-border bg-card p-3 transition-colors hover:border-border-hover"
     >
-      {image ? (
-        // A plain <img>: the image host is a deploy-time setting, so next/image's allow-list cannot be written yet.
-        // The URL has been scheme-checked above, and the referrer is withheld so the host learns nothing about us.
-        <img src={image} alt={title} referrerPolicy="no-referrer" loading="lazy" className="size-16 shrink-0 bg-secondary object-cover" />
-      ) : (
-        <div
-          data-testid="token-image-placeholder"
-          aria-hidden="true"
-          className="flex size-16 shrink-0 items-center justify-center bg-secondary font-mono text-lg text-muted-foreground"
-        >
-          {(token.ticker ?? title).slice(0, 1).toUpperCase()}
-        </div>
-      )}
+      <TokenImage src={token.imageUrl} alt={title} initial={token.ticker ?? title} className="size-16 text-lg" />
 
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2">

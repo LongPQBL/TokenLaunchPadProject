@@ -12,3 +12,8 @@ export function formatPercentBps(bps: number): string {
   const tenths = Math.round(Math.min(Math.max(bps, 0), 10_000) / 10);
   return tenths % 10 === 0 ? `${tenths / 10}%` : `${(tenths / 10).toFixed(1)}%`;
 }
+
+/** A 20-byte hex address. Used on values that come from the URL or the API before they are put into a link or a query. */
+export function isAddress(value: string): boolean {
+  return /^0x[0-9a-fA-F]{40}$/.test(value);
+}

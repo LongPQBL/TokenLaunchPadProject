@@ -7,6 +7,12 @@ describe("chains", () => {
     expect(chainSlugById(11155111)).toBe("sepolia");
   });
 
+  // The link to trade a graduated token on Uniswap names the chain the way Uniswap's own URLs do.
+  it("knows how Uniswap names each chain", () => {
+    expect(chainBySlug("sepolia")!.uniswapSlug).toBe("sepolia");
+    for (const chain of Object.values(CHAINS)) expect(chain.uniswapSlug, chain.slug).toMatch(/^[a-z0-9_]+$/);
+  });
+
   it("returns undefined for an unknown slug or id", () => {
     expect(chainBySlug("mainnet")).toBeUndefined();
     expect(chainSlugById(1)).toBeUndefined();
