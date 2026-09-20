@@ -1,0 +1,25 @@
+{
+  "name": "@vezta/indexer",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "ponder dev",
+    "start": "ponder start",
+    "codegen": "ponder codegen",
+    "test": "vitest run",
+    "typecheck": "DEPLOYMENT=example ponder codegen > /dev/null && tsc --noEmit"
+  },
+  "dependencies": {
+    "@vezta/abi": "workspace:*",
+    "@vezta/deployments": "workspace:*",
+    "ponder": "0.17.10",
+    "viem": "^2.47.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "drizzle-orm": "0.41.0",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.0"
+  }
+}
