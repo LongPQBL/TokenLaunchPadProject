@@ -61,4 +61,25 @@ describe("loadConfig", () => {
     expect(loadConfig({ ...base, RPC_URL: "https://rpc.example" }).rpcUrl).toBe("https://rpc.example");
     expect(() => loadConfig({ ...base, RPC_URL: "ftp://rpc.example" })).toThrow(/RPC_URL/);
   });
+
+  it("has no pinning service unless one is configured: uploads then say they are unavailable", () => {
+    const c = loadConfig(base);
+    expect(c.pinner).toBeUndefined();
+    expect(c.pinataJwt).toBeUndefined();
+  });
+
+  it("pins through Pinata when a key is given, and never puts the key in the config's printed form", () => {
+    const c = loadConfig({ ...base, PINATA_JWT: "very-secret" });
+    expect(c.pinner).toBe("pinata");
+    expect(c.pinataJwt).toBe("very-secret");
+  });
+
+  it("allows the fake pinner for development and refuses it in production", () => {
+    expect(loadConfig({ ...base, PINNER: "fake" }).pinner).toBe("fake");
+    expect(() => loadConfig({ ...base, PINNER: "fake", NODE_ENV: "production" })).toThrow(/PINNER/);
+  });
+
+  it("refuses a PINNER it does not know", () => {
+    expect(() => loadConfig({ ...base, PINNER: "ipfs-magic" })).toThrow(/PINNER/);
+  });
 });

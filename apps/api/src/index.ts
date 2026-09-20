@@ -5,6 +5,7 @@ import { verifyEoaSignature, verifyWithChain } from "./auth/signature.js";
 import { loadConfig } from "./config.js";
 import { isDatabaseReady } from "./db.js";
 import { startLoop } from "./loop.js";
+import { fakePinner, pinataPinner } from "./metadata/pin.js";
 import { resolvePending } from "./metadata/resolver.js";
 
 const config = loadConfig();
@@ -13,6 +14,7 @@ const app = createApp({
   corsOrigins: config.corsOrigins,
   ready: isDatabaseReady,
   launchpads: { [deployment.chainId]: deployment.launchpad },
+  pinner: config.pinner === "pinata" ? pinataPinner(config.pinataJwt!) : config.pinner === "fake" ? fakePinner() : undefined,
   auth: {
     domain: new URL(config.webOrigin).host,
     uri: config.webOrigin,

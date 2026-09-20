@@ -10,6 +10,10 @@ export interface Config {
   rpcUrl?: string;
   /** True behind a reverse proxy: rate limits then count the client the proxy reports, not the proxy. */
   trustProxy: boolean;
+  /** Where logos and metadata are pinned. Undefined: uploads answer 503. "fake" pins nothing (never in production). */
+  pinner?: "pinata" | "fake";
+  /** Pinata's key. Exists only in the API's environment; nothing secret is ever put in a NEXT_PUBLIC_ variable. */
+  pinataJwt?: string;
 }
 
 function parseGateway(raw: string | undefined): string {
@@ -64,6 +68,15 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
 
   if (env.RPC_URL) parseHttpUrl("RPC_URL", env.RPC_URL); // validated here, used as given
 
+  if (env.PINNER !== undefined && env.PINNER !== "pinata" && env.PINNER !== "fake") {
+    throw new Error(`PINNER must be "pinata" or "fake" (got "${env.PINNER}")`);
+  }
+  if (env.PINNER === "fake" && env.NODE_ENV === "production") {
+    throw new Error('PINNER="fake" pins nothing and is refused in production');
+  }
+  const pinner = env.PINNER ?? (env.PINATA_JWT ? "pinata" : undefined);
+  if (pinner === "pinata" && !env.PINATA_JWT) throw new Error('PINNER="pinata" needs PINATA_JWT');
+
   return {
     databaseUrl,
     port,
@@ -72,5 +85,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     webOrigin: web.origin,
     rpcUrl: env.RPC_URL || undefined,
     trustProxy: env.TRUST_PROXY === "true",
+    pinner,
+    pinataJwt: env.PINATA_JWT || undefined,
   };
 }

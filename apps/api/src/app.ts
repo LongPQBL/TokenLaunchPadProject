@@ -4,7 +4,9 @@ import { cors } from "hono/cors";
 import type { VerifySignature } from "./auth/signature.js";
 import { apiError, errorHandler, notFoundHandler } from "./errors.js";
 import type { TokenDetail } from "./queries/tokenDetail.js";
+import type { Pinner } from "./metadata/pin.js";
 import { authRoutes } from "./routes/auth.js";
+import { metadataRoutes } from "./routes/metadata.js";
 import { tokensRoutes } from "./routes/tokens.js";
 
 /** What sign-in needs to know about the site it serves. Absent, sign-in answers 503. */
@@ -27,6 +29,8 @@ export interface AppDeps {
   /** Launchpad contract address per chain id, so the holders list can leave it out. */
   launchpads: Record<number, string>;
   auth: AuthDeps;
+  /** Where logos and metadata are pinned. Absent, uploads answer 503. */
+  pinner: Pinner;
 }
 
 /** `token` is set only inside the /:chain/tokens/:address routes, by the middleware that resolves it. */
@@ -52,6 +56,7 @@ export function createApp(deps: Partial<AppDeps> = {}): Hono<AppEnv> {
   );
 
   app.route("/", authRoutes(deps.auth));
+  app.route("/", metadataRoutes({ pinner: deps.pinner }));
 
   app.get("/health", (c) => c.json({ status: "ok" }));
   app.get("/ready", async (c) => {

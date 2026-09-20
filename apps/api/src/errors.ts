@@ -1,7 +1,7 @@
 import type { Context, ErrorHandler, NotFoundHandler } from "hono";
 
 /** One error shape for the whole API: a machine code plus text a person can read (spec §5). */
-export const apiError = (c: Context, status: 400 | 401 | 403 | 404 | 429 | 500 | 503, code: string, message: string) =>
+export const apiError = (c: Context, status: 400 | 401 | 403 | 404 | 413 | 429 | 500 | 502 | 503, code: string, message: string) =>
   c.json({ error: code, message }, status);
 
 /**

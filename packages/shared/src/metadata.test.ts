@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { safeHttpUrl, tokenMetadataSchema } from "./metadata.js";
+import { ALLOWED_IMAGE_TYPES, buildMetadata, MAX_IMAGE_BYTES, safeHttpUrl, tokenFormSchema, tokenMetadataSchema } from "./metadata.js";
 
 describe("safeHttpUrl", () => {
   it("accepts http and https", () => {
@@ -76,5 +76,74 @@ describe("tokenMetadataSchema", () => {
   it("keeps a name containing markup as literal text, to be escaped at render time", () => {
     const out = tokenMetadataSchema.parse({ ...valid, name: "<script>x</script>" });
     expect(out.name).toBe("<script>x</script>");
+  });
+});
+
+describe("tokenFormSchema", () => {
+  const form = { name: "Demo Token", ticker: "demo", description: "About it", antiSniperWindow: 60 };
+
+  it("accepts a normal form and defaults the window to 60 seconds", () => {
+    const parsed = tokenFormSchema.parse({ name: "Demo", ticker: "DEMO" });
+    expect(parsed).toMatchObject({ name: "Demo", ticker: "DEMO", description: "", antiSniperWindow: 60 });
+    expect(tokenFormSchema.safeParse(form).success).toBe(true);
+  });
+
+  it("trims the name and the ticker", () => {
+    expect(tokenFormSchema.parse({ name: "  Demo  ", ticker: " DEMO " })).toMatchObject({ name: "Demo", ticker: "DEMO" });
+  });
+
+  it("rejects what the contract or the resolver would: an empty or 33-character name, a 1-character or spaced ticker", () => {
+    const bad = [
+      { ...form, name: "" },
+      { ...form, name: "x".repeat(33) },
+      { ...form, ticker: "D" },
+      { ...form, ticker: "DE MO" },
+      { ...form, ticker: "A".repeat(11) },
+      { ...form, ticker: "DÉMO" },
+    ];
+    for (const b of bad) expect(tokenFormSchema.safeParse(b).success, JSON.stringify(b)).toBe(false);
+  });
+
+  it("accepts exactly the four anti-sniper windows the contract does", () => {
+    for (const w of [0, 60, 600, 5880]) expect(tokenFormSchema.safeParse({ ...form, antiSniperWindow: w }).success).toBe(true);
+    for (const w of [30, 61, -1, 5881, "60"]) expect(tokenFormSchema.safeParse({ ...form, antiSniperWindow: w }).success, String(w)).toBe(false);
+  });
+
+  it("REJECTS a link that is not http(s), unlike the reader, which drops it: a form is where a person can still fix it", () => {
+    for (const website of ["javascript:alert(1)", "data:text/html,x", "ftp://x.example", "not a url", "https://" + "a".repeat(200) + ".com"]) {
+      expect(tokenFormSchema.safeParse({ ...form, website }).success, website).toBe(false);
+    }
+    expect(tokenFormSchema.safeParse({ ...form, website: "https://example.com", twitter: "https://x.com/demo", telegram: "https://t.me/demo" }).success).toBe(true);
+  });
+
+  it("treats an empty optional field as absent, so a form left blank is valid", () => {
+    const parsed = tokenFormSchema.parse({ ...form, website: "", twitter: "", telegram: "" });
+    expect([parsed.website, parsed.twitter, parsed.telegram]).toEqual([undefined, undefined, undefined]);
+  });
+
+  it("caps the description at 500 characters", () => {
+    expect(tokenFormSchema.safeParse({ ...form, description: "x".repeat(501) }).success).toBe(false);
+    expect(tokenFormSchema.safeParse({ ...form, description: "x".repeat(500) }).success).toBe(true);
+  });
+});
+
+describe("buildMetadata", () => {
+  it("builds the document the reader accepts, with the ticker upper-cased and the image as an ipfs:// URI", () => {
+    const form = tokenFormSchema.parse({ name: "Demo", ticker: "demo", description: "d", website: "https://example.com" });
+    const doc = buildMetadata(form, "bafyimage");
+    expect(doc).toEqual({ name: "Demo", symbol: "DEMO", description: "d", image: "ipfs://bafyimage", socials: { website: "https://example.com" } });
+    expect(tokenMetadataSchema.safeParse(doc).success).toBe(true);
+  });
+
+  it("leaves out links that were not given", () => {
+    const doc = buildMetadata(tokenFormSchema.parse({ name: "Demo", ticker: "DEMO" }), "bafyimage");
+    expect(doc.socials).toEqual({});
+  });
+});
+
+describe("image limits", () => {
+  it("are 2 MB and PNG, JPEG or WebP only: never SVG, which can carry script", () => {
+    expect(MAX_IMAGE_BYTES).toBe(2 * 1024 * 1024);
+    expect([...ALLOWED_IMAGE_TYPES]).toEqual(["image/png", "image/jpeg", "image/webp"]);
   });
 });

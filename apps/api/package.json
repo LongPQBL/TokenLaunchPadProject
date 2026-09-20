@@ -16,6 +16,7 @@
     "@vezta/shared": "workspace:*",
     "hono": "^4.6.0",
     "postgres": "^3.4.0",
+    "sharp": "^0.34.5",
     "viem": "^2.56.8",
     "zod": "^3.25.76"
   },
