@@ -72,3 +72,30 @@ describe("what earlier groups guaranteed still holds", () => {
     await expect(prisma.comment.create({ data: { chainId: SEPOLIA, token: "0xbb", author: "0xaa", body: "x".repeat(500) } })).resolves.toBeDefined();
   });
 });
+
+describe("reports", () => {
+  const file = (reporter: string, token: string, over: { resolved?: boolean } = {}) =>
+    prisma.report.create({ data: { chainId: SEPOLIA, token, reporter, reason: "spam", ...over } });
+
+  beforeEach(async () => {
+    await prisma.appUser.createMany({ data: [{ address: "0xa1" }, { address: "0xa2" }] });
+  });
+
+  it("holds one unsettled report per person per token, even if two arrive together", async () => {
+    await file("0xa1", "0xb1");
+    await expect(file("0xa1", "0xb1")).rejects.toThrow();
+    expect(await prisma.report.count()).toBe(1);
+  });
+
+  it("lets two people report the same token, and one person report two tokens", async () => {
+    await file("0xa1", "0xb1");
+    await expect(file("0xa2", "0xb1")).resolves.toBeDefined();
+    await expect(file("0xa1", "0xb2")).resolves.toBeDefined();
+  });
+
+  it("lets a person report a token again once their earlier report was dealt with", async () => {
+    await file("0xa1", "0xb1", { resolved: true });
+    await expect(file("0xa1", "0xb1")).resolves.toBeDefined();
+    await expect(file("0xa1", "0xb1", { resolved: true })).resolves.toBeDefined(); // settled ones may pile up
+  });
+});

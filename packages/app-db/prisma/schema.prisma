@@ -75,6 +75,7 @@ model Report {
   createdAt DateTime @default(now()) @map("created_at")
   user      AppUser  @relation(fields: [reporter], references: [address])
 
+  // A partial unique index (see the one_open_report_each migration) keeps one unsettled report per person per token.
   @@index([resolved, createdAt])
   @@map("report")
   @@schema("app")

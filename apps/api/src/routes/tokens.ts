@@ -5,6 +5,7 @@ import { jsonSafe } from "../json.js";
 import { getCandles } from "../queries/candles.js";
 import type { CommentPublisher } from "../realtime/comments.js";
 import { commentsRoutes } from "./comments.js";
+import { reportsRoutes } from "./reports.js";
 import { listHolders } from "../queries/holders.js";
 import { getToken } from "../queries/tokenDetail.js";
 import { BadCursorError, listTokens, SORTS, type Sort } from "../queries/tokenList.js";
@@ -72,6 +73,8 @@ export function tokensRoutes(deps: TokensRoutesDeps): Hono<AppEnv> {
 
   routes.get("/:address", (c) => json(c, c.get("token")));
   routes.route("/:address/comments", commentsRoutes({ ipfsGateway: deps.ipfsGateway ?? "https://ipfs.io", publishComment: deps.publishComment }));
+
+  routes.route("/:address/report", reportsRoutes());
 
   routes.get("/:address/trades", async (c) => {
     try {

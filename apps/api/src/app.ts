@@ -65,7 +65,7 @@ export function createApp(deps: Partial<AppDeps> = {}): Hono<AppEnv> {
     }),
   );
 
-  app.route("/", authRoutes(deps.auth));
+  app.route("/", authRoutes(deps.auth, deps.adminAddresses));
   app.route("/", metadataRoutes({ pinner: deps.pinner }));
 
   app.get("/health", (c) => c.json({ status: "ok" }));

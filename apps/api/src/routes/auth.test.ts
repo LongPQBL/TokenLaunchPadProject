@@ -36,7 +36,17 @@ describe("sign in: the accepted path", () => {
     const { cookie, address } = await signIn(app);
     const me = await app.request("/me", { headers: { cookie } });
     expect(me.status).toBe(200);
-    expect(await me.json()).toEqual({ address });
+    expect(await me.json()).toEqual({ address, admin: false });
+  });
+
+  // For the interface only (which buttons to draw): every admin route checks again on its own.
+  it("says whether the signed-in address is an admin, to that person and no one else", async () => {
+    const boss = randomAccount();
+    const withAdmin = createApp({ auth: { domain: TEST_DOMAIN, uri: TEST_URI, chainId: TEST_CHAIN }, adminAddresses: [boss.address] });
+    const asBoss = await signIn(withAdmin, boss);
+    const asOther = await signIn(withAdmin);
+    expect(await (await withAdmin.request("/me", { headers: { cookie: asBoss.cookie } })).json()).toEqual({ address: asBoss.address, admin: true });
+    expect(await (await withAdmin.request("/me", { headers: { cookie: asOther.cookie } })).json()).toEqual({ address: asOther.address, admin: false });
   });
 
   it("stores the session under a hash, so a leaked table is not a set of working cookies", async () => {

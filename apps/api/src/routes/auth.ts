@@ -24,9 +24,10 @@ const SIGN_IN_FAILED = { error: "invalid_signin", message: "That sign-in could n
  * tripped. The signature is checked BEFORE the nonce is spent: otherwise anyone could burn a stranger's challenge by
  * presenting a forgery against it.
  */
-export function authRoutes(auth: AuthDeps | undefined): Hono<AppEnv> {
+export function authRoutes(auth: AuthDeps | undefined, adminAddresses: readonly string[] = []): Hono<AppEnv> {
   const routes = new Hono<AppEnv>();
   const verify = auth?.verify ?? verifyEoaSignature;
+  const admins = new Set(adminAddresses.map((a) => a.toLowerCase()));
 
   routes.get(
     "/auth/nonce",
@@ -69,7 +70,8 @@ export function authRoutes(auth: AuthDeps | undefined): Hono<AppEnv> {
     return c.json({ ok: true });
   });
 
-  routes.get("/me", requireSession, (c) => c.json({ address: c.get("address") }));
+  // `admin` only decides which buttons the page draws. Every admin route checks for itself.
+  routes.get("/me", requireSession, (c) => c.json({ address: c.get("address"), admin: admins.has(c.get("address")) }));
 
   return routes;
 }
