@@ -53,14 +53,18 @@ export async function setMetadata(token: string, fields: Partial<Metadata> & { s
  * mismatch, a failed request or an uncaught exception all land here, so "the page rendered" cannot hide "the page is
  * broken". A test that is MEANT to get a 404 says so with `test.use({ expectedNotFound: ["/path"] })`.
  */
-export const test = base.extend<{ expectedNotFound: string[] }>({
+export const test = base.extend<{ expectedNotFound: string[]; expectedConsoleErrors: RegExp[] }>({
   expectedNotFound: [[], { option: true }],
-  page: async ({ page, expectedNotFound }, use) => {
+  // A test that deliberately provokes the browser (a CSP test) says which errors it expects.
+  expectedConsoleErrors: [[], { option: true }],
+  page: async ({ page, expectedNotFound, expectedConsoleErrors }, use) => {
     const problems: string[] = [];
     page.on("pageerror", (error) => problems.push(`pageerror: ${error.message}`));
     page.on("console", (message) => {
       // Chrome's "Failed to load resource" line names no URL, so the response listener below reports those, with one.
-      if (message.type() === "error" && !message.text().startsWith("Failed to load resource")) problems.push(`console.error: ${message.text()}`);
+      if (message.type() === "error" && !message.text().startsWith("Failed to load resource") && !expectedConsoleErrors.some((re) => re.test(message.text()))) {
+        problems.push(`console.error: ${message.text()}`);
+      }
     });
     page.on("response", (response) => {
       const { pathname } = new URL(response.url());

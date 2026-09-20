@@ -46,6 +46,9 @@ kill_tree() {
 cleanup() {
   local code=$?
   for pid in "${PIDS[@]:-}"; do [ -n "$pid" ] && kill_tree "$pid"; done
+  # The Anvil is started by local-chain.sh, whose own cleanup can lose a race with being killed. Its command line names this
+  # run's port, so it can be found and stopped precisely: no other process matches.
+  pkill -f "anvil --fork-url .* --port $ANVIL_PORT" 2>/dev/null || true
   echo "logs: $LOGS"
   exit $code
 }

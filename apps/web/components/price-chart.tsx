@@ -26,7 +26,7 @@ export function PriceChart({ candles }: { candles: ChartCandle[] }) {
     if (!hasData || !container.current) return;
     const chart = createChart(container.current, {
       autoSize: true,
-      layout: { background: { color: "transparent" }, textColor: "#8c8c8c", fontFamily: "JetBrains Mono, ui-monospace, monospace" },
+      layout: { attributionLogo: false, background: { color: "transparent" }, textColor: "#8c8c8c", fontFamily: "JetBrains Mono, ui-monospace, monospace" },
       grid: { vertLines: { color: "#1a1a1a" }, horzLines: { color: "#1a1a1a" } },
       rightPriceScale: { borderColor: "#262626" },
       timeScale: { borderColor: "#262626", timeVisible: true, secondsVisible: false },
@@ -68,5 +68,14 @@ export function PriceChart({ candles }: { candles: ChartCandle[] }) {
       </p>
     );
   }
-  return <div ref={container} data-testid="price-chart" role="img" aria-label="Price chart" className="h-80 w-full border border-border" />;
+  return (
+    <div className="flex flex-col gap-1">
+      <div ref={container} data-testid="price-chart" role="img" aria-label="Price chart" className="h-80 w-full border border-border" />
+      {/* The chart library's licence asks for this credit. Its built-in logo is off: it is added by a <style> element created at
+          run time, which the page's Content Security Policy refuses. */}
+      <a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer" className="self-end text-xs text-muted-foreground hover:underline">
+        Charts by TradingView
+      </a>
+    </div>
+  );
 }

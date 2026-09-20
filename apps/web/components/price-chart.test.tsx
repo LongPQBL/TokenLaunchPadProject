@@ -32,6 +32,17 @@ describe("PriceChart", () => {
     expect(fitContent).toHaveBeenCalled();
   });
 
+  // The library's own logo is put in place by a <style> element it creates at run time, which a strict Content Security
+  // Policy refuses. Its licence asks for an attribution link instead, and that is ordinary markup.
+  it("does not let the chart library inject its own stylesheet, and credits it with a link instead", () => {
+    render(<PriceChart candles={series} />);
+    const options = (createChart.mock.calls[0] as unknown as [unknown, { layout: { attributionLogo: boolean } }])[1];
+    expect(options.layout.attributionLogo).toBe(false);
+    const link = screen.getByRole("link", { name: "Charts by TradingView" });
+    expect(link).toHaveAttribute("href", "https://www.tradingview.com/");
+    expect(link).toHaveAttribute("rel", expect.stringContaining("noopener"));
+  });
+
   it("formats the price axis for tiny numbers instead of a fixed number of decimals", () => {
     render(<PriceChart candles={series} />);
     const options = (addSeries.mock.calls[0] as unknown as [unknown, { priceFormat: { type: string; formatter: (n: number) => string; minMove: number } }])[1];
