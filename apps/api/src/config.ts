@@ -16,6 +16,8 @@ export interface Config {
   pinataJwt?: string;
   /** Where the watcher publishes live events. Absent: no websockets, and pages poll instead. */
   redisUrl?: string;
+  /** Who may use the moderation tools, lower-case. Empty: nobody, and the admin routes look like they do not exist. */
+  adminAddresses: string[];
 }
 
 function parseGateway(raw: string | undefined): string {
@@ -41,6 +43,18 @@ function parseHttpUrl(name: string, raw: string): URL {
   }
   if (url.protocol !== "http:" && url.protocol !== "https:") throw new Error(`${name} must be an http(s) URL (got "${raw}")`);
   return url;
+}
+
+function parseAdminAddresses(raw: string | undefined): string[] {
+  const entries = (raw ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  for (const entry of entries) {
+    // Refused at start-up: a typo here would lock the operator out of their own tools with nothing to say why.
+    if (!/^0x[0-9a-fA-F]{40}$/.test(entry)) throw new Error(`ADMIN_ADDRESSES must be a comma-separated list of addresses (got "${entry}")`);
+  }
+  return entries.map((entry) => entry.toLowerCase());
 }
 
 /** Everything the API reads from the environment, validated once at start-up rather than at first use. */
@@ -95,5 +109,6 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     pinner,
     pinataJwt: env.PINATA_JWT || undefined,
     redisUrl: env.REDIS_URL || undefined,
+    adminAddresses: parseAdminAddresses(env.ADMIN_ADDRESSES),
   };
 }

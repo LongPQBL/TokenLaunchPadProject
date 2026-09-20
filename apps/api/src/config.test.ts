@@ -99,4 +99,26 @@ describe("loadConfig", () => {
     }
     throw new Error("should have refused");
   });
+
+  describe("ADMIN_ADDRESSES", () => {
+    const A = "0x00000000000000000000000000000000000000a1";
+    const B = "0x00000000000000000000000000000000000000B2";
+
+    it("defaults to nobody", () => {
+      expect(loadConfig(base).adminAddresses).toEqual([]);
+      expect(loadConfig({ ...base, ADMIN_ADDRESSES: "" }).adminAddresses).toEqual([]);
+    });
+
+    it("reads a comma-separated list, trimming, dropping blanks and lower-casing", () => {
+      expect(loadConfig({ ...base, ADMIN_ADDRESSES: ` ${A} , ,${B},` }).adminAddresses).toEqual([A, B.toLowerCase()]);
+    });
+
+    // A typo here would lock the operator out of their own tools with no sign of why, so start-up refuses it.
+    it("refuses an entry that is not an address, naming it", () => {
+      for (const bad of ["0x123", "admin", `${A} 0xabc`, "0xZZ00000000000000000000000000000000000001"]) {
+        expect(() => loadConfig({ ...base, ADMIN_ADDRESSES: bad }), bad).toThrow(/ADMIN_ADDRESSES/);
+      }
+      expect(() => loadConfig({ ...base, ADMIN_ADDRESSES: `${A},oops` })).toThrow(/oops/);
+    });
+  });
 });
