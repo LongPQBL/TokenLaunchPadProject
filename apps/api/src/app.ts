@@ -3,9 +3,11 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { VerifySignature } from "./auth/signature.js";
 import { apiError, errorHandler, notFoundHandler } from "./errors.js";
+import { createRequireAdmin } from "./middleware/admin.js";
 import type { TokenDetail } from "./queries/tokenDetail.js";
 import type { Pinner } from "./metadata/pin.js";
 import type { CommentPublisher } from "./realtime/comments.js";
+import { moderationRoutes } from "./routes/admin/moderation.js";
 import { authRoutes } from "./routes/auth.js";
 import { holdingsRoutes } from "./routes/holdings.js";
 import { metadataRoutes } from "./routes/metadata.js";
@@ -37,6 +39,8 @@ export interface AppDeps {
   ipfsGateway: string;
   /** Tells a token's live room about a new comment (best-effort). Absent when there is no Redis. */
   publishComment: CommentPublisher;
+  /** Who may moderate, lower-case. Empty or absent: nobody, and the admin routes answer as if they were not there. */
+  adminAddresses: string[];
 }
 
 /** `token` is set only inside the /:chain/tokens/:address routes, by the middleware that resolves it. */
@@ -86,6 +90,13 @@ export function createApp(deps: Partial<AppDeps> = {}): Hono<AppEnv> {
   });
   chain.route("/tokens", tokensRoutes({ launchpads: deps.launchpads ?? {}, ipfsGateway: deps.ipfsGateway, publishComment: deps.publishComment }));
   chain.route("/addresses", holdingsRoutes());
+  // Under the chain, not beside it: an unknown chain is answered before anything here is reached, and a non-admin is then
+  // answered exactly as for any other path under a real chain. At the top level, /admin/... would be "an unknown chain
+  // called admin" for everyone but the admins, and that difference alone would say the routes are there.
+  const admin = new Hono<AppEnv>();
+  admin.use("*", createRequireAdmin(deps.adminAddresses ?? []));
+  admin.route("/", moderationRoutes());
+  chain.route("/admin", admin);
   app.route("/:chain", chain);
 
   return app;

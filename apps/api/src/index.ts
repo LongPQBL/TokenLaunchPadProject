@@ -22,6 +22,7 @@ redis?.on("error", () => {});
 const app = createApp({
   publishComment: createCommentPublisher(redis ? (channel, message) => redis.publish(channel, message) : undefined),
   corsOrigins: config.corsOrigins,
+  adminAddresses: config.adminAddresses,
   ipfsGateway: config.ipfsGatewayUrl,
   ready: isDatabaseReady,
   launchpads: { [deployment.chainId]: deployment.launchpad },
