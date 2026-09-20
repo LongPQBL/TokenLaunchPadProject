@@ -4,4 +4,5 @@ export * from "./chains";
 export * from "./curve";
 export * from "./format";
 export * from "./metadata";
+export * from "./quote";
 export * from "./strings";
