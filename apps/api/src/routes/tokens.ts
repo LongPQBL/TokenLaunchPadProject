@@ -2,14 +2,17 @@ import { Hono, type Context } from "hono";
 import type { AppEnv } from "../app.js";
 import { apiError } from "../errors.js";
 import { jsonSafe } from "../json.js";
+import { getCandles } from "../queries/candles.js";
 import { listHolders } from "../queries/holders.js";
 import { getToken } from "../queries/tokenDetail.js";
 import { BadCursorError, listTokens, SORTS, type Sort } from "../queries/tokenList.js";
 import { BadTradeCursorError, listTrades } from "../queries/trades.js";
 
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
+const DEFAULT_INTERVAL = 60; // seconds
+const MAX_INTERVAL = 604_800; // one week
 
-/** A page size is a hint, not an input worth rejecting: junk means the default, the rest is clamped. */
+/** A page size or an interval is a hint, not an input worth rejecting: junk means the default, the rest is clamped. */
 function parseLimit(raw: string | undefined, fallback: number, max: number): number {
   if (raw === undefined || raw === "") return fallback;
   const n = Number(raw);
@@ -77,6 +80,17 @@ export function tokensRoutes(deps: TokensRoutesDeps): Hono<AppEnv> {
       if (e instanceof BadTradeCursorError) return apiError(c, 400, "bad_cursor", "Malformed cursor.");
       throw e;
     }
+  });
+
+  routes.get("/:address/candles", async (c) => {
+    const from = Number(c.req.query("from"));
+    const items = await getCandles(
+      c.get("chain").chainId,
+      c.req.param("address").toLowerCase(),
+      parseLimit(c.req.query("interval"), DEFAULT_INTERVAL, MAX_INTERVAL),
+      Number.isFinite(from) ? from : 0,
+    );
+    return json(c, { items });
   });
 
   routes.get("/:address/holders", async (c) => {
