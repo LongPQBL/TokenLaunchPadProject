@@ -35,7 +35,11 @@ export const trade = onchainTable("trade", (t) => ({
   virtualQuoteReserves: t.bigint().notNull(),
   virtualTokenReserves: t.bigint().notNull(),
   timestamp: t.bigint().notNull(),
+  // Order trades by (blockNumber, logIndex), never by (timestamp, id): every trade in a block shares a
+  // timestamp, and id sorts by transaction hash, which is effectively random. Without logIndex the open
+  // and close of a candle are non-deterministic whenever a block holds more than one trade.
   blockNumber: t.bigint().notNull(),
+  logIndex: t.integer().notNull(),
 }));
 
 /** Token balances per holder, maintained from ERC20 Transfer events. */

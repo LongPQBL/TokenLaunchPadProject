@@ -226,6 +226,7 @@ type trade {
   virtualTokenReserves: BigInt!
   timestamp: BigInt!
   blockNumber: BigInt!
+  logIndex: Int!
 }
 
 type tradePage {
@@ -341,6 +342,14 @@ input tradeFilter {
   blockNumber_lt: BigInt
   blockNumber_gte: BigInt
   blockNumber_lte: BigInt
+  logIndex: Int
+  logIndex_not: Int
+  logIndex_in: [Int]
+  logIndex_not_in: [Int]
+  logIndex_gt: Int
+  logIndex_lt: Int
+  logIndex_gte: Int
+  logIndex_lte: Int
 }
 
 type balance {
