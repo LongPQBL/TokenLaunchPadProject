@@ -16,6 +16,9 @@ export const CHAIN_ID = 11155111;
 /** The local fork the browser wallet sends transactions to. */
 export const RPC_URL = need("E2E_RPC_URL");
 
+/** The wallet the API treats as an admin. Random, made by the script that starts the stack: never a well-known key. */
+export const ADMIN_KEY = need("E2E_ADMIN_KEY") as `0x${string}`;
+
 export const sql = postgres(need("E2E_DATABASE_URL"), { onnotice: () => {} });
 
 interface Metadata {

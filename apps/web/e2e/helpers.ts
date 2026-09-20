@@ -39,3 +39,33 @@ export async function createToken(page: Page, opts: { window: "No protection" | 
 }
 
 export const panel = (page: Page) => page.getByTestId("trade-panel");
+
+export const main = (page: Page) => page.locator("main");
+
+/** A short tag that no other comment carries, so a test can find its own words on a page other tests have written on. */
+export const tag = () => `t${Math.random().toString(36).slice(2, 8)}`;
+
+/**
+ * Opens the Comments tab and, if the form is asking for a session, signs in. (The wallet signs the sign-in message itself,
+ * as a person would confirm it.) Ends with the comment box on screen.
+ */
+export async function openCommentsSignedIn(page: Page) {
+  await page.getByRole("tab", { name: "Comments" }).click();
+  const signIn = main(page).getByRole("button", { name: "Sign in" });
+  if (
+    await signIn.waitFor({ state: "visible", timeout: 5_000 }).then(
+      () => true,
+      () => false,
+    )
+  )
+    await signIn.click();
+  await expect(main(page).getByRole("textbox", { name: "Comment" })).toBeVisible();
+}
+
+export async function postComment(page: Page, text: string) {
+  await main(page).getByRole("textbox", { name: "Comment" }).fill(text);
+  await main(page).getByRole("button", { name: "Post" }).click();
+}
+
+/** The comment bodies on the page whose text contains `needle`. */
+export const commentsWith = (page: Page, needle: string) => page.getByTestId("comment-body").filter({ hasText: needle });

@@ -17,8 +17,8 @@ import { sepolia } from "viem/chains";
  */
 const walletError = (code: number, message: string) => new Error(`[code:${code}] ${message}`);
 
-export async function installWallet(page: Page, rpcUrl: string, options: { balanceEth?: number } = {}) {
-  const account = privateKeyToAccount(generatePrivateKey());
+export async function installWallet(page: Page, rpcUrl: string, options: { balanceEth?: number; privateKey?: Hex } = {}) {
+  const account = privateKeyToAccount(options.privateKey ?? generatePrivateKey());
   const client = createWalletClient({ account, chain: sepolia, transport: http(rpcUrl) });
 
   const rpc = async (method: string, params: unknown[] = []) => {

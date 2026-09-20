@@ -134,11 +134,17 @@ cast rpc anvil_setBalance "$BOT_ADDR" 0x8AC7230489E80000 --rpc-url "$RPC" >/dev/
 PIDS+=($!)
 wait_for "the bot" 60 grep -q "watching" "$LOGS/bot.log"
 
+# The admin's wallet, for the moderation tests: random like the bot's, never a well-known key. The API is told its address; the
+# tests are given the key, so a test can act as the admin.
+ADMIN_KEY="$(cast wallet new | awk '/Private key/ {print $3}')"
+ADMIN_ADDR="$(cast wallet address --private-key "$ADMIN_KEY")"
+
 # --- 5. the API ----------------------------------------------------------------------------------------------------------
 log "Starting the API on :$API_PORT"
 # WEB_ORIGIN is the domain a sign-in message must name; PINNER=fake because there is no Pinata key here (and it pins nothing).
 (cd "$ROOT/apps/api" && DATABASE_URL="$DB_URL" DEPLOYMENT=local PORT="$API_PORT" CORS_ORIGINS="http://localhost:$WEB_PORT" \
-  WEB_ORIGIN="http://localhost:$WEB_PORT" PINNER=fake REDIS_URL="redis://127.0.0.1:$REDIS_PORT" pnpm start > "$LOGS/api.log" 2>&1) &
+  WEB_ORIGIN="http://localhost:$WEB_PORT" PINNER=fake REDIS_URL="redis://127.0.0.1:$REDIS_PORT" \
+  ADMIN_ADDRESSES="$ADMIN_ADDR" INDEXER_URL="http://localhost:$PONDER_PORT" pnpm start > "$LOGS/api.log" 2>&1) &
 PIDS+=($!)
 wait_for "the API" 60 curl -sf "http://localhost:$API_PORT/ready"
 
@@ -157,7 +163,7 @@ wait_for "the web app" 60 curl -sf "http://localhost:$WEB_PORT/sepolia"
 log "Running the browser tests"
 cd "$ROOT/apps/web"
 E2E_BASE_URL="http://localhost:$WEB_PORT" E2E_TOKEN="$E2E_TOKEN" E2E_SAME_BLOCK_TOKEN="$E2E_SAME_BLOCK_TOKEN" \
-  E2E_LAUNCHPAD="$LAUNCHPAD" E2E_DATABASE_URL="$DB_URL" E2E_RPC_URL="$RPC" \
+  E2E_LAUNCHPAD="$LAUNCHPAD" E2E_DATABASE_URL="$DB_URL" E2E_RPC_URL="$RPC" E2E_ADMIN_KEY="$ADMIN_KEY" \
   pnpm exec playwright test "$@" || STATUS=$?
 
 # E2E_HOLD=<seconds> keeps the whole stack up after the tests, for poking at it by hand or with a script.
