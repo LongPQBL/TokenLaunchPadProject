@@ -32,9 +32,18 @@ PIDS=()
 log() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
 die() { printf '\033[31mERROR: %s\033[0m\n' "$*" >&2; exit 1; }
 
+# Each service is started as `( cd ... && pnpm start ) &`, so $! is the SUBSHELL, and pnpm, tsx, next-server and ponder's
+# workers are its descendants. Killing only the subshell leaves those running on their ports. Children go first: once a
+# parent dies its children are re-parented and can no longer be found through it.
+kill_tree() {
+  local pid="$1" child
+  for child in $(pgrep -P "$pid" 2>/dev/null || true); do kill_tree "$child"; done
+  kill "$pid" 2>/dev/null || true
+}
+
 cleanup() {
   local code=$?
-  for pid in "${PIDS[@]:-}"; do [ -n "$pid" ] && kill "$pid" 2>/dev/null || true; done
+  for pid in "${PIDS[@]:-}"; do [ -n "$pid" ] && kill_tree "$pid"; done
   echo "logs: $LOGS"
   exit $code
 }
