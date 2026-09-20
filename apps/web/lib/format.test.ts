@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatPercentBps, formatRelativeTime, formatShareOfSupply, isAddress, shortAddress } from "./format";
+import { formatCountdown, formatMultiplier, formatPercentBps, formatRelativeTime, formatShareOfSupply, isAddress, shortAddress } from "./format";
 
 describe("formatRelativeTime", () => {
   const now = 1_700_000_000;
@@ -89,5 +89,26 @@ describe("formatPercentBps", () => {
   it("clamps to 0..100%", () => {
     expect(formatPercentBps(12000)).toBe("100%");
     expect(formatPercentBps(-300)).toBe("0%");
+  });
+});
+
+describe("formatCountdown", () => {
+  it("counts minutes and seconds, then hours", () => {
+    expect(formatCountdown(299)).toBe("4:59");
+    expect(formatCountdown(5)).toBe("0:05");
+    expect(formatCountdown(3600)).toBe("1:00:00");
+    expect(formatCountdown(5880)).toBe("1:38:00");
+  });
+
+  it("never shows a negative or fractional time", () => {
+    expect(formatCountdown(-4)).toBe("0:00");
+    expect(formatCountdown(59.9)).toBe("0:59");
+  });
+});
+
+describe("formatMultiplier", () => {
+  it("shows one decimal", () => {
+    expect(formatMultiplier(50.2)).toBe("50.2");
+    expect(formatMultiplier(10)).toBe("10.0");
   });
 });

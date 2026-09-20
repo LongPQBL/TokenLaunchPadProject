@@ -43,3 +43,16 @@ export function formatShareOfSupply(amount: bigint, supply: bigint = SUPPLY): st
   const bps = amount >= supply ? 10_000n : (amount * 10_000n) / supply;
   return bps === 0n ? "<0.01%" : `${(Number(bps) / 100).toFixed(2)}%`;
 }
+
+/** A countdown as m:ss, or h:mm:ss from an hour up. The longest launch-tax window is 98 minutes. */
+export function formatCountdown(seconds: number): string {
+  const total = Math.max(0, Math.floor(seconds));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  const ss = String(s).padStart(2, "0");
+  return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${ss}` : `${m}:${ss}`;
+}
+
+/** A multiplier to one decimal place, without the sign: 50.2 -> "50.2". */
+export const formatMultiplier = (multiplier: number): string => multiplier.toFixed(1);

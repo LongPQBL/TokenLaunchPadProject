@@ -20,6 +20,15 @@ export const UI = {
     collected: (have: string, target: string, symbol: string) => `${have} / ${target} ${symbol} collected`,
     tabs: { trades: "Trades", holders: "Holders", comments: "Comments" },
     tradeOnUniswap: "Trade on Uniswap",
+    launchTaxBanner: (multiplier: string, countdown: string) =>
+      `Launch protection is on: buying now costs ${multiplier}× the normal price. It ends in ${countdown}.`,
+    launchTaxDialog: {
+      title: "Launch tax is active",
+      body: (percent: string, multiplier: string) =>
+        `A ${percent} launch tax applies to buys right now, so this purchase costs ${multiplier}× the normal price. The tax falls every second until the window ends. Waiting is cheaper.`,
+      confirm: "Buy anyway",
+      cancel: "Cancel",
+    },
     creator: "creator",
     marketCap: "mcap",
     price: "price",
