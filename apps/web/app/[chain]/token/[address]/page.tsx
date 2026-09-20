@@ -1,5 +1,6 @@
 import { chainBySlug, UI } from "@vezta/shared";
 import { notFound } from "next/navigation";
+import { CommentList } from "@/components/comments/comment-list";
 import { GraduationProgress } from "@/components/graduation-progress";
 import { IndexingNotice } from "@/components/indexing-notice";
 import { HoldersTable } from "@/components/holders-table";
@@ -17,6 +18,7 @@ import { isAddress } from "@/lib/format";
 const CHART_INTERVAL = 60;
 const TRADES_LIMIT = 30;
 const HOLDERS_LIMIT = 20;
+const COMMENTS_LIMIT = 30;
 
 /**
  * A secondary request must not take the page down, and must not read as "nothing there" either: that would be false.
@@ -67,6 +69,7 @@ export default async function TokenPage({
   const candlesRequest = orUndefined(api.candles(chain, token, CHART_INTERVAL), "candles");
   const tradesRequest = orUndefined(api.trades(chain, token, { limit: TRADES_LIMIT }), "trades");
   const holdersRequest = orUndefined(api.holders(chain, token, { limit: HOLDERS_LIMIT }), "holders");
+  const commentsRequest = orUndefined(api.comments(chain, token, { limit: COMMENTS_LIMIT }), "comments");
 
   let detail;
   try {
@@ -79,7 +82,7 @@ export default async function TokenPage({
     return shell(<PanelError className="py-16 text-center text-muted-foreground" />);
   }
 
-  const [candles, trades, holders] = await Promise.all([candlesRequest, tradesRequest, holdersRequest]);
+  const [candles, trades, holders, comments] = await Promise.all([candlesRequest, tradesRequest, holdersRequest, commentsRequest]);
   const now = Math.floor(Date.now() / 1000);
 
   return shell(
@@ -96,7 +99,7 @@ export default async function TokenPage({
           <TokenTabs
             trades={trades ? <LiveTradesTable chain={chain} token={token} initial={trades.items} now={now} /> : <PanelError />}
             holders={holders ? <HoldersTable holders={holders.items} chain={chain} /> : <PanelError />}
-            comments={<p className="py-10 text-center text-muted-foreground">{UI.token.commentsSoon}</p>}
+            comments={comments ? <CommentList chain={chain} token={token} initial={comments.items} nextCursor={comments.nextCursor} now={now} /> : <PanelError />}
           />
         </div>
         {/* Trading happens on chain, straight from the person's wallet: this panel never asks the API for a price. */}

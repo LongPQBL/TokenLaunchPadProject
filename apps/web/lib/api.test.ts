@@ -1,6 +1,6 @@
 import { http, HttpResponse } from "msw";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import { ADDR, wireDetail, wireHolder, wireToken, wireTrade } from "../test/msw/fixtures";
+import { ADDR, wireComment, wireDetail, wireHolder, wireToken, wireTrade } from "../test/msw/fixtures";
 import { API } from "../test/msw/handlers";
 import { server } from "../test/msw/server";
 import { ApiError, createApi } from "./api";
@@ -26,7 +26,9 @@ function capture(path: string, body: unknown = { items: [] }) {
 
 describe("amounts cross the boundary as bigint", () => {
   it("turns a uint256-sized string into an exact bigint, never a rounded number", async () => {
-    server.use(http.get(`${API}/sepolia/tokens`, () => HttpResponse.json({ items: [wireToken({ volumeQuote: "1000000000000000000000000001" })] })));
+    server.use(
+      http.get(`${API}/sepolia/tokens`, () => HttpResponse.json({ items: [wireToken({ volumeQuote: "1000000000000000000000000001" })] })),
+    );
     const { items } = await api.tokens("sepolia");
     expect(items[0]!.volumeQuote).toBe(1_000_000_000_000_000_000_000_000_001n);
     expect(items[0]!.createdAt).toBe(1_700_000_000n);
@@ -50,7 +52,13 @@ describe("amounts cross the boundary as bigint", () => {
   });
 
   it("carries the optional fields through and leaves absent ones undefined", async () => {
-    server.use(http.get(`${API}/sepolia/tokens`, () => HttpResponse.json({ items: [wireToken({ imageUrl: "https://cdn/x.png" }), wireToken({ name: undefined, description: undefined })] })));
+    server.use(
+      http.get(`${API}/sepolia/tokens`, () =>
+        HttpResponse.json({
+          items: [wireToken({ imageUrl: "https://cdn/x.png" }), wireToken({ name: undefined, description: undefined })],
+        }),
+      ),
+    );
     const { items } = await api.tokens("sepolia");
     expect(items[0]!.imageUrl).toBe("https://cdn/x.png");
     expect(items[1]!.name).toBeUndefined();
@@ -123,7 +131,9 @@ describe("errors", () => {
   });
 
   it("carries a 400's code, for example a bad cursor", async () => {
-    server.use(http.get(`${API}/sepolia/tokens`, () => HttpResponse.json({ error: "bad_cursor", message: "Malformed cursor." }, { status: 400 })));
+    server.use(
+      http.get(`${API}/sepolia/tokens`, () => HttpResponse.json({ error: "bad_cursor", message: "Malformed cursor." }, { status: 400 })),
+    );
     expect(await api.tokens("sepolia", { cursor: "x" }).catch((x) => x)).toMatchObject({ status: 400, code: "bad_cursor" });
   });
 
@@ -153,10 +163,12 @@ describe("errors", () => {
   });
 
   it("lets an aborted request reject as an AbortError so the caller can tell it from a failure", async () => {
-    server.use(http.get(`${API}/sepolia/tokens`, async () => {
-      await new Promise((r) => setTimeout(r, 200));
-      return HttpResponse.json({ items: [] });
-    }));
+    server.use(
+      http.get(`${API}/sepolia/tokens`, async () => {
+        await new Promise((r) => setTimeout(r, 200));
+        return HttpResponse.json({ items: [] });
+      }),
+    );
     const controller = new AbortController();
     const pending = api.tokens("sepolia", { signal: controller.signal }).catch((x) => x);
     controller.abort();
@@ -172,8 +184,12 @@ describe("token detail", () => {
 
   it("reads a trade and a holder list end to end", async () => {
     server.use(
-      http.get(`${API}/sepolia/tokens/:address/trades`, () => HttpResponse.json({ items: [wireTrade(), wireTrade({ isBuy: false, id: "x-1" })] })),
-      http.get(`${API}/sepolia/tokens/:address/holders`, () => HttpResponse.json({ items: [wireHolder(), wireHolder({ holder: ADDR(2) })] })),
+      http.get(`${API}/sepolia/tokens/:address/trades`, () =>
+        HttpResponse.json({ items: [wireTrade(), wireTrade({ isBuy: false, id: "x-1" })] }),
+      ),
+      http.get(`${API}/sepolia/tokens/:address/holders`, () =>
+        HttpResponse.json({ items: [wireHolder(), wireHolder({ holder: ADDR(2) })] }),
+      ),
     );
     expect((await api.trades("sepolia", T)).items.map((t) => t.isBuy)).toEqual([true, false]);
     expect((await api.holders("sepolia", T)).items).toHaveLength(2);
@@ -182,14 +198,23 @@ describe("token detail", () => {
 
 describe("holdings of an address", () => {
   it("reads every token held, with the amount as an exact bigint", async () => {
-    server.use(http.get(`${API}/sepolia/addresses/:address/holdings`, () => HttpResponse.json({ items: [{ token: T, amount: "1000000000000000000000000001" }] })));
+    server.use(
+      http.get(`${API}/sepolia/addresses/:address/holdings`, () =>
+        HttpResponse.json({ items: [{ token: T, amount: "1000000000000000000000000001" }] }),
+      ),
+    );
     const { items } = await api.holdings("sepolia", ADDR(9));
     expect(items).toEqual([{ token: T, amount: 1_000_000_000_000_000_000_000_000_001n }]);
   });
 
   it("puts the address in the path, encoded", async () => {
     const seen: URL[] = [];
-    server.use(http.get(`${API}/sepolia/addresses/:address/holdings`, ({ request }) => (seen.push(new URL(request.url)), HttpResponse.json({ items: [] }))));
+    server.use(
+      http.get(
+        `${API}/sepolia/addresses/:address/holdings`,
+        ({ request }) => (seen.push(new URL(request.url)), HttpResponse.json({ items: [] })),
+      ),
+    );
     await api.holdings("sepolia", "0xa b/c");
     expect(seen[0]!.pathname).toBe("/sepolia/addresses/0xa%20b%2Fc/holdings");
   });
@@ -197,5 +222,41 @@ describe("holdings of an address", () => {
   it("does not trust an amount that is not a whole number", async () => {
     server.use(http.get(`${API}/sepolia/addresses/:address/holdings`, () => HttpResponse.json({ items: [{ token: T, amount: "1e18" }] })));
     await expect(api.holdings("sepolia", ADDR(9))).rejects.toMatchObject({ code: "bad_response" });
+  });
+});
+
+describe("comments", () => {
+  it("reads a page of them, with the time as a bigint and the cursor to the next", async () => {
+    server.use(
+      http.get(`${API}/sepolia/tokens/:address/comments`, () =>
+        HttpResponse.json({ items: [wireComment({ username: "bob" })], nextCursor: "abc" }),
+      ),
+    );
+    const page = await api.comments("sepolia", T);
+    expect(page).toEqual({
+      items: [{ id: "10", author: ADDR(0xc0de), username: "bob", body: "gm", createdAt: 1_700_000_000n }],
+      nextCursor: "abc",
+    });
+  });
+
+  it("passes the cursor and limit, and puts the token in the path, encoded", async () => {
+    const seen: URL[] = [];
+    server.use(
+      http.get(
+        `${API}/sepolia/tokens/:address/comments`,
+        ({ request }) => (seen.push(new URL(request.url)), HttpResponse.json({ items: [] })),
+      ),
+    );
+    await api.comments("sepolia", "0xa b", { cursor: "c1", limit: 30 });
+    expect(seen[0]!.pathname).toBe("/sepolia/tokens/0xa%20b/comments");
+    expect(seen[0]!.searchParams.get("cursor")).toBe("c1");
+    expect(seen[0]!.searchParams.get("limit")).toBe("30");
+  });
+
+  it("does not trust a comment whose id or time is not a whole number", async () => {
+    for (const bad of [{ id: "x1" }, { createdAt: "1e9" }, { body: 5 }]) {
+      server.use(http.get(`${API}/sepolia/tokens/:address/comments`, () => HttpResponse.json({ items: [wireComment(bad)] })));
+      await expect(api.comments("sepolia", T), JSON.stringify(bad)).rejects.toMatchObject({ code: "bad_response" });
+    }
   });
 });

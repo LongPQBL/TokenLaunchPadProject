@@ -58,3 +58,11 @@ export const wireCandle = (o: Record<string, unknown> = {}) => ({
   volume: "50015646996713005",
   ...o,
 });
+
+export const wireComment = (o: Record<string, unknown> = {}) => ({
+  id: "10",
+  author: ADDR(0xc0de),
+  body: "gm",
+  createdAt: "1700000000",
+  ...o,
+});

@@ -87,6 +87,22 @@ describe("createLiveClient", () => {
     expect(created).toHaveBeenCalledOnce();
   });
 
+  it("delivers a comment to the room of its token, and to no other room, not even the global feed", () => {
+    const fake = fakeSocket();
+    const c = createLiveClient({ socket: fake.socket });
+    const own = vi.fn();
+    const other = vi.fn();
+    const global = vi.fn();
+    c.subscribe(`token:sepolia:${T1}`, own);
+    c.subscribe(`token:sepolia:${T2}`, other);
+    c.subscribe("trades", global);
+    fake.up();
+    fake.message({ type: "comment", chain: "sepolia", token: T1, id: "1", body: "hi" });
+    expect(own).toHaveBeenCalledTimes(1);
+    expect(other).not.toHaveBeenCalled();
+    expect(global).not.toHaveBeenCalled();
+  });
+
   it("shares one server subscription between several listeners of a room, and leaves it when the last one goes", () => {
     const s = fakeSocket();
     const client = createLiveClient({ socket: s.socket });

@@ -24,6 +24,8 @@ function roomsOf(m: LiveMessage): string[] {
     case "complete":
     case "migrated":
       return tokenRoom ? [tokenRoom] : [];
+    case "comment":
+      return tokenRoom ? [tokenRoom] : [];
     case "created":
       return ["tokens"];
     default:

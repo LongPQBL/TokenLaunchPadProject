@@ -70,6 +70,17 @@ export const candleSchema = z.object({
 });
 export const candleListSchema = z.object({ items: z.array(candleSchema) });
 
+/** A comment as the API serves it. Its text and name are hostile input: they are checked for shape here and drawn as text. */
+export const commentSchema = z.object({
+  id: z.string().regex(/^\d+$/),
+  author: z.string(),
+  username: z.string().optional(),
+  avatarUrl: z.string().optional(),
+  body: z.string(),
+  createdAt: amount,
+});
+export const commentPageSchema = z.object({ items: z.array(commentSchema), nextCursor: z.string().optional() });
+
 export type TokenListItem = z.output<typeof tokenListItemSchema>;
 export type TokenPage = z.output<typeof tokenPageSchema>;
 export type TokenDetail = z.output<typeof tokenDetailSchema>;
@@ -77,5 +88,7 @@ export type Trade = z.output<typeof tradeSchema>;
 export type TradePage = z.output<typeof tradePageSchema>;
 export type Holder = z.output<typeof holderSchema>;
 export type Candle = z.output<typeof candleSchema>;
+export type Comment = z.output<typeof commentSchema>;
+export type CommentPage = z.output<typeof commentPageSchema>;
 
 export const holdingListSchema = z.object({ items: z.array(z.object({ token: z.string(), amount })) });

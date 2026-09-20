@@ -1,6 +1,7 @@
 import type { z } from "zod";
 import {
   candleListSchema,
+  commentPageSchema,
   holderListSchema,
   holdingListSchema,
   tokenDetailSchema,
@@ -23,6 +24,20 @@ export class ApiError extends Error {
     super(message);
     this.name = "ApiError";
   }
+}
+
+/** The error for a response that was not a success: the API's own code if it sent one, `load_failed` for anything else (a gateway's HTML page). */
+export async function failureOf(res: Response): Promise<ApiError> {
+  let code = "load_failed";
+  let message = "The server could not answer.";
+  try {
+    const body = (await res.json()) as { error?: unknown; message?: unknown };
+    if (typeof body.error === "string") code = body.error;
+    if (typeof body.message === "string") message = body.message;
+  } catch {
+    /* not JSON: keep load_failed */
+  }
+  return new ApiError(res.status, code, message);
 }
 
 export interface ApiConfig {
@@ -60,18 +75,7 @@ export function createApi({ baseUrl, fetch: fetchImpl = (...args) => fetch(...ar
       throw new ApiError(0, "network", "Could not reach the server.");
     }
 
-    if (!res.ok) {
-      let code = "load_failed";
-      let message = "The server could not answer.";
-      try {
-        const body = (await res.json()) as { error?: unknown; message?: unknown };
-        if (typeof body.error === "string") code = body.error;
-        if (typeof body.message === "string") message = body.message;
-      } catch {
-        /* a gateway's HTML error page: keep load_failed */
-      }
-      throw new ApiError(res.status, code, message);
-    }
+    if (!res.ok) throw await failureOf(res);
 
     let body: unknown;
     try {
@@ -103,6 +107,10 @@ export function createApi({ baseUrl, fetch: fetchImpl = (...args) => fetch(...ar
     /** Every token an address holds, hidden ones included: what someone can withdraw is not the moderator's to hide. */
     holdings: (chain: string, address: string, o: Signal = {}) =>
       get(`/${seg(chain)}/addresses/${seg(address)}/holdings`, holdingListSchema, {}, o.signal),
+
+    /** A token's comments, newest first. `cursor` is the `nextCursor` of the page before. */
+    comments: (chain: string, address: string, o: { cursor?: string; limit?: number } & Signal = {}) =>
+      get(`${tokenPath(chain, address)}/comments`, commentPageSchema, { cursor: o.cursor, limit: o.limit }, o.signal),
 
     candles: (chain: string, address: string, interval: number, o: { from?: number } & Signal = {}) =>
       get(`${tokenPath(chain, address)}/candles`, candleListSchema, { interval, from: o.from }, o.signal),

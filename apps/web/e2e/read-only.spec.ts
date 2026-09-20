@@ -103,9 +103,9 @@ test.describe("token page: a graduated token", () => {
     expect(shares.reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(100);
   });
 
-  test("has a Comments tab that says comments are coming, without breaking the strip", async ({ page }) => {
+  test("has a Comments tab that says there are none yet, without breaking the strip", async ({ page }) => {
     await page.getByRole("tab", { name: "Comments" }).click();
-    await expect(page.getByText("Comments are coming soon.")).toBeVisible();
+    await expect(page.getByText("No comments yet. Be the first to say something.")).toBeVisible();
     await expect(page.getByRole("tab")).toHaveCount(3);
   });
 });
