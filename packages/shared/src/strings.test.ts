@@ -35,6 +35,10 @@ describe("UI strings", () => {
     expect(UI.token.commentsSoon).toBe("Comments are coming soon.");
   });
 
+  it("has a placeholder for the create page until token creation is built", () => {
+    expect(UI.create.soon).toBe("Token creation is coming soon.");
+  });
+
   it("has a label for paging on", () => {
     expect(UI.discover.next).toBe("Next page");
   });

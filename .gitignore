@@ -30,6 +30,10 @@ apps/indexer/generated/
 # A local-chain deployment differs on every Anvil run; scripts/local-chain.sh regenerates it
 packages/deployments/local.json
 
+# Playwright output
+test-results/
+playwright-report/
+
 # Next.js generates these
 next-env.d.ts
 *.tsbuildinfo

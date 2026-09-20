@@ -6,6 +6,8 @@ export const UI = {
   nav: { create: "Create token", search: "Search tokens" },
   // Named after the chain it is on, so a second testnet never says "SEPOLIA".
   badge: { testnet: (chainName: string) => `${chainName.toUpperCase()} TESTNET` },
+  // Until the create flow is built the header button still has to lead somewhere real.
+  create: { soon: "Token creation is coming soon." },
   discover: {
     tabs: { new: "New", trending: "Trending", progress: "Nearing graduation" },
     empty: "No tokens yet. Be the first to create one.",
