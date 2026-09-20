@@ -32,6 +32,8 @@ export interface AppDeps {
   auth: AuthDeps;
   /** Where logos and metadata are pinned. Absent, uploads answer 503. */
   pinner: Pinner;
+  /** The one IPFS gateway avatars and images are fetched through. */
+  ipfsGateway: string;
 }
 
 /** `token` is set only inside the /:chain/tokens/:address routes, by the middleware that resolves it. */
@@ -79,7 +81,7 @@ export function createApp(deps: Partial<AppDeps> = {}): Hono<AppEnv> {
     c.set("chain", resolved);
     await next();
   });
-  chain.route("/tokens", tokensRoutes({ launchpads: deps.launchpads ?? {} }));
+  chain.route("/tokens", tokensRoutes({ launchpads: deps.launchpads ?? {}, ipfsGateway: deps.ipfsGateway }));
   chain.route("/addresses", holdingsRoutes());
   app.route("/:chain", chain);
 

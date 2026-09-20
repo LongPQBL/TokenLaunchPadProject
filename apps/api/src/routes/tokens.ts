@@ -3,6 +3,7 @@ import type { AppEnv } from "../app.js";
 import { apiError } from "../errors.js";
 import { jsonSafe } from "../json.js";
 import { getCandles } from "../queries/candles.js";
+import { commentsRoutes } from "./comments.js";
 import { listHolders } from "../queries/holders.js";
 import { getToken } from "../queries/tokenDetail.js";
 import { BadCursorError, listTokens, SORTS, type Sort } from "../queries/tokenList.js";
@@ -25,6 +26,8 @@ const json = (c: Context, value: unknown) => c.json(jsonSafe(value) as object);
 export interface TokensRoutesDeps {
   /** Launchpad contract per chain id: it holds the unsold supply and so is never a holder. */
   launchpads: Record<number, string>;
+  /** Where avatars are fetched from: the same one gateway as token images. */
+  ipfsGateway?: string;
 }
 
 export function tokensRoutes(deps: TokensRoutesDeps): Hono<AppEnv> {
@@ -66,6 +69,7 @@ export function tokensRoutes(deps: TokensRoutesDeps): Hono<AppEnv> {
   });
 
   routes.get("/:address", (c) => json(c, c.get("token")));
+  routes.route("/:address/comments", commentsRoutes({ ipfsGateway: deps.ipfsGateway ?? "https://ipfs.io" }));
 
   routes.get("/:address/trades", async (c) => {
     try {

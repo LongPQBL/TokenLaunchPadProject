@@ -15,6 +15,7 @@ const config = loadConfig();
 const deployment = loadDeployment();
 const app = createApp({
   corsOrigins: config.corsOrigins,
+  ipfsGateway: config.ipfsGatewayUrl,
   ready: isDatabaseReady,
   launchpads: { [deployment.chainId]: deployment.launchpad },
   pinner: config.pinner === "pinata" ? pinataPinner(config.pinataJwt!) : config.pinner === "fake" ? fakePinner() : undefined,
