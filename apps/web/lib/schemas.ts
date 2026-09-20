@@ -81,6 +81,29 @@ export const commentSchema = z.object({
 });
 export const commentPageSchema = z.object({ items: z.array(commentSchema), nextCursor: z.string().optional() });
 
+/** The admin page's health report. Figures from outside the database are null when unknown: never read null as zero. */
+export const healthSchema = z.object({
+  indexerLagBlocks: z.number().int().nonnegative().nullable(),
+  watcherAliveSince: amount.nullable(),
+  botAddress: z.string().nullable(),
+  botBalance: amount.nullable(),
+  failedMetadataCount: z.number().int().nonnegative(),
+  stuckTokens: z.array(z.object({ address: z.string(), name: z.string().optional(), ticker: z.string().optional(), completeSince: amount })),
+});
+
+/** A report as a moderator sees it. The reason is a stranger's text: it is drawn as text. */
+export const reportSchema = z.object({
+  id: z.string().regex(/^\d+$/),
+  token: z.string(),
+  name: z.string().optional(),
+  ticker: z.string().optional(),
+  reporter: z.string(),
+  reason: z.string(),
+  createdAt: amount,
+  hidden: z.boolean(),
+});
+export const reportListSchema = z.object({ items: z.array(reportSchema) });
+
 export type TokenListItem = z.output<typeof tokenListItemSchema>;
 export type TokenPage = z.output<typeof tokenPageSchema>;
 export type TokenDetail = z.output<typeof tokenDetailSchema>;
@@ -89,6 +112,8 @@ export type TradePage = z.output<typeof tradePageSchema>;
 export type Holder = z.output<typeof holderSchema>;
 export type Candle = z.output<typeof candleSchema>;
 export type Comment = z.output<typeof commentSchema>;
+export type Health = z.output<typeof healthSchema>;
+export type Report = z.output<typeof reportSchema>;
 export type CommentPage = z.output<typeof commentPageSchema>;
 
 export const holdingListSchema = z.object({ items: z.array(z.object({ token: z.string(), amount })) });

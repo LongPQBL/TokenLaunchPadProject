@@ -18,6 +18,9 @@ export function ConfirmAction({
   run,
   onDone,
   variant = "outline",
+  confirmLabel = UI.moderation.confirm,
+  busyLabel = UI.moderation.hiding,
+  disabled = false,
 }: {
   label: string;
   title: string;
@@ -25,6 +28,10 @@ export function ConfirmAction({
   run: () => Promise<void>;
   onDone: () => void;
   variant?: "outline" | "ghost";
+  /** What the confirming button says, and says while it works. Hiding by default. */
+  confirmLabel?: string;
+  busyLabel?: string;
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -58,7 +65,7 @@ export function ConfirmAction({
       }}
     >
       <DialogTrigger asChild>
-        <Button variant={variant} size="xs">
+        <Button variant={variant} size="xs" disabled={disabled}>
           {label}
         </Button>
       </DialogTrigger>
@@ -75,7 +82,7 @@ export function ConfirmAction({
             <Button variant="outline">{UI.moderation.cancel}</Button>
           </DialogClose>
           <Button variant="destructive" disabled={busy} onClick={() => void confirm()}>
-            {busy ? UI.moderation.hiding : UI.moderation.confirm}
+            {busy ? busyLabel : confirmLabel}
           </Button>
         </div>
       </DialogContent>

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ApiError, failureOf } from "../api";
+import { healthSchema, reportListSchema } from "../schemas";
 
 export interface ModerationApiConfig {
   baseUrl: string;
@@ -33,7 +34,33 @@ export function createModerationApi({ baseUrl, fetch: fetchImpl = (...args) => f
     return res;
   }
 
+  /** A read that needs the session: the same cookie, and the same refusal (the API's plain 404) for anyone who is not an admin. */
+  async function get<S extends z.ZodTypeAny>(path: string, schema: S): Promise<z.output<S>> {
+    let res: Response;
+    try {
+      res = await fetchImpl(root + path, { credentials: "include", headers: { accept: "application/json" } });
+    } catch {
+      throw new ApiError(0, "network", "Could not reach the server.");
+    }
+    if (!res.ok) throw await failureOf(res);
+    const parsed = schema.safeParse(await res.json().catch(() => undefined));
+    if (!parsed.success) throw new ApiError(res.status, "bad_response", "The server sent an unexpected response.");
+    return parsed.data;
+  }
+
   return {
+    health: (chain: string) => get(`/${seg(chain)}/admin/health`, healthSchema),
+    reports: (chain: string) => get(`/${seg(chain)}/admin/reports`, reportListSchema),
+    async resolveReport(chain: string, id: string): Promise<void> {
+      await post(`/${seg(chain)}/admin/reports/${seg(id)}/resolve`);
+    },
+    /** Gives every token whose metadata was given up on another try. Says how many it moved. */
+    async reResolveMetadata(chain: string): Promise<{ count: number }> {
+      const res = await post(`/${seg(chain)}/admin/metadata/re-resolve`);
+      const parsed = z.object({ count: z.number().int().nonnegative() }).safeParse(await res.json().catch(() => undefined));
+      if (!parsed.success) throw new ApiError(res.status, "bad_response", "The server sent an unexpected response.");
+      return parsed.data;
+    },
     async hideToken(chain: string, token: string): Promise<void> {
       await post(`/${seg(chain)}/admin/tokens/${seg(token)}/hide`);
     },

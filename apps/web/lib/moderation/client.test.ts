@@ -74,3 +74,58 @@ describe("moderation actions", () => {
     await expect(moderation.hideToken("sepolia", T)).rejects.toMatchObject({ code: "network", status: 0 });
   });
 });
+
+describe("the admin page's reads", () => {
+  const wireHealth = (o: Record<string, unknown> = {}) => ({
+    indexerLagBlocks: 3,
+    watcherAliveSince: "1700000000",
+    botAddress: ADDR(0xb07),
+    botBalance: "1500000000000000000",
+    failedMetadataCount: 2,
+    stuckTokens: [{ address: T, name: "Full", ticker: "FULL", completeSince: "1700000100" }],
+    ...o,
+  });
+
+  it("reads the health with the times and the balance as bigint, and unknowns as null", async () => {
+    server.use(http.get(`${API}/sepolia/admin/health`, () => HttpResponse.json(wireHealth({ indexerLagBlocks: null, botBalance: null }))));
+    expect(await moderation.health("sepolia")).toEqual({
+      indexerLagBlocks: null,
+      watcherAliveSince: 1_700_000_000n,
+      botAddress: ADDR(0xb07),
+      botBalance: null,
+      failedMetadataCount: 2,
+      stuckTokens: [{ address: T, name: "Full", ticker: "FULL", completeSince: 1_700_000_100n }],
+    });
+  });
+
+  it("asks with the session cookie, and does not trust a balance that is not a whole number", async () => {
+    let credentials = "";
+    server.use(http.get(`${API}/sepolia/admin/health`, ({ request }) => ((credentials = request.credentials), HttpResponse.json(wireHealth({ botBalance: "1e18" })))));
+    await expect(moderation.health("sepolia")).rejects.toMatchObject({ code: "bad_response" });
+    expect(credentials).toBe("include");
+  });
+
+  it("reads the report queue", async () => {
+    server.use(
+      http.get(`${API}/sepolia/admin/reports`, () =>
+        HttpResponse.json({ items: [{ id: "4", token: T, name: "Spam", ticker: "SPM", reporter: ADDR(0xa1), reason: "<b>scam</b>", createdAt: "1700000000", hidden: false }] }),
+      ),
+    );
+    expect(await moderation.reports("sepolia")).toEqual({
+      items: [{ id: "4", token: T, name: "Spam", ticker: "SPM", reporter: ADDR(0xa1), reason: "<b>scam</b>", createdAt: 1_700_000_000n, hidden: false }],
+    });
+  });
+
+  it("refuses to read for a non-admin: the API's 404 comes through as an error carrying its code", async () => {
+    server.use(http.get(`${API}/sepolia/admin/health`, () => HttpResponse.json({ error: "not_found", message: "Not found." }, { status: 404 })));
+    await expect(moderation.health("sepolia")).rejects.toMatchObject({ status: 404, code: "not_found" });
+  });
+
+  it("settles a report and retries failed metadata, by JSON POST", async () => {
+    const seen = capture("/sepolia/admin/reports/9/resolve");
+    await moderation.resolveReport("sepolia", "9");
+    expect(seen[0]).toMatchObject({ method: "POST", type: "application/json", credentials: "include" });
+    capture("/sepolia/admin/metadata/re-resolve", { body: { count: 3 } });
+    expect(await moderation.reResolveMetadata("sepolia")).toEqual({ count: 3 });
+  });
+});
