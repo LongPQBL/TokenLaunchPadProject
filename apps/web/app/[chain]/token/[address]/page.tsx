@@ -1,6 +1,8 @@
 import { chainBySlug, UI } from "@vezta/shared";
 import { notFound } from "next/navigation";
 import { CommentList } from "@/components/comments/comment-list";
+import { HideTokenButton } from "@/components/admin/hide-button";
+import { ReportButton } from "@/components/admin/report-button";
 import { GraduationProgress } from "@/components/graduation-progress";
 import { IndexingNotice } from "@/components/indexing-notice";
 import { HoldersTable } from "@/components/holders-table";
@@ -88,6 +90,11 @@ export default async function TokenPage({
   return shell(
     <div className="flex flex-col gap-6">
       <TokenHeader chain={chain} token={detail} />
+      {/* Each of these draws nothing unless the viewer may use it, so for most people this row is empty and takes no room. */}
+      <div className="-mt-3 flex flex-wrap justify-end gap-2 empty:hidden">
+        <ReportButton chain={chain} token={token} />
+        <HideTokenButton chain={chain} token={token} />
+      </div>
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="flex min-w-0 flex-col gap-6">
           {candles ? (

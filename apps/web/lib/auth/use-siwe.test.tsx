@@ -25,12 +25,12 @@ const signer = vi.hoisted(() => ({ signMessageAsync: vi.fn() }));
 vi.mock("wagmi", async (importOriginal) => ({ ...(await importOriginal<typeof import("wagmi")>()), useSignMessage: () => signer }));
 
 /** A tiny fake of the API's sign-in: remembers whether a session exists, like the real one's cookie would. */
-function fakeApi(opts: { sessionFor?: string } = {}) {
-  const state = { session: opts.sessionFor as string | undefined, calls: [] as string[], verified: undefined as unknown };
+function fakeApi(opts: { sessionFor?: string; admin?: boolean } = {}) {
+  const state = { admin: opts.admin as boolean | undefined, session: opts.sessionFor as string | undefined, calls: [] as string[], verified: undefined as unknown };
   server.use(
     http.get(`${API}/me`, () => {
       state.calls.push("me");
-      return state.session ? HttpResponse.json({ address: state.session }) : HttpResponse.json({ error: "unauthenticated", message: "x" }, { status: 401 });
+      return state.session ? HttpResponse.json({ address: state.session, admin: state.admin ?? false }) : HttpResponse.json({ error: "unauthenticated", message: "x" }, { status: 401 });
     }),
     http.get(`${API}/auth/nonce`, ({ request }) => {
       state.calls.push(`nonce:${new URL(request.url).searchParams.get("address")}`);
@@ -78,6 +78,20 @@ describe("useSiwe", () => {
     fakeApi({ sessionFor: TEST_USER });
     const { result } = await setup();
     await waitFor(() => expect(result.current.isSignedIn).toBe(true));
+  });
+
+  it("knows the person is an admin only while they are signed in, and never otherwise", async () => {
+    fakeApi({ sessionFor: TEST_USER, admin: true });
+    const { result } = await setup();
+    await waitFor(() => expect(result.current.isSignedIn).toBe(true));
+    expect(result.current.isAdmin).toBe(true);
+  });
+
+  it("is not an admin without an admin session, whatever the flag: a session for another address is no session", async () => {
+    fakeApi({ sessionFor: "0x00000000000000000000000000000000000000ff", admin: true });
+    const { result } = await setup();
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.isAdmin).toBe(false);
   });
 
   it("is NOT signed in when the session belongs to a different address than the connected wallet", async () => {

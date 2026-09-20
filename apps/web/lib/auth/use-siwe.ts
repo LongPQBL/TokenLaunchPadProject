@@ -23,7 +23,9 @@ export function useSiwe() {
   // null, not undefined, for "nobody": react-query refuses a query that resolves to undefined and keeps the old answer,
   // which would leave a person looking signed in after they signed out.
   const session = useQuery({ queryKey: [...ME, address], queryFn: async () => (await api.me()) ?? null, staleTime: 60_000, enabled: !!address });
-  const isSignedIn = !!address && session.data?.toLowerCase() === address.toLowerCase();
+  const isSignedIn = !!address && session.data?.address.toLowerCase() === address.toLowerCase();
+  /** For drawing controls only: the API decides who may actually moderate, on every request. */
+  const isAdmin = isSignedIn && session.data?.admin === true;
 
   /** True once signed in, false if the person declined to sign. Any other failure is thrown for the caller to explain. */
   async function signIn(): Promise<boolean> {
@@ -46,5 +48,5 @@ export function useSiwe() {
     await queryClient.invalidateQueries({ queryKey: ME });
   }
 
-  return { isSignedIn, isLoading: session.isLoading, signIn, signOut };
+  return { isSignedIn, isAdmin, isLoading: session.isLoading, signIn, signOut };
 }

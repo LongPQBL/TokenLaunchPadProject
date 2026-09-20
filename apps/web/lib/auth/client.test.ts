@@ -43,9 +43,16 @@ describe("createAuthApi", () => {
     await expect(auth.verify("m", "0x12")).rejects.toMatchObject({ name: "ApiError", status: 401, code: "invalid_signin" });
   });
 
-  it("says who is signed in, or nobody: a missing session is an answer, not a failure", async () => {
+  it("says whether the signed-in person is an admin, and treats a missing flag as no", async () => {
+    server.use(http.get(`${API}/me`, () => HttpResponse.json({ address: ADDRESS, admin: true })));
+    expect(await auth.me()).toEqual({ address: ADDRESS, admin: true });
     server.use(http.get(`${API}/me`, () => HttpResponse.json({ address: ADDRESS })));
-    expect(await auth.me()).toBe(ADDRESS);
+    expect(await auth.me()).toEqual({ address: ADDRESS, admin: false });
+  });
+
+  it("says who is signed in, or nobody: a missing session is an answer, not a failure", async () => {
+    server.use(http.get(`${API}/me`, () => HttpResponse.json({ address: ADDRESS, admin: false })));
+    expect(await auth.me()).toEqual({ address: ADDRESS, admin: false });
     server.use(http.get(`${API}/me`, () => HttpResponse.json({ error: "unauthenticated", message: "x" }, { status: 401 })));
     expect(await auth.me()).toBeUndefined();
   });

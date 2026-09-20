@@ -1,4 +1,5 @@
 import { neutraliseBidi } from "@vezta/shared";
+import type { ReactNode } from "react";
 import { shortAddress, formatRelativeTime } from "@/lib/format";
 import type { Comment } from "@/lib/types";
 import { TokenImage } from "../token-image";
@@ -7,9 +8,10 @@ import { TokenImage } from "../token-image";
  * One comment. Its text and its author's name are written by strangers, so both go on the page as text (React escapes
  * them; nothing here is ever markup and nothing is turned into a link), direction controls are removed so they cannot
  * reverse what follows, a long unbroken word is broken rather than allowed to widen the page, and the body sets its own
- * direction (`dir="auto"`) so a right-to-left comment reads properly without touching the layout around it.
+ * direction (`dir="auto"`) so a right-to-left comment reads properly without touching the layout around it. `actions` is
+ * whatever controls the page wants beside it (a moderator's hide button): this component knows nothing about who may see them.
  */
-export function CommentItem({ comment, now }: { comment: Comment; now: number }) {
+export function CommentItem({ comment, now, actions }: { comment: Comment; now: number; actions?: ReactNode }) {
   const name = comment.username ? neutraliseBidi(comment.username) : shortAddress(comment.author);
   return (
     <li data-testid="comment-item" className="flex gap-3 py-3">
@@ -20,6 +22,7 @@ export function CommentItem({ comment, now }: { comment: Comment; now: number })
             {name}
           </span>
           <time>{formatRelativeTime(comment.createdAt, now)}</time>
+          {actions && <span className="ml-auto">{actions}</span>}
         </div>
         <p data-testid="comment-body" dir="auto" className="whitespace-pre-wrap break-all text-sm">
           {neutraliseBidi(comment.body)}

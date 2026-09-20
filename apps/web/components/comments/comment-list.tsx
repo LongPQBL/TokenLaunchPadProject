@@ -10,6 +10,7 @@ import { liveCommentSchema, mergeComments, newerThan, reachesBack } from "@/lib/
 import type { Comment } from "@/lib/types";
 import type { LiveClient } from "@/lib/ws/client";
 import { useLiveRoom } from "@/lib/ws/use-live-room";
+import { HideCommentButton } from "../admin/hide-button";
 import { Button } from "../ui/button";
 import { CommentForm, type CommentAuthState } from "./comment-form";
 import { CommentItem } from "./comment-item";
@@ -50,6 +51,8 @@ export function CommentList({
   const [clock, setClock] = useState(now);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [olderFailed, setOlderFailed] = useState(false);
+  // Comments a moderator hid from here. Kept, so a stale copy that arrives later (a retry, an older page) cannot bring one back.
+  const [gone, setGone] = useState<ReadonlySet<string>>(new Set());
 
   // "2s ago" ages while the page is open. (The first render uses the server's clock, so it matches what was rendered.)
   useEffect(() => {
@@ -104,7 +107,7 @@ export function CommentList({
     }
   }
 
-  const comments = mergeComments(held.first, [...held.older, ...held.live]);
+  const comments = mergeComments(held.first, [...held.older, ...held.live]).filter((c) => !gone.has(c.id));
 
   return (
     <div className="flex flex-col">
@@ -116,7 +119,12 @@ export function CommentList({
       ) : (
         <ul className="flex flex-col divide-y divide-border">
           {comments.map((comment) => (
-            <CommentItem key={comment.id} comment={comment} now={clock} />
+            <CommentItem
+              key={comment.id}
+              comment={comment}
+              now={clock}
+              actions={<HideCommentButton chain={chain} id={comment.id} onHidden={(id) => setGone((prev) => new Set(prev).add(id))} />}
+            />
           ))}
         </ul>
       )}

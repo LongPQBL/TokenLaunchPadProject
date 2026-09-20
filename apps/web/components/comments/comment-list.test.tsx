@@ -14,6 +14,7 @@ import { CommentList } from "./comment-list";
 
 const api = vi.hoisted(() => ({ comments: vi.fn() }));
 vi.mock("@/lib/api", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/api")>()), api }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
 // Signing is the wallet's job; wagmi's mock connector forwards it to a live RPC, which cannot run under jsdom.
 vi.mock("wagmi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("wagmi")>()),
@@ -53,11 +54,13 @@ const wire = (id: number, body = `comment ${id}`, over: Record<string, unknown> 
 const bodies = () => screen.queryAllByTestId("comment-body").map((el) => el.textContent);
 
 /** The API's sign-in and comment endpoints, for someone with (or without) a session. */
-function sessionApi(session?: string) {
+function sessionApi(session?: string, admin = false) {
   const posted: unknown[] = [];
   server.use(
     http.get(`${API}/me`, () =>
-      session ? HttpResponse.json({ address: session }) : HttpResponse.json({ error: "unauthenticated", message: "x" }, { status: 401 }),
+      session
+        ? HttpResponse.json({ address: session, admin })
+        : HttpResponse.json({ error: "unauthenticated", message: "x" }, { status: 401 }),
     ),
     http.post(`${API}/sepolia/tokens/:address/comments`, async ({ request }) => {
       const { body } = (await request.json()) as { body: string };
@@ -296,5 +299,47 @@ describe("CommentList: older comments", () => {
     expect(await screen.findByRole("alert")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Show older comments" })).toBeEnabled();
     expect(within(screen.getByRole("alert")).queryByText(/internal/)).toBeNull(); // the server's own text is never shown
+  });
+});
+
+describe("CommentList: moderation", () => {
+  const hideRoute = (hidden: string[]) =>
+    server.use(
+      http.post(
+        `${API}/sepolia/admin/comments/:id/hide`,
+        ({ params }) => (hidden.push(String(params.id)), HttpResponse.json({ id: params.id, hidden: true })),
+      ),
+    );
+
+  it("puts no hide control beside a comment for someone who is not an admin", async () => {
+    sessionApi(TEST_USER, false);
+    await setup({ initial: [c(2), c(1)] });
+    await screen.findByRole("textbox", { name: "Comment" }); // the session is known by now
+    expect(screen.queryByRole("button", { name: "Hide" })).toBeNull();
+  });
+
+  it("puts one beside each comment for an admin, and hiding one takes it off the list at once, leaving the others", async () => {
+    const hidden: string[] = [];
+    sessionApi(TEST_USER, true);
+    hideRoute(hidden);
+    await setup({ initial: [c(2), c(1)] });
+    const buttons = await screen.findAllByRole("button", { name: "Hide" });
+    expect(buttons).toHaveLength(2);
+    await userEvent.click(buttons[0]!);
+    await userEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Hide" }));
+    await waitFor(() => expect(bodies()).toEqual(["comment 1"]));
+    expect(hidden).toEqual(["2"]);
+  });
+
+  it("does not bring a hidden comment back when a stale copy of it arrives", async () => {
+    const hidden: string[] = [];
+    sessionApi(TEST_USER, true);
+    hideRoute(hidden);
+    const { fake } = await setup({ initial: [c(2)] });
+    await userEvent.click(await screen.findByRole("button", { name: "Hide" }));
+    await userEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Hide" }));
+    await waitFor(() => expect(bodies()).toEqual([]));
+    act(() => fake.message(ROOM, wire(2)));
+    expect(bodies()).toEqual([]);
   });
 });

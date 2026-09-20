@@ -58,6 +58,14 @@ describe("CommentItem", () => {
     expect(document.querySelector("b")).toBeNull();
   });
 
+  it("draws whatever controls it is given beside the comment, and nothing when it is given none", () => {
+    const { unmount } = render(<CommentItem comment={base} now={NOW} actions={<button>Hide</button>} />);
+    expect(screen.getByRole("button", { name: "Hide" })).toBeInTheDocument();
+    unmount();
+    item();
+    expect(screen.queryByRole("button")).toBeNull();
+  });
+
   it("shows when it was written", () => {
     item();
     expect(screen.getByText("30s ago")).toBeInTheDocument();

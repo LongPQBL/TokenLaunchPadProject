@@ -2,7 +2,10 @@ import { z } from "zod";
 import { ApiError, failureOf } from "../api";
 
 const challenge = z.object({ message: z.string(), nonce: z.string() });
-const address = z.object({ address: z.string().regex(/^0x[0-9a-fA-F]{40}$/) });
+const addressField = z.string().regex(/^0x[0-9a-fA-F]{40}$/);
+const address = z.object({ address: addressField });
+/** `admin` only decides which buttons are drawn; the API checks again on every admin request. A missing flag means no. */
+const me = z.object({ address: addressField, admin: z.boolean().optional() });
 
 export interface AuthApiConfig {
   baseUrl: string;
@@ -43,12 +46,13 @@ export function createAuthApi({ baseUrl, fetch: fetchImpl = (...args) => fetch(.
       return json(res, address);
     },
 
-    /** The signed-in address, or undefined when there is no session. Having no session is an answer, not an error. */
-    async me(): Promise<string | undefined> {
+    /** Who is signed in, or undefined when there is no session. Having no session is an answer, not an error. */
+    async me(): Promise<{ address: string; admin: boolean } | undefined> {
       const res = await call("/me");
       if (res.status === 401) return undefined;
       if (!res.ok) throw await failureOf(res);
-      return (await json(res, address)).address;
+      const who = await json(res, me);
+      return { address: who.address, admin: who.admin === true };
     },
 
     async logout(): Promise<void> {
