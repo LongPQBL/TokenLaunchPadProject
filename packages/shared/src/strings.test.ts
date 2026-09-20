@@ -42,4 +42,9 @@ describe("UI strings", () => {
   it("has a label for paging on", () => {
     expect(UI.discover.next).toBe("Next page");
   });
+
+  it("names the network a wallet has to switch to", () => {
+    expect(UI.wallet.switchTo("Sepolia")).toBe("Switch to Sepolia");
+    expect(UI.wallet.wrongNetwork("Sepolia")).toContain("Sepolia");
+  });
 });

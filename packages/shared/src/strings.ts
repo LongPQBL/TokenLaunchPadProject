@@ -40,6 +40,15 @@ export const UI = {
     noTrades: "No trades yet.",
     noHolders: "No holders yet.",
   },
+  wallet: {
+    connect: "Connect wallet",
+    connectTitle: "Connect a wallet",
+    noWallet: "No wallet found. Install a browser wallet such as MetaMask, then reload this page.",
+    disconnect: "Disconnect",
+    switchTo: (chainName: string) => `Switch to ${chainName}`,
+    wrongNetwork: (chainName: string) => `Your wallet is on another network. Switch to ${chainName} to continue.`,
+    notConfigured: "Trading is not configured for this deployment.",
+  },
   errors: {
     notFound: "Token not found.",
     loadFailed: "Could not load this. Please try again in a moment.",

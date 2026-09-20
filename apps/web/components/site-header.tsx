@@ -1,6 +1,7 @@
 import { chainBySlug, UI } from "@vezta/shared";
 import Link from "next/link";
 import type { TokenSort } from "@/lib/types";
+import { ConnectButton } from "./connect-button";
 import { Button } from "./ui/button";
 import { SearchBox } from "./search-box";
 
@@ -20,6 +21,7 @@ export function SiteHeader({ chain, sort, q, isTestnet }: { chain: string; sort:
       <Button asChild size="sm" className="shrink-0">
         <Link href={`/${chain}/create`}>{UI.nav.create}</Link>
       </Button>
+      <ConnectButton />
     </header>
   );
 }

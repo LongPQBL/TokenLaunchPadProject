@@ -1,6 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { TokenListItem } from "@/lib/types";
+import { renderWithWallet } from "@/test/wallet";
 import { SearchBox } from "./search-box";
 import { SiteHeader } from "./site-header";
 import { SortTabs } from "./sort-tabs";
@@ -91,24 +92,25 @@ describe("SearchBox", () => {
 
 describe("SiteHeader", () => {
   it("labels a testnet so nobody mistakes it for real money", () => {
-    render(<SiteHeader chain="sepolia" sort="new" q="" isTestnet />);
+    // The header holds the wallet button, which needs the wallet layer around it.
+    renderWithWallet(<SiteHeader chain="sepolia" sort="new" q="" isTestnet />);
     expect(screen.getByText("SEPOLIA TESTNET")).toBeInTheDocument();
   });
 
   it("does not show the testnet badge on a real network", () => {
-    render(<SiteHeader chain="mainnet" sort="new" q="" isTestnet={false} />);
+    renderWithWallet(<SiteHeader chain="mainnet" sort="new" q="" isTestnet={false} />);
     expect(screen.queryByText(/TESTNET/)).not.toBeInTheDocument();
   });
 
   it("has a create-token link under the chain, and a link home", () => {
-    render(<SiteHeader chain="sepolia" sort="new" q="" isTestnet />);
+    renderWithWallet(<SiteHeader chain="sepolia" sort="new" q="" isTestnet />);
     expect(screen.getByRole("link", { name: "Create token" })).toHaveAttribute("href", "/sepolia/create");
     const banner = screen.getByRole("banner");
     expect(within(banner).getByRole("link", { name: /vezta/i })).toHaveAttribute("href", "/sepolia");
   });
 
   it("includes the search box", () => {
-    render(<SiteHeader chain="sepolia" sort="new" q="dog" isTestnet />);
+    renderWithWallet(<SiteHeader chain="sepolia" sort="new" q="dog" isTestnet />);
     expect(screen.getByPlaceholderText("Search tokens")).toHaveValue("dog");
   });
 });
