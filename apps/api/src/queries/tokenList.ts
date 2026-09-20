@@ -38,6 +38,27 @@ export interface ListTokensOptions {
   sort: Sort;
   cursor?: string;
   limit: number;
+  /** Search text. A full 0x address is a direct lookup; anything else matches name or ticker. */
+  q?: string;
+}
+
+const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
+const MAX_QUERY_LENGTH = 64;
+
+/**
+ * The WHERE fragment for a search, or nothing for a blank query.
+ *
+ * In LIKE, % and _ are wildcards, so they are escaped: typed by a user they are plain characters, or a
+ * search for "%" would list every token. The pattern is a bound parameter, never part of the SQL text.
+ * Only metadata with status 'ok' contributes its name; a pending row's name is unverified data.
+ * A token with no metadata row is matched on its on-chain name and ticker, so a brand-new token is findable.
+ */
+function searchFilter(sql: ReturnType<typeof getSql>, q: string | undefined) {
+  const term = q?.trim().slice(0, MAX_QUERY_LENGTH);
+  if (!term) return sql``;
+  if (ADDRESS.test(term)) return sql`and t.address = ${term.toLowerCase()}`;
+  const pattern = `%${term.replace(/[\\%_]/g, "\\$&")}%`;
+  return sql`and (coalesce(case when m.status = 'ok' then m.name end, t.name) ilike ${pattern} or t.ticker ilike ${pattern})`;
 }
 
 /** A cursor is `[sortValue, address]`: a position in the ordering, not a row id, so it survives deletions. */
@@ -90,6 +111,7 @@ export async function listTokens(opts: ListTokensOptions): Promise<{ items: Toke
     left join app.token_metadata m on m.chain_id = t.chain_id and m.token = t.address
     where t.chain_id = ${opts.chainId}
       and coalesce(m.status, 'pending') <> 'hidden'
+      ${searchFilter(sql, opts.q)}
       ${after}
     order by t.${col} desc, t.address desc
     limit ${opts.limit + 1}`;

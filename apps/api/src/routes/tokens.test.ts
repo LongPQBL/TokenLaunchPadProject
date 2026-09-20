@@ -70,6 +70,15 @@ describe("GET /:chain/tokens", () => {
     expect((await (await get("/sepolia/tokens?limit=100000")).json()).items).toHaveLength(100);
   });
 
+  it("filters by q, and a percent sign in q is not a wildcard", async () => {
+    await seedToken({ address: "0xe1", name: "Fresh Mint", ticker: "FRSH" });
+    await seedToken({ address: "0xe2", name: "Other", ticker: "OTH" });
+    const hit = await (await get("/sepolia/tokens?q=fresh")).json();
+    expect(hit.items.map((t: { address: string }) => t.address)).toEqual(["0xe1"]);
+    const wildcard = await (await get("/sepolia/tokens?q=%25")).json();
+    expect(wildcard.items).toEqual([]);
+  });
+
   it("still refuses an unknown chain", async () => {
     expect((await get("/mainnet/tokens")).status).toBe(404);
   });

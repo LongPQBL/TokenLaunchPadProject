@@ -27,6 +27,7 @@ export function tokensRoutes(): Hono<AppEnv> {
         chainId: c.get("chain").chainId,
         sort: sort as Sort,
         cursor: c.req.query("cursor") || undefined,
+        q: c.req.query("q") || undefined,
         limit: parseLimit(c.req.query("limit")),
       });
       return c.json(jsonSafe(result) as object);
