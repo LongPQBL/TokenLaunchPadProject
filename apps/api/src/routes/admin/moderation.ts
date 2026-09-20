@@ -10,18 +10,10 @@ const COMMENT_ID = /^\d{1,18}$/;
 /**
  * The moderation actions. Every one is idempotent (doing it twice is the same as doing it once, and never an error), none
  * deletes anything (a hidden thing stays in the tables, only unserved, because nothing can be removed from the chain and an
- * operator may need the history), and each is a POST that must be sent as JSON: a form on another page cannot send that, so
- * it cannot make an admin's browser hide something. Mounted behind `requireAdmin`.
+ * operator may need the history). Mounted behind `requireAdmin` and `requireJsonPosts`.
  */
 export function moderationRoutes(): Hono<AppEnv> {
   const routes = new Hono<AppEnv>();
-
-  routes.use("*", async (c, next) => {
-    if (c.req.method === "POST" && !(c.req.header("content-type") ?? "").toLowerCase().startsWith("application/json")) {
-      return apiError(c, 400, "bad_request", "Send the request as JSON.");
-    }
-    await next();
-  });
 
   /**
    * Hides a token by making its metadata row say so, creating the row if the resolver has not yet (a token can be spam before

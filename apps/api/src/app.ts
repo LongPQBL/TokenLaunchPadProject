@@ -4,10 +4,12 @@ import { cors } from "hono/cors";
 import type { VerifySignature } from "./auth/signature.js";
 import { apiError, errorHandler, notFoundHandler } from "./errors.js";
 import { createRequireAdmin } from "./middleware/admin.js";
+import { requireJsonPosts } from "./middleware/require-json.js";
 import type { TokenDetail } from "./queries/tokenDetail.js";
 import type { Pinner } from "./metadata/pin.js";
 import type { CommentPublisher } from "./realtime/comments.js";
 import { moderationRoutes } from "./routes/admin/moderation.js";
+import { reportsAdminRoutes } from "./routes/admin/reports.js";
 import { authRoutes } from "./routes/auth.js";
 import { holdingsRoutes } from "./routes/holdings.js";
 import { metadataRoutes } from "./routes/metadata.js";
@@ -95,7 +97,9 @@ export function createApp(deps: Partial<AppDeps> = {}): Hono<AppEnv> {
   // called admin" for everyone but the admins, and that difference alone would say the routes are there.
   const admin = new Hono<AppEnv>();
   admin.use("*", createRequireAdmin(deps.adminAddresses ?? []));
+  admin.use("*", requireJsonPosts);
   admin.route("/", moderationRoutes());
+  admin.route("/", reportsAdminRoutes());
   chain.route("/admin", admin);
   app.route("/:chain", chain);
 
