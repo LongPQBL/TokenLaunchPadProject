@@ -1,3 +1,4 @@
+import type postgres from "postgres";
 import { getSql } from "../db.js";
 
 export type Sort = "new" | "volume" | "progress";
@@ -37,7 +38,7 @@ export interface TokenListItem {
  * Row -> item, shared with the detail query. Expects the columns both select: `meta_name` is already null
  * unless the metadata is ok, so a pending or invalid row can never rename or re-image a token.
  */
-export function mapListRow(r: Record<string, any>): TokenListItem {
+export function mapListRow(r: postgres.Row): TokenListItem {
   return {
     address: r.address,
     creator: r.creator,
