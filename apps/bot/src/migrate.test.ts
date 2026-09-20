@@ -1,5 +1,6 @@
 import { launchpadAbi } from "@vezta/abi";
 import { BaseError, ContractFunctionRevertedError, encodeErrorResult, type Address } from "viem";
+import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { describe, expect, it, vi } from "vitest";
 import { createMigrator, MIGRATE_GAS, MIN_MIGRATIONS_OF_GAS } from "./migrate";
 
@@ -124,6 +125,29 @@ describe("migrateIfNeeded", () => {
     });
     expect(await migrator.migrateIfNeeded(T1)).toBe("already");
     expect(walletClient.writeContract).toHaveBeenCalledOnce();
+  });
+});
+
+describe("who signs", () => {
+  // Handing viem an ADDRESS as `account` means "ask the node to sign for this address". A node holds no such key, and the
+  // call fails with "No Signer available". A bot that signs locally must hand over its local account instead.
+  it("sends with its local account object when it has one, never just its address", async () => {
+    const local = privateKeyToAccount(generatePrivateKey());
+    const curves = { [T1]: { complete: true, migrated: false } };
+    const { walletClient } = setup({ curves });
+    const migrator = createMigrator({
+      publicClient: { readContract: async () => ({ complete: true, migrated: false }), waitForTransactionReceipt: async () => ({}) } as never,
+      walletClient: walletClient as never,
+      account: local.address,
+      signer: local,
+      launchpad: LAUNCHPAD,
+      deployBlock: 1n,
+      log: () => {},
+    });
+    await migrator.migrateIfNeeded(T1);
+    const sent = walletClient.writeContract.mock.calls[0]![0] as unknown as { account: unknown };
+    expect(sent.account).toBe(local);
+    expect(typeof sent.account).not.toBe("string");
   });
 });
 

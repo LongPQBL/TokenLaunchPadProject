@@ -1,36 +1,8 @@
-import type { Page } from "@playwright/test";
 import { expect, FILLED, RPC_URL, test } from "./fixtures";
+import { connect, createToken, LOGO, panel, ticker } from "./helpers";
 import { installWallet } from "./wallet";
 
-// A 1x1 PNG: a real image, which the API decodes and re-encodes before it would be pinned.
-const LOGO = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
-const ticker = () => `E${Math.random().toString(36).replace(/[^a-z]/g, "").slice(0, 5).toUpperCase().padEnd(5, "X")}`;
-
 test.setTimeout(150_000);
-
-async function connect(page: Page) {
-  await page.locator("header").getByRole("button", { name: "Connect wallet" }).click();
-  await page.getByRole("button", { name: "E2E Wallet" }).click();
-  await expect(page.locator("header").getByRole("button", { name: "Disconnect" })).toBeVisible();
-}
-
-/** Fills the create form and sends it. The first click also signs the person in, in the wallet, as it would for real. */
-async function createToken(page: Page, opts: { window: "No protection" | "60 seconds" | "10 minutes" | "98 minutes" }) {
-  const symbol = ticker();
-  await page.goto("/sepolia/create");
-  await connect(page);
-  await page.getByLabel(/^Name/).fill(`Token ${symbol}`);
-  await page.getByLabel(/^Ticker/).fill(symbol);
-  await page.getByLabel(/^Logo/).setInputFiles({ name: "logo.png", mimeType: "image/png", buffer: LOGO });
-  await page.getByRole("radio", { name: opts.window }).check();
-  await page.getByRole("button", { name: "Create token" }).click();
-  // Lands on the new token's page, which says it is being set up until the indexer has seen it, then shows it.
-  await expect(page).toHaveURL(/\/sepolia\/token\/0x[0-9a-f]{40}/, { timeout: 60_000 });
-  await expect(page.getByTestId("trade-panel").getByRole("tab", { name: "Buy" })).toBeVisible({ timeout: 90_000 });
-  return symbol;
-}
-
-const panel = (page: Page) => page.getByTestId("trade-panel");
 
 test.describe("with a wallet", () => {
   test("create, buy, sell", async ({ page }) => {

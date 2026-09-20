@@ -1,5 +1,5 @@
 import { launchpadAbi } from "@vezta/abi";
-import { BaseError, ContractFunctionRevertedError, type Address, type PublicClient, type WalletClient } from "viem";
+import { BaseError, ContractFunctionRevertedError, type Account, type Address, type PublicClient, type WalletClient } from "viem";
 
 /** migrate deploys the Uniswap pair, so it costs about 2.7M gas; 3M is the ceiling used to size the reserve. */
 export const MIGRATE_GAS = 3_000_000n;
@@ -26,7 +26,14 @@ const completeEvent = launchpadAbi.find((item) => item.type === "event" && item.
 export interface MigratorDeps {
   publicClient: PublicClient;
   walletClient: WalletClient;
+  /** The bot wallet's address: what its balance is read from and what a warning names. */
   account: Address;
+  /**
+   * What is handed to the client as `account` when sending. Defaults to `account`, an address, which tells viem to ask the
+   * NODE to sign for it, and a node holds no such key ("No Signer available"). A bot that signs itself passes its local
+   * account object here.
+   */
+  signer?: Account | Address;
   launchpad: Address;
   /** Block to start catching up from: the deployment's own, so history is never scanned from genesis. */
   deployBlock: bigint;
@@ -61,7 +68,7 @@ export function createMigrator(deps: MigratorDeps) {
         };
         if (curve.migrated) return "already";
         if (!curve.complete) return "not-ready";
-        const hash = await walletClient.writeContract({ address: launchpad, abi: launchpadAbi, functionName: "migrate", args: [token], account, chain: null });
+        const hash = await walletClient.writeContract({ address: launchpad, abi: launchpadAbi, functionName: "migrate", args: [token], account: deps.signer ?? account, chain: null });
         await publicClient.waitForTransactionReceipt({ hash });
         log(`migrated ${token} in ${hash}`);
         return "migrated";

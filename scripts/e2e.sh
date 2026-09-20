@@ -24,6 +24,7 @@ ANVIL_PORT="${ANVIL_PORT:-8555}"
 API_PORT="${API_PORT:-3101}"
 WEB_PORT="${WEB_PORT:-3100}"
 PONDER_PORT="${PONDER_PORT:-42071}"
+REDIS_PORT="${REDIS_PORT:-6391}" # never 6379: that is a developer's own Redis
 DB="${E2E_DB:-vezta_e2e}"
 DB_USER="$(whoami)"
 DB_URL="postgresql://$DB_USER@localhost:5432/$DB"
@@ -49,13 +50,14 @@ cleanup() {
   # The Anvil is started by local-chain.sh, whose own cleanup can lose a race with being killed. Its command line names this
   # run's port, so it can be found and stopped precisely: no other process matches.
   pkill -f "anvil --fork-url .* --port $ANVIL_PORT" 2>/dev/null || true
+  pkill -f "redis-server .*--port $REDIS_PORT" 2>/dev/null || true
   echo "logs: $LOGS"
   exit $code
 }
 trap cleanup EXIT
 
 # --- pre-flight: everything it needs, and every port free, before anything starts ------------------------------------
-for tool in anvil forge cast pnpm node; do command -v "$tool" >/dev/null || die "$tool is not installed"; done
+for tool in anvil forge cast pnpm node redis-server redis-cli; do command -v "$tool" >/dev/null || die "$tool is not installed"; done
 PGBIN=""
 for dir in "$(dirname "$(command -v psql 2>/dev/null || echo /nonexistent/psql)")" /usr/local/opt/postgresql@16/bin /opt/homebrew/opt/postgresql@16/bin; do
   [ -x "$dir/createdb" ] && PGBIN="$dir" && break
@@ -63,8 +65,8 @@ done
 [ -n "$PGBIN" ] || die "Postgres client tools (createdb, dropdb, psql) not found"
 [ -d "$CONTRACTS" ] || die "contracts repo not found at $CONTRACTS (set CONTRACTS_DIR)"
 [ -d "/Applications/Google Chrome.app" ] || command -v google-chrome >/dev/null || die "Google Chrome is not installed (Playwright uses it, so nothing is downloaded)"
-for port in "$ANVIL_PORT" "$API_PORT" "$WEB_PORT" "$PONDER_PORT"; do
-  if lsof -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1; then die "port $port is already in use; choose another with ANVIL_PORT / API_PORT / WEB_PORT / PONDER_PORT"; fi
+for port in "$ANVIL_PORT" "$API_PORT" "$WEB_PORT" "$PONDER_PORT" "$REDIS_PORT"; do
+  if lsof -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1; then die "port $port is already in use; choose another with ANVIL_PORT / API_PORT / WEB_PORT / PONDER_PORT / REDIS_PORT"; fi
 done
 
 wait_for() { # wait_for "<what>" <seconds> <command...>
@@ -118,11 +120,25 @@ tokens_indexed() {
 }
 wait_for "the indexer to find both tokens" 120 tokens_indexed
 
+# --- 4b. Redis and the bot: live updates and automatic migration ---------------------------------------------------------
+log "Starting Redis on :$REDIS_PORT and the watcher/migration bot"
+redis-server --port "$REDIS_PORT" --bind 127.0.0.1 --save "" --appendonly no --loglevel warning > "$LOGS/redis.log" 2>&1 &
+PIDS+=($!)
+wait_for "Redis" 30 redis-cli -p "$REDIS_PORT" ping
+# The bot's wallet is its own, random, and holds only gas: never a well-known key.
+BOT_KEY="$(cast wallet new | awk '/Private key/ {print $3}')"
+BOT_ADDR="$(cast wallet address --private-key "$BOT_KEY")"
+cast rpc anvil_setBalance "$BOT_ADDR" 0x8AC7230489E80000 --rpc-url "$RPC" >/dev/null # 10 ETH for gas
+(cd "$ROOT/apps/bot" && DEPLOYMENT=local RPC_URL="$RPC" BOT_PRIVATE_KEY="$BOT_KEY" REDIS_URL="redis://127.0.0.1:$REDIS_PORT" POLL_MS=1000 \
+  pnpm start > "$LOGS/bot.log" 2>&1) &
+PIDS+=($!)
+wait_for "the bot" 60 grep -q "watching" "$LOGS/bot.log"
+
 # --- 5. the API ----------------------------------------------------------------------------------------------------------
 log "Starting the API on :$API_PORT"
 # WEB_ORIGIN is the domain a sign-in message must name; PINNER=fake because there is no Pinata key here (and it pins nothing).
 (cd "$ROOT/apps/api" && DATABASE_URL="$DB_URL" DEPLOYMENT=local PORT="$API_PORT" CORS_ORIGINS="http://localhost:$WEB_PORT" \
-  WEB_ORIGIN="http://localhost:$WEB_PORT" PINNER=fake pnpm start > "$LOGS/api.log" 2>&1) &
+  WEB_ORIGIN="http://localhost:$WEB_PORT" PINNER=fake REDIS_URL="redis://127.0.0.1:$REDIS_PORT" pnpm start > "$LOGS/api.log" 2>&1) &
 PIDS+=($!)
 wait_for "the API" 60 curl -sf "http://localhost:$API_PORT/ready"
 

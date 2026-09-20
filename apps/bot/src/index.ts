@@ -28,6 +28,7 @@ const migrator = createMigrator({
   publicClient,
   walletClient,
   account: account.address,
+  signer: account,
   launchpad: deployment.launchpad,
   deployBlock: BigInt(deployment.deployBlock),
 });
