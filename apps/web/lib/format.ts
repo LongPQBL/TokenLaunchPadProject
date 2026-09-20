@@ -1,3 +1,5 @@
+import { SUPPLY } from "@vezta/shared";
+
 /** 0x8509aea4…7744 -> 0x8509…7744. Anything that is not a full address is returned as it is, never mangled. */
 export function shortAddress(address: string): string {
   return /^0x[0-9a-fA-F]{40}$/.test(address) ? `${address.slice(0, 6)}…${address.slice(-4)}` : address;
@@ -16,4 +18,28 @@ export function formatPercentBps(bps: number): string {
 /** A 20-byte hex address. Used on values that come from the URL or the API before they are put into a link or a query. */
 export function isAddress(value: string): boolean {
   return /^0x[0-9a-fA-F]{40}$/.test(value);
+}
+
+/**
+ * "2s ago", "5m ago", "3h ago", "2d ago". A trade's time is the chain's and "now" is this server's; they differ by
+ * seconds, so a trade can look like it is from the future. That, and a corrupt timestamp, both read as "just now"
+ * rather than "-3s ago".
+ */
+export function formatRelativeTime(timestamp: bigint, nowSeconds: number): string {
+  const elapsed = nowSeconds - Number(timestamp);
+  if (!Number.isFinite(elapsed) || elapsed < 1) return "just now";
+  if (elapsed < 60) return `${Math.floor(elapsed)}s ago`;
+  if (elapsed < 3_600) return `${Math.floor(elapsed / 60)}m ago`;
+  if (elapsed < 86_400) return `${Math.floor(elapsed / 3_600)}h ago`;
+  return `${Math.floor(elapsed / 86_400)}d ago`;
+}
+
+/**
+ * A holder's share of the supply with two decimals. Holders are usually a tiny fraction of a billion tokens, so
+ * anything above zero but under 0.01% is shown as "<0.01%" rather than rounded down to a "0%" that hides who is who.
+ */
+export function formatShareOfSupply(amount: bigint, supply: bigint = SUPPLY): string {
+  if (amount <= 0n || supply <= 0n) return "0%";
+  const bps = amount >= supply ? 10_000n : (amount * 10_000n) / supply;
+  return bps === 0n ? "<0.01%" : `${(Number(bps) / 100).toFixed(2)}%`;
 }

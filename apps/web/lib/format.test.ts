@@ -1,5 +1,52 @@
 import { describe, expect, it } from "vitest";
-import { formatPercentBps, isAddress, shortAddress } from "./format";
+import { formatPercentBps, formatRelativeTime, formatShareOfSupply, isAddress, shortAddress } from "./format";
+
+describe("formatRelativeTime", () => {
+  const now = 1_700_000_000;
+  const ago = (seconds: number) => formatRelativeTime(BigInt(now - seconds), now);
+
+  it("counts seconds, minutes, hours and days", () => {
+    expect(ago(2)).toBe("2s ago");
+    expect(ago(59)).toBe("59s ago");
+    expect(ago(60)).toBe("1m ago");
+    expect(ago(3599)).toBe("59m ago");
+    expect(ago(3600)).toBe("1h ago");
+    expect(ago(86_400 * 3)).toBe("3d ago");
+  });
+
+  // A trade's time is the chain's, and "now" is this server's. They differ by seconds, so a trade can look like it
+  // is from the future. That must read as now, never as "-3s ago".
+  it("says 'just now' for the present and for clock skew into the future", () => {
+    expect(ago(0)).toBe("just now");
+    expect(ago(-3)).toBe("just now");
+    expect(ago(-86_400)).toBe("just now");
+  });
+
+  it("does not choke on an absurd timestamp", () => {
+    expect(formatRelativeTime(10n ** 30n, now)).toBe("just now");
+    expect(formatRelativeTime(0n, now)).toMatch(/d ago$/);
+  });
+});
+
+describe("formatShareOfSupply", () => {
+  const SUPPLY = 10n ** 27n;
+
+  it("shows a share of the one-billion supply with two decimals", () => {
+    expect(formatShareOfSupply(40_000_000n * 10n ** 18n, SUPPLY)).toBe("4.00%");
+    expect(formatShareOfSupply(SUPPLY / 3n, SUPPLY)).toBe("33.33%");
+  });
+
+  // Holders are usually a tiny fraction of a billion tokens; rounding them to "0%" would hide who is who.
+  it("does not round a small holding down to zero", () => {
+    expect(formatShareOfSupply(1n * 10n ** 18n, SUPPLY)).toBe("<0.01%");
+    expect(formatShareOfSupply(SUPPLY / 5000n, SUPPLY)).toBe("0.02%");
+  });
+
+  it("clamps to 100% and shows nothing for nothing", () => {
+    expect(formatShareOfSupply(SUPPLY * 2n, SUPPLY)).toBe("100.00%");
+    expect(formatShareOfSupply(0n, SUPPLY)).toBe("0%");
+  });
+});
 
 describe("isAddress", () => {
   it("accepts a 40-digit hex address in any case", () => {

@@ -1,4 +1,5 @@
 import { chainBySlug, formatQuote, formatTokenPrice, marketCap, safeHttpUrl, spotPrice, UI } from "@vezta/shared";
+import { explorerAddressUrl } from "@/lib/explorer";
 import { isAddress, shortAddress } from "@/lib/format";
 import type { TokenDetail } from "@/lib/types";
 import { StatusBadge } from "./status-badge";
@@ -23,7 +24,6 @@ export function TokenHeader({ chain, token }: { chain: string; token: TokenDetai
   const config = chainBySlug(chain);
   const decimals = config?.quoteDecimals ?? 18;
   const symbol = config?.quoteSymbol ?? "ETH";
-  const explorer = (address: string) => (config && isAddress(address) ? `${config.explorerUrl}/address/${address}` : undefined);
 
   const title = token.name ?? token.ticker ?? shortAddress(token.address);
   const price = formatTokenPrice(spotPrice(token.virtualQuoteReserves, token.virtualTokenReserves), decimals);
@@ -39,8 +39,8 @@ export function TokenHeader({ chain, token }: { chain: string; token: TokenDetai
       ? `https://app.uniswap.org/swap?${new URLSearchParams({ chain: config.uniswapSlug, outputCurrency: token.address })}`
       : undefined;
 
-  const contract = explorer(token.address);
-  const creator = explorer(token.creator);
+  const contract = explorerAddressUrl(config, token.address);
+  const creator = explorerAddressUrl(config, token.creator);
 
   return (
     <header className="flex flex-col gap-4 sm:flex-row">

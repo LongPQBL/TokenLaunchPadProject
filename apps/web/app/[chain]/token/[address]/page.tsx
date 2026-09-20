@@ -1,15 +1,42 @@
 import { chainBySlug, UI } from "@vezta/shared";
 import { notFound } from "next/navigation";
 import { GraduationProgress } from "@/components/graduation-progress";
+import { HoldersTable } from "@/components/holders-table";
 import { PriceChart } from "@/components/price-chart";
 import { SiteHeader } from "@/components/site-header";
 import { TokenHeader } from "@/components/token-header";
+import { TokenTabs } from "@/components/token-tabs";
+import { TradesTable } from "@/components/trades-table";
 import { api, ApiError } from "@/lib/api";
 import { fillGaps, toChartSeries } from "@/lib/candles";
 import { isAddress } from "@/lib/format";
 
 /** One candle per minute. */
 const CHART_INTERVAL = 60;
+const TRADES_LIMIT = 30;
+const HOLDERS_LIMIT = 20;
+
+/**
+ * A secondary request must not take the page down, and must not read as "nothing there" either: that would be false.
+ * Undefined means "could not load", and the panel says so; the reason goes to the server log.
+ */
+function orUndefined<T>(request: Promise<T>, what: string): Promise<T | undefined> {
+  return request.then(
+    (value) => value,
+    (error: unknown) => {
+      console.error(`token page: could not load ${what}`, error);
+      return undefined;
+    },
+  );
+}
+
+function PanelError({ className }: { className?: string }) {
+  return (
+    <p role="alert" className={className ?? "py-10 text-center text-muted-foreground"}>
+      {UI.errors.loadFailed}
+    </p>
+  );
+}
 
 export default async function TokenPage({ params }: { params: Promise<{ chain: string; address: string }> }) {
   const { chain, address } = await params;
@@ -25,44 +52,40 @@ export default async function TokenPage({ params }: { params: Promise<{ chain: s
 
   // The address comes from the URL. Anything that is not an address is "not found" without asking the API.
   if (!isAddress(address)) return shell(<NotFound />);
+  const token = address.toLowerCase();
 
-  // Asked for alongside the token rather than after it. A chart that fails to load must not take the page down, and
-  // must not read as "no trades yet" either: that would be false. Undefined means "could not load".
-  const candlesRequest = api.candles(chain, address.toLowerCase(), CHART_INTERVAL).then(
-    (result) => result.items,
-    (error: unknown) => {
-      console.error("token page: could not load candles", error);
-      return undefined;
-    },
-  );
+  // Everything is asked for at once. The token decides the page; the rest fill it in.
+  const candlesRequest = orUndefined(api.candles(chain, token, CHART_INTERVAL), "candles");
+  const tradesRequest = orUndefined(api.trades(chain, token, { limit: TRADES_LIMIT }), "trades");
+  const holdersRequest = orUndefined(api.holders(chain, token, { limit: HOLDERS_LIMIT }), "holders");
 
-  let token;
+  let detail;
   try {
-    token = await api.token(chain, address.toLowerCase());
+    detail = await api.token(chain, token);
   } catch (error) {
     // A missing or hidden token is a plain "not found". Anything else is logged for the operator and shown calmly.
     if (error instanceof ApiError && error.status === 404) return shell(<NotFound />);
     console.error("token page: could not load the token", error);
-    return shell(
-      <p role="alert" className="py-16 text-center text-muted-foreground">
-        {UI.errors.loadFailed}
-      </p>,
-    );
+    return shell(<PanelError className="py-16 text-center text-muted-foreground" />);
   }
 
-  const candles = await candlesRequest;
+  const [candles, trades, holders] = await Promise.all([candlesRequest, tradesRequest, holdersRequest]);
+  const now = Math.floor(Date.now() / 1000);
 
   return shell(
     <div className="flex flex-col gap-6">
-      <TokenHeader chain={chain} token={token} />
+      <TokenHeader chain={chain} token={detail} />
       {candles ? (
-        <PriceChart candles={fillGaps(toChartSeries(candles, config.quoteDecimals), CHART_INTERVAL)} />
+        <PriceChart candles={fillGaps(toChartSeries(candles.items, config.quoteDecimals), CHART_INTERVAL)} />
       ) : (
-        <p role="alert" className="flex h-80 items-center justify-center border border-border text-muted-foreground">
-          {UI.errors.loadFailed}
-        </p>
+        <PanelError className="flex h-80 items-center justify-center border border-border text-muted-foreground" />
       )}
-      <GraduationProgress token={token} decimals={config.quoteDecimals} symbol={config.quoteSymbol} />
+      <GraduationProgress token={detail} decimals={config.quoteDecimals} symbol={config.quoteSymbol} />
+      <TokenTabs
+        trades={trades ? <TradesTable trades={trades.items} chain={chain} now={now} /> : <PanelError />}
+        holders={holders ? <HoldersTable holders={holders.items} chain={chain} /> : <PanelError />}
+        comments={<p className="py-10 text-center text-muted-foreground">{UI.token.commentsSoon}</p>}
+      />
     </div>,
   );
 }

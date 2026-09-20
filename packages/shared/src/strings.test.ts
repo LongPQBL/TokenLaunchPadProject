@@ -26,6 +26,15 @@ describe("UI strings", () => {
     expect(UI.token.trades(0)).toBe("0 trades");
   });
 
+  it("labels a buy and a sell, and the table columns", () => {
+    expect(UI.token.side).toEqual({ buy: "Buy", sell: "Sell" });
+    expect(Object.values(UI.token.columns)).toEqual(["#", "Type", "Amount", "Value", "Trader", "Time", "Holder", "Balance", "Share"]);
+  });
+
+  it("says comments are coming rather than showing an empty box", () => {
+    expect(UI.token.commentsSoon).toBe("Comments are coming soon.");
+  });
+
   it("has a label for paging on", () => {
     expect(UI.discover.next).toBe("Next page");
   });
