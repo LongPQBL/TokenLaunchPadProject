@@ -5,6 +5,7 @@ import { prisma } from "@vezta/app-db";
  * calls this rather than its own list: a list that leaves one table out breaks whichever test file runs after another that used it.
  */
 export async function resetAppData(): Promise<void> {
+  await prisma.moderationEvent.deleteMany();
   await prisma.report.deleteMany();
   await prisma.comment.deleteMany();
   await prisma.tokenMetadata.deleteMany();
