@@ -1,6 +1,6 @@
 import { prisma } from "@vezta/app-db";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import { randomAccount, signIn, TEST_CHAIN, TEST_DOMAIN, TEST_URI } from "../../test/auth.js";
+import { signIn, TEST_CHAIN, TEST_DOMAIN, TEST_URI } from "../../test/auth.js";
 import { resetAppData } from "../../test/app-data.js";
 import { addr, seedToken } from "../../test/seed.js";
 import { createApp } from "../app.js";
