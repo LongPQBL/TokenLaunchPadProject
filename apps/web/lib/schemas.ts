@@ -72,6 +72,45 @@ export const tradeSchema = z.object({
 
 export const tradePageSchema = z.object({ items: z.array(tradeSchema), nextCursor: z.string().optional() });
 
+/** The two things the API sends about a token that is only being named in a list. */
+const tokenBriefSchema = z.object({ address: z.string(), name: z.string().optional(), ticker: z.string().optional(), imageUrl: z.string().optional() });
+
+const signed = z
+  .string()
+  .regex(/^-?\d+$/, "expected an integer string")
+  .transform((s) => BigInt(s));
+
+/** A token an address holds now, with what it cost and what it is worth. `pnlBps` is null when nothing was spent on it. */
+export const positionSchema = z.object({
+  token: tokenBriefSchema,
+  balance: amount,
+  spent: amount,
+  received: amount,
+  buys: z.number().int().nonnegative(),
+  sells: z.number().int().nonnegative(),
+  value: amount,
+  pnl: signed,
+  pnlBps: z.number().int().nullable(),
+});
+export const positionListSchema = z.object({ items: z.array(positionSchema) });
+
+/** One trade an address made, on any token. */
+export const orderSchema = z.object({
+  id: z.string(),
+  txHash: z.string().regex(/^0x[0-9a-fA-F]{64}$/),
+  token: tokenBriefSchema,
+  isBuy: z.boolean(),
+  quoteAmount: amount,
+  fee: amount,
+  total: signed,
+  tokenAmount: amount,
+  price: amount,
+  timestamp: amount,
+  blockNumber: amount,
+  logIndex: z.number().int().nonnegative(),
+});
+export const orderPageSchema = z.object({ items: z.array(orderSchema), nextCursor: z.string().optional() });
+
 export const holderSchema = z.object({ holder: z.string(), amount });
 export const holderListSchema = z.object({ items: z.array(holderSchema) });
 
@@ -128,6 +167,8 @@ export const profileSchema = z.object({
 
 export type TokenListItem = z.output<typeof tokenListItemSchema>;
 export type TokenStats = z.output<typeof tokenStatsSchema>;
+export type Position = z.output<typeof positionSchema>;
+export type Order = z.output<typeof orderSchema>;
 export type TokenRow = z.output<typeof tokenRowSchema>;
 export type TokenPage = z.output<typeof tokenPageSchema>;
 export type TokenDetail = z.output<typeof tokenDetailSchema>;

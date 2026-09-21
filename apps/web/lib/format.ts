@@ -1,4 +1,4 @@
-import { SUPPLY } from "@vezta/shared";
+import { formatQuote, SUPPLY } from "@vezta/shared";
 
 /** 0x8509aea4…7744 -> 0x8509…7744. Anything that is not a full address is returned as it is, never mangled. */
 export function shortAddress(address: string): string {
@@ -89,4 +89,25 @@ export function formatChangeBps(bps: number): { text: string; direction: "up" | 
   // What rounds to 0.0% is not a move: no arrow, no colour.
   if (Math.abs(bps) < 5) return { text: "0.0%", direction: "flat" };
   return { text, direction: bps > 0 ? "up" : "down" };
+}
+
+/**
+ * A gain or a loss in the quote's units, with its sign: "+1.5", "-0.125", "0". Cut, never rounded up, at `fractionDigits`; a
+ * gain or loss that is real but too small for that is shown as the smallest amount that can be shown, so it is never a plain 0.
+ */
+export function formatSignedQuote(raw: bigint, quoteDecimals: number, fractionDigits: number): string {
+  if (raw === 0n) return "0";
+  const abs = raw < 0n ? -raw : raw;
+  const shown = formatQuote(abs, quoteDecimals, fractionDigits);
+  const text = shown === "0" ? `0.${"0".repeat(Math.max(fractionDigits - 1, 0))}1` : shown;
+  return `${raw < 0n ? "-" : "+"}${text}`;
+}
+
+/** A profit or loss in basis points, as a signed percent, and which way it went. No percentage at all is a dash, not 0%. */
+export function formatPnlBps(bps: number | null): { text: string; direction: "up" | "down" | "flat" } {
+  if (bps === null || !Number.isFinite(bps)) return { text: "—", direction: "flat" };
+  // What rounds to 0.0% is not a move: no sign, no colour.
+  if (Math.abs(bps) < 5) return { text: "0.0%", direction: "flat" };
+  const percent = (Math.abs(bps) / 100).toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  return { text: `${bps > 0 ? "+" : "-"}${percent}%`, direction: bps > 0 ? "up" : "down" };
 }

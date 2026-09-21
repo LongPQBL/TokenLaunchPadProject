@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatAge, formatChangeBps, parseAmount, formatCountdown, formatMultiplier, formatPercentBps, formatRelativeTime, formatShareOfSupply, isAddress, shortAddress } from "./format";
+import { formatAge, formatChangeBps, formatPnlBps, formatSignedQuote, parseAmount, formatCountdown, formatMultiplier, formatPercentBps, formatRelativeTime, formatShareOfSupply, isAddress, shortAddress } from "./format";
 
 describe("formatRelativeTime", () => {
   const now = 1_700_000_000;
@@ -175,5 +175,41 @@ describe("formatChangeBps", () => {
   it("does not choke on what should never come: NaN or infinity read as flat", () => {
     expect(formatChangeBps(Number.NaN).direction).toBe("flat");
     expect(formatChangeBps(Number.POSITIVE_INFINITY).direction).toBe("flat");
+  });
+});
+
+describe("formatSignedQuote", () => {
+  const ETH = 10n ** 18n;
+
+  it("shows a gain with a plus and a loss with a minus, in the quote's units, cut (never rounded up) at the digits asked for", () => {
+    expect(formatSignedQuote((3n * ETH) / 2n, 18, 4)).toBe("+1.5");
+    expect(formatSignedQuote(-ETH / 8n, 18, 4)).toBe("-0.125");
+    expect(formatSignedQuote(123_456_789_012_345_678n, 18, 4)).toBe("+0.1234");
+  });
+
+  it("shows nothing gained or lost as a plain 0, with no sign", () => {
+    expect(formatSignedQuote(0n, 18, 4)).toBe("0");
+  });
+
+  it("does not turn a loss too small to show into a plain 0 that hides it: it says it is below the smallest it can show", () => {
+    expect(formatSignedQuote(-5n, 18, 4)).toBe("-0.0001");
+    expect(formatSignedQuote(5n, 18, 4)).toBe("+0.0001");
+  });
+});
+
+describe("formatPnlBps", () => {
+  it("shows basis points as a signed percent with one decimal and thousands separators", () => {
+    expect(formatPnlBps(18_636)).toEqual({ text: "+186.4%", direction: "up" });
+    expect(formatPnlBps(-455)).toEqual({ text: "-4.6%", direction: "down" });
+    expect(formatPnlBps(1_234_500)).toEqual({ text: "+12,345.0%", direction: "up" });
+  });
+
+  it("has a dash, not 0%, when there is nothing to be a percentage of", () => {
+    expect(formatPnlBps(null)).toEqual({ text: "—", direction: "flat" });
+  });
+
+  it("shows no sign or colour for what rounds to nothing", () => {
+    expect(formatPnlBps(0)).toEqual({ text: "0.0%", direction: "flat" });
+    expect(formatPnlBps(3)).toEqual({ text: "0.0%", direction: "flat" });
   });
 });

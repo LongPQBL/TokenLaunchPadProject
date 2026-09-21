@@ -8,6 +8,8 @@ import {
   tokenDetailSchema,
   tokenPageSchema,
   tradePageSchema,
+  orderPageSchema,
+  positionListSchema,
 } from "./schemas";
 import type { TokenSort } from "./types";
 
@@ -109,6 +111,13 @@ export function createApi({ baseUrl, fetch: fetchImpl = (...args) => fetch(...ar
     holdings: (chain: string, address: string, o: Signal = {}) =>
       get(`/${seg(chain)}/addresses/${seg(address)}/holdings`, holdingListSchema, {}, o.signal),
 
+    /** What an address holds now, with what it cost and what it is worth. Open positions only. */
+    positions: (chain: string, address: string, o: Signal = {}) => get(`/${seg(chain)}/addresses/${seg(address)}/positions`, positionListSchema, {}, o.signal),
+
+    /** Every trade an address made, newest first, across all tokens. `cursor` is the `nextCursor` of the page before. */
+    orders: (chain: string, address: string, o: { cursor?: string; limit?: number } & Signal = {}) =>
+      get(`/${seg(chain)}/addresses/${seg(address)}/orders`, orderPageSchema, { cursor: o.cursor, limit: o.limit }, o.signal),
+
     /** A token's comments, newest first. `cursor` is the `nextCursor` of the page before. */
     comments: (chain: string, address: string, o: { cursor?: string; limit?: number } & Signal = {}) =>
       get(`${tokenPath(chain, address)}/comments`, commentPageSchema, { cursor: o.cursor, limit: o.limit }, o.signal),
@@ -125,3 +134,6 @@ export type Api = ReturnType<typeof createApi>;
 
 /** NEXT_PUBLIC_ means the value ships to every browser, so it may only ever hold something public: the API's URL. */
 export const api = createApi({ baseUrl: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001" });
+
+/** For code that runs in the browser: the address is read when it is used, so it is whatever the build (or a test) says it is. */
+export const getApi = () => createApi({ baseUrl: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001" });
