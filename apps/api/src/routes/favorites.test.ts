@@ -134,6 +134,45 @@ describe("starring", () => {
   });
 });
 
+const watchlist = (c: string | null = cookie) => call("GET", "/sepolia/me/watchlist", c);
+const rows = async (c: string | null = cookie) => ((await (await watchlist(c)).json()) as { items: { address: string; name?: string; stats: { marketCap: string; traders24h: number } }[]; nextCursor?: string }).items;
+
+describe("the watchlist", () => {
+  it("wants a session", async () => {
+    expect((await watchlist(null)).status).toBe(401);
+  });
+
+  it("is the starred tokens as table rows, with the numbers a table shows, and nothing that was not starred", async () => {
+    await star(T1);
+    await star(T3);
+    const items = await rows();
+    expect(items.map((r) => r.address).sort()).toEqual([T1, T3].sort());
+    expect(items[0]!.stats).toMatchObject({ marketCap: expect.stringMatching(/^\d+$/), traders24h: 0 });
+    expect(items.find((r) => r.address === T1)!.name).toBe("Token 0");
+  });
+
+  it("is empty for someone with no stars, and never shows another person's", async () => {
+    await star(T1);
+    const other = await signIn(app);
+    expect(await rows(other.cookie)).toEqual([]);
+  });
+
+  it("leaves out a token that is hidden, and another chain's token with the same address", async () => {
+    await star(T1);
+    await star(T2);
+    await seedToken({ address: T2, chainId: 1, name: "Twin", ticker: "TW" });
+    await prisma.tokenMetadata.create({ data: { chainId: CHAIN_ID, token: T1, uri: "ipfs://x", status: "hidden" } });
+    expect((await rows()).map((r) => r.address)).toEqual([T2]);
+  });
+
+  it("gives every star in one answer, with no page to ask for next, up to the most a person may hold", async () => {
+    await prisma.appUser.upsert({ where: { address: me }, create: { address: me }, update: {} });
+    await prisma.favorite.create({ data: { chainId: CHAIN_ID, address: me, token: T1 } });
+    const response = await watchlist();
+    expect(((await response.json()) as { nextCursor?: string }).nextCursor).toBeUndefined();
+  });
+});
+
 describe("unstarring", () => {
   it("removes the star, and only that one", async () => {
     await star(T1);

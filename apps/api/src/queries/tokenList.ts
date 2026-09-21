@@ -151,6 +151,8 @@ export interface ListTokensOptions {
   limit: number;
   /** Search text. A full 0x address is a direct lookup; anything else matches name or ticker. */
   q?: string;
+  /** Only the tokens this person (lower-case address) has starred. */
+  starredBy?: string;
 }
 
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
@@ -228,6 +230,7 @@ export async function listTokens(opts: ListTokensOptions): Promise<{ items: Toke
     where t.chain_id = ${opts.chainId}
       and coalesce(m.status, 'pending') <> 'hidden'
       ${searchFilter(sql, opts.q)}
+      ${opts.starredBy ? sql`and exists (select 1 from app.favorite f where f.chain_id = t.chain_id and f.token = t.address and f.address = ${opts.starredBy})` : sql``}
       ${after}
     order by ${key} desc, t.address desc
     limit ${opts.limit + 1}`;

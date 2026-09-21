@@ -4,6 +4,8 @@ import { requireSession } from "../auth/session.js";
 import { getSql } from "../db.js";
 import { apiError } from "../errors.js";
 import { consumeRateLimit } from "../middleware/rate-limit.js";
+import { jsonSafe } from "../json.js";
+import { listTokens } from "../queries/tokenList.js";
 
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 /** Most stars one person may hold: a list nobody could read is not a list, and it bounds what one account can store. */
@@ -81,5 +83,20 @@ export function favoritesRoutes(): Hono<AppEnv> {
     return c.json({ token, starred: false });
   });
 
+  return routes;
+}
+
+/**
+ * The person's starred tokens as rows of a token table, with the numbers the table shows: what /me/favorites lists as addresses,
+ * as one answer. Every star in one go (a person holds at most MAX_FAVORITES) and so no page to ask for next; the page sorts
+ * them. A hidden token is left out, as everywhere. Mounted under /:chain/me/watchlist.
+ */
+export function watchlistRoutes(): Hono<AppEnv> {
+  const routes = new Hono<AppEnv>();
+  routes.use("*", requireSession);
+  routes.get("/", async (c) => {
+    const { items } = await listTokens({ chainId: c.get("chain").chainId, sort: "new", limit: MAX_FAVORITES, starredBy: c.get("address") });
+    return c.json(jsonSafe({ items }) as object);
+  });
   return routes;
 }
