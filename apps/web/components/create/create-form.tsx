@@ -18,6 +18,8 @@ import { useIdentity } from "@/lib/wallet/use-identity";
 import { useTrade } from "@/lib/wallet/use-trade";
 import { TradingWalletNotice } from "@/components/trading-wallet-notice";
 import { CreateSteps, type CreateStep } from "./create-steps";
+import { ImageDropzone } from "./image-dropzone";
+import { PairPicker } from "./pair-picker";
 import { WindowPicker } from "./window-picker";
 
 interface Values {
@@ -165,20 +167,14 @@ export function CreateForm({ chain }: { chain: string }) {
         <label htmlFor={`${ids}-image`} className="text-sm font-medium">
           {UI.create.fields.image}
         </label>
-        <input
-          id={`${ids}-image`}
-          type="file"
-          accept="image/png,image/jpeg,image/webp"
-          onChange={(e) => setImage(e.target.files?.[0])}
-          aria-invalid={errors.image ? true : undefined}
-        />
-        <p className="text-xs text-muted-foreground">{UI.create.fields.imageHint}</p>
-        {errors.image && <p className="text-xs text-destructive">{errors.image}</p>}
+        <ImageDropzone id={`${ids}-image`} file={image} onChange={setImage} error={errors.image} />
       </div>
 
       {field("website", UI.create.fields.website, { optional: true, error: errors.link })}
       {field("twitter", UI.create.fields.twitter, { optional: true })}
       {field("telegram", UI.create.fields.telegram, { optional: true })}
+
+      <PairPicker symbol={symbol} />
 
       <WindowPicker value={values.antiSniperWindow} onChange={(seconds) => setValues((v) => ({ ...v, antiSniperWindow: seconds }))} />
 

@@ -20,6 +20,8 @@ export const UI = {
       telegram: "Telegram",
       optional: "optional",
     },
+    pair: { title: "Pool liquidity pair", comingSoon: "Coming soon" },
+    image: { title: "Select an image to upload", drop: "or drag and drop it here", select: "Select file", replace: "Replace", remove: "Remove", previewAlt: "Logo preview" },
     errors: {
       name: "Enter a name of 1 to 32 characters.",
       ticker: "Use 2 to 10 letters or digits, with no spaces.",

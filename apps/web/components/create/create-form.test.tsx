@@ -1,4 +1,4 @@
-import { act, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { connect } from "wagmi/actions";
 import { sepolia } from "wagmi/chains";
@@ -55,6 +55,54 @@ async function fill(user: ReturnType<typeof userEvent.setup>, o: { name?: string
 
 const submit = () => screen.getByRole("button", { name: "Create token" });
 
+describe("CreateForm: the pool pair and the logo", () => {
+  it("shows the pool liquidity pair: this chain's ETH chosen, and USDC dimmed as coming soon", async () => {
+    await setup();
+    expect(screen.getByRole("radiogroup", { name: "Pool liquidity pair" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "ETH" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: /USDC/ })).toBeDisabled();
+    expect(screen.getByText("Coming soon")).toBeInTheDocument();
+  });
+
+  it("asks for the logo in a drop area with a Select file button, not a bare file input", async () => {
+    await setup();
+    expect(screen.getByTestId("dropzone")).toBeInTheDocument();
+    expect(screen.getByText("Select an image to upload")).toBeInTheDocument();
+    expect(screen.getByText("or drag and drop it here")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Select file" })).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Logo/)).toHaveAttribute("type", "file"); // and the field is still the labelled Logo
+  });
+
+  it("shows the logo once it is chosen, and takes one dropped on the area", async () => {
+    vi.stubGlobal("URL", Object.assign(URL, { createObjectURL: vi.fn(() => "blob:preview"), revokeObjectURL: vi.fn() }));
+    await setup();
+    const dropped = new File([new Uint8Array([1, 2, 3])], "dropped.png", { type: "image/png" });
+    fireEvent.drop(screen.getByTestId("dropzone"), { dataTransfer: { files: [dropped], types: ["Files"] } });
+    expect(await screen.findByText("dropped.png")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Logo preview" })).toBeInTheDocument();
+    expect(screen.queryByText("Select an image to upload")).toBeNull();
+  });
+
+  it("asks for a logo again once the chosen one is removed", async () => {
+    vi.stubGlobal("URL", Object.assign(URL, { createObjectURL: vi.fn(() => "blob:preview"), revokeObjectURL: vi.fn() }));
+    const { user } = await setup();
+    await fill(user);
+    expect(screen.getByText("logo.png")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Remove" }));
+    expect(screen.getByText("Select an image to upload")).toBeInTheDocument();
+    await user.click(submit());
+    expect(screen.getByText("Choose a logo.")).toBeInTheDocument();
+    expect(upload).not.toHaveBeenCalled();
+  });
+
+  it("puts the message about a bad logo in the drop area, which turns to the error colour", async () => {
+    const { user } = await setup();
+    await user.click(submit());
+    expect(screen.getByText("Choose a logo.")).toBeInTheDocument();
+    expect(screen.getByTestId("dropzone")).toHaveAttribute("data-invalid", "true");
+  });
+});
+
 describe("CreateForm: a wallet with no ETH", () => {
   it("says how to add ETH, with the address, before the button", async () => {
     await setup({ chain: fakeChain({ ethBalance: 0n }) });
@@ -90,7 +138,7 @@ describe("CreateForm: the form", () => {
   it("offers the four launch-protection windows and defaults to 60 seconds", async () => {
     await setup();
     expect(screen.getByRole("radio", { name: "60 seconds" })).toBeChecked();
-    expect(screen.getAllByRole("radio")).toHaveLength(4);
+    expect(within(screen.getByRole("radiogroup", { name: "Launch protection" })).getAllByRole("radio")).toHaveLength(4); // (the pool pair is a group of its own)
   });
 
   it("rejects a 33-character name, a 1-character ticker and a spaced ticker before any request is sent", async () => {
