@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { getDeployment } from "@/lib/deployment";
 import { shortAddress } from "@/lib/format";
 import { useSession } from "@/lib/session/use-session";
+import { useWalletKind } from "@/lib/wallet/wallet-kind";
 import { TopUpDialog } from "./top-up-dialog";
 import { WithdrawDialog } from "./withdraw-dialog";
 
@@ -34,11 +35,21 @@ function WalletRow({ testId, label, address, balance, spending, children }: { te
 export function SessionBar({ chain }: { chain: string }) {
   const { address } = useAccount();
   const session = useSession();
+  const kind = useWalletKind();
   const chainId = getDeployment()?.chainId;
   const main = useBalance({ address, chainId, query: { enabled: !!address, refetchInterval: 10_000 } });
   const trading = useBalance({ address: session.account?.address, chainId, query: { enabled: !!session.account, refetchInterval: 10_000 } });
 
   if (!address) return null;
+  // An embedded wallet IS the trading wallet (spec 7.3): it signs by itself, so there is nothing to turn on, top up or withdraw, and
+  // one address in all. Whatever the session provider says is not looked at.
+  if (kind === "embedded") {
+    return (
+      <section aria-label={UI.session.yourWallet} className="flex flex-col gap-2">
+        <WalletRow testId="main-wallet" label={UI.session.yourWallet} address={address} balance={main.data?.value} spending />
+      </section>
+    );
+  }
   const tradingWith = session.status === "ready" && !!session.account;
 
   return (

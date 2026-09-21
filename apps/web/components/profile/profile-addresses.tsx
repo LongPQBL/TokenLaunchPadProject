@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useAccount } from "wagmi";
 import { explorerAddressUrl } from "@/lib/explorer";
 import { useSession } from "@/lib/session/use-session";
+import { useWalletKind } from "@/lib/wallet/wallet-kind";
 
 /**
  * The address this profile is about, in full. To its owner, and only to its owner, it also names the trading wallet when one
@@ -13,9 +14,11 @@ import { useSession } from "@/lib/session/use-session";
 export function ProfileAddresses({ chain, address }: { chain: string; address: string }) {
   const { address: viewer } = useAccount();
   const { account } = useSession();
+  const kind = useWalletKind();
   const explorer = explorerAddressUrl(chainBySlug(chain), address);
   const owner = !!viewer && viewer.toLowerCase() === address.toLowerCase();
-  const trading = owner ? account?.address : undefined;
+  // An embedded wallet has one address: whatever a session might say, it is not shown.
+  const trading = owner && kind !== "embedded" ? account?.address : undefined;
 
   return (
     <dl className="flex flex-col gap-1 font-mono text-xs text-muted-foreground">

@@ -252,6 +252,7 @@ export const UI = {
   },
   session: {
     mainWallet: "Main wallet",
+    yourWallet: "Your wallet",
     tradingWallet: "Trading wallet",
     tradingWithThis: "Trading from this wallet",
     balance: "Balance",

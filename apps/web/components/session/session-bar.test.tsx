@@ -4,6 +4,7 @@ import { parseEther } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { connect } from "wagmi/actions";
 import { sepolia } from "wagmi/chains";
+import { mock } from "wagmi/connectors";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeChain } from "@/test/fake-chain";
 import { renderWithWallet, TEST_DEPLOYMENT, TEST_USER } from "@/test/wallet";
@@ -188,3 +189,56 @@ describe("SessionBar: the trading wallet cannot be used", () => {
     expect(screen.getByRole("button", { name: "Use main wallet" })).toBeInTheDocument();
   });
 });
+
+// Spec 7.3 and 7.4: an embedded wallet IS the trading wallet. One wallet, one address, nothing to turn on or top up.
+describe("SessionBar: an embedded wallet", () => {
+  /** A mock wallet that calls itself Privy's embedded wallet. */
+  const embedded = (id = "io.privy.wallet") => {
+    const base = mock({ accounts: [TEST_USER] });
+    return [(cfg: Parameters<typeof base>[0]) => ({ ...base(cfg), id })];
+  };
+
+  async function setupEmbedded(id?: string) {
+    const chain = fakeChain({ balances: { [TEST_USER.toLowerCase()]: parseEther("1.5") } });
+    const view = renderWithWallet(<SessionBar chain="sepolia" />, embedded(id), chain.transport);
+    await act(() => connect(view.config, { connector: view.config.connectors[0]!, chainId: sepolia.id }));
+    return view;
+  }
+
+  it("shows one wallet, called Your wallet, with its address and balance, marked as the one that pays", async () => {
+    await setupEmbedded();
+    expect(await screen.findByText("Your wallet")).toBeInTheDocument();
+    const rows = screen.getAllByTestId("main-wallet");
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toHaveAttribute("data-spending", "true");
+    expect(await within(rows[0]!).findByText("1.5 ETH")).toBeInTheDocument();
+    expect(screen.queryByTestId("trading-wallet")).toBeNull();
+  });
+
+  it("never offers a trading wallet, a top-up or a withdrawal, and never asks for the signature that would make one", async () => {
+    for (const status of ["off", "needs-signature", "mismatch", "restoring"]) {
+      session.value = { status, account: undefined };
+      const view = await setupEmbedded();
+      await screen.findByText("Your wallet");
+      for (const name of [/turn on/i, /top up/i, /withdraw/i, /restore/i, /turn off/i]) expect(screen.queryByRole("button", { name }), `${status} ${name}`).toBeNull();
+      expect(screen.queryByRole("alert")).toBeNull();
+      view.unmount();
+    }
+    expect(session.enable).not.toHaveBeenCalled();
+  });
+
+  it("does not show a trading wallet even if a session somehow exists for it", async () => {
+    session.value = { status: "ready", account: SESSION };
+    await setupEmbedded();
+    await screen.findByText("Your wallet");
+    expect(screen.queryByTestId("trading-wallet")).toBeNull();
+  });
+
+  // Review Focus 2: only Privy's own embedded wallet gets this. An external wallet, even one that logged in through Privy, keeps its trading wallet.
+  it("treats a wallet with a look-alike id as an ordinary one, which is offered a trading wallet", async () => {
+    await setupEmbedded("io.privy.wallet.evil");
+    expect(await screen.findByRole("button", { name: /turn on trading wallet/i })).toBeInTheDocument();
+    expect(screen.queryByText("Your wallet")).toBeNull();
+  });
+});
+
