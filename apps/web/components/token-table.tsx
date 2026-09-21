@@ -13,10 +13,10 @@ import { QuoteValue } from "./quote-value";
 import { TokenImage } from "./token-image";
 
 /** Which sort each sortable column stands for. Always biggest (or newest) first: that is what people come to a table for. */
-const COLUMNS: { label: string; sort?: TokenSort; align?: "left" | "right" }[] = [
+const COLUMNS: { label: string; sort?: TokenSort; align?: "left" | "center" | "right" }[] = [
   { label: "MCAP", sort: "mcap", align: "right" },
   { label: "ATH", align: "right" },
-  { label: "PROGRESS", sort: "progress", align: "right" },
+  { label: "PROGRESS", sort: "progress", align: "center" },
   { label: "AGE", sort: "new", align: "right" },
   { label: "TXNS", sort: "txns", align: "right" },
   { label: "24H VOL", sort: "volume24h", align: "right" },
@@ -113,7 +113,7 @@ export function TokenTable({
                     key={label}
                     scope="col"
                     aria-sort={key && key === sort ? "descending" : undefined}
-                    className={cn("px-2 py-2 font-normal", align === "right" && "text-right")}
+                    className={cn("px-2 py-2 font-normal", align === "right" && "text-right", align === "center" && "text-center")}
                   >
                     {key ? (
                       // The arrow is drawn by CSS, so it is not part of the header's name.
@@ -169,7 +169,7 @@ export function TokenTable({
                     <td className="px-2 py-2 text-right font-mono">{known ? quote(ath) : DASH}</td>
                     <td className="px-2 py-2">
                       {/* How far the curve is from graduating: it is the token's own, so it shows before there are any numbers. */}
-                      <div className="flex items-center justify-end gap-2 font-mono text-xs">
+                      <div className="flex items-center justify-center gap-2 font-mono text-xs">
                         <ProgressBar bps={token.progressBps} label={PROGRESS_LABEL} className="h-1.5 w-16 shrink-0" />
                         <span className="w-10 text-right">{formatPercentBps(token.progressBps)}</span>
                       </div>

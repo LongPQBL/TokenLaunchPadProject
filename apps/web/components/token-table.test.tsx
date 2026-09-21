@@ -103,6 +103,14 @@ describe("TokenTable: what it shows", () => {
     expect(cell).toHaveTextContent("25%");
   });
 
+  it("centres the PROGRESS heading over the bar and its percentage together, not over the right end of them", () => {
+    table([row(A)]);
+    expect(screen.getByRole("columnheader", { name: "PROGRESS" })).toHaveClass("text-center");
+    const group = within(cells()[3]!).getByRole("progressbar").parentElement!;
+    expect(group).toHaveClass("justify-center"); // the pair sits in the middle of its cell, under the middle of the heading
+    expect(group).toContainElement(within(cells()[3]!).getByText("25%"));
+  });
+
   it("turns the bar to its full state when the curve is full, and only then", () => {
     table([row(A, { progressBps: 10_000 }), row(B, { progressBps: 9_990 })]);
     expect(within(cells(0)[3]!).getByRole("progressbar")).toHaveAttribute("data-full", "true");

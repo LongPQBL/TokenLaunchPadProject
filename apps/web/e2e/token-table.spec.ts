@@ -1,5 +1,5 @@
 import { expect, FILLED, RPC_URL, SAME_BLOCK, sql, test } from "./fixtures";
-import { ensureConnected } from "./helpers";
+import { ensureReady } from "./helpers";
 import { installWallet } from "./wallet";
 
 test.afterAll(() => sql.end());
@@ -20,9 +20,11 @@ test.describe("the token table", () => {
     await page.goto("/sepolia");
     const cells = row(page, FILLED).getByRole("cell");
     await expect(cells.nth(1)).toHaveText(/^(\$[\d,.]+[KMBT]?|\d[\d.]* ETH)$/); // market cap in dollars (or ETH with no price), not a dash
-    await expect(cells.nth(4)).toHaveText(/^[\d,]+$/); // trades
-    await expect(cells.nth(6)).toHaveText(/^[\d,]+$/); // traders
-    for (const i of [7, 8, 9]) await expect(cells.nth(i)).toHaveText(/^(↑ |↓ )?[\d,]+\.\d%$/);
+    await expect(cells.nth(2)).toHaveText(/^(\$[\d,.]+[KMBT]?|\d[\d.]* ETH)$/); // ATH: the number alone
+    await expect(cells.nth(3)).toHaveText(/^\d+(\.\d)?%$/); // progress to graduation
+    await expect(cells.nth(5)).toHaveText(/^[\d,]+$/); // trades
+    await expect(cells.nth(7)).toHaveText(/^[\d,]+$/); // traders
+    for (const i of [8, 9, 10]) await expect(cells.nth(i)).toHaveText(/^(↑ |↓ )?[\d,]+\.\d%$/);
   });
 
   test("sorts by a column when its header is pressed, and says which one it is sorted by", async ({ page }) => {
@@ -76,7 +78,7 @@ test.describe("stars", () => {
     const page = await (await browser.newContext()).newPage();
     await installWallet(page, RPC_URL);
     await page.goto("/sepolia");
-    await ensureConnected(page);
+    await ensureReady(page);
 
     const star = () => row(page, FILLED).getByRole("button", { name: /^Star / });
     await star().click(); // signs in (the wallet signs the message), then stars
@@ -84,13 +86,13 @@ test.describe("stars", () => {
     await expect(row(page, SAME_BLOCK).getByRole("button", { name: /^Star / })).toHaveAttribute("aria-pressed", "false");
 
     await page.reload();
-    await ensureConnected(page);
+    await ensureReady(page);
     await expect(star()).toHaveAttribute("aria-pressed", "true", { timeout: 15_000 });
 
     await star().click();
     await expect(star()).toHaveAttribute("aria-pressed", "false");
     await page.reload();
-    await ensureConnected(page);
+    await ensureReady(page);
     await expect(star()).toHaveAttribute("aria-pressed", "false");
     await page.context().close();
   });
@@ -99,7 +101,7 @@ test.describe("stars", () => {
     const page = await (await browser.newContext()).newPage();
     await installWallet(page, RPC_URL);
     await page.goto("/sepolia");
-    await ensureConnected(page);
+    await ensureReady(page);
     await row(page, FILLED).getByRole("button", { name: /^Star / }).click();
     await expect(row(page, FILLED).getByRole("button", { name: /^Star / })).toHaveAttribute("aria-pressed", "true");
 
@@ -112,7 +114,7 @@ test.describe("stars", () => {
     await row(page, FILLED).getByRole("button", { name: /^Star / }).click();
     await expect(page.getByText("No starred tokens yet. Press the star beside a token to keep it here.")).toBeVisible();
     await page.reload();
-    await ensureConnected(page);
+    await ensureReady(page);
     await expect(page.getByText("No starred tokens yet. Press the star beside a token to keep it here.")).toBeVisible({ timeout: 15_000 });
     await page.context().close();
   });
@@ -121,14 +123,14 @@ test.describe("stars", () => {
     const owner = await (await browser.newContext()).newPage();
     await installWallet(owner, RPC_URL);
     await owner.goto("/sepolia");
-    await ensureConnected(owner);
+    await ensureReady(owner);
     await row(owner, FILLED).getByRole("button", { name: /^Star / }).click();
     await expect(row(owner, FILLED).getByRole("button", { name: /^Star / })).toHaveAttribute("aria-pressed", "true");
 
     const other = await (await browser.newContext()).newPage();
     await installWallet(other, RPC_URL);
     await other.goto("/sepolia");
-    await ensureConnected(other);
+    await ensureReady(other);
     await expect(row(other, FILLED).getByRole("button", { name: /^Star / })).toHaveAttribute("aria-pressed", "false");
     await owner.context().close();
     await other.context().close();

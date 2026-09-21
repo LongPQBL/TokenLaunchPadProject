@@ -16,6 +16,16 @@ export async function ensureConnected(page: Page) {
   await connect(page);
 }
 
+/**
+ * Connected, and the trading wallet open: an external wallet's trading wallet opens by itself a moment after the wallet connects, and
+ * until then a press that needs it (a star, a comment) only starts it opening and does nothing else. The header's Deposit is drawn
+ * only once it is open.
+ */
+export async function ensureReady(page: Page) {
+  await ensureConnected(page);
+  await expect(page.locator("header").getByRole("button", { name: "Deposit" })).toBeVisible({ timeout: 30_000 });
+}
+
 export async function connect(page: Page) {
   await page.locator("header").getByRole("button", { name: "Connect wallet" }).click();
   await page.getByRole("button", { name: "E2E Wallet" }).click();
