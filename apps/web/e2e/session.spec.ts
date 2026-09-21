@@ -55,7 +55,9 @@ test("the trading wallet opens by itself with ONE signature, and creating, buyin
   await panel(page).getByRole("tab", { name: "Sell" }).click();
   await expect(panel(page).getByRole("button", { name: "Max" })).toBeEnabled({ timeout: 30_000 });
   await panel(page).getByRole("button", { name: "Max" }).click();
-  await panel(page).getByRole("button", { name: "Step 1 of 2: approve selling" }).click();
+  // The tokens are not approved yet, but the trading wallet signs by itself: one press of Sell, with no step to see, sends the approval and the sale.
+  await expect(panel(page).getByText(/Step 1 of 2|Approve only this sale/)).toHaveCount(0);
+  await panel(page).getByRole("button", { name: "Sell", exact: true }).click();
   await expect(panel(page).getByText(new RegExp(`You sold .* ${symbol} and received `))).toBeVisible({ timeout: 90_000 });
 
   // The main wallet was asked for exactly one thing, in all: the message that opens the trading wallet. Signing in to the API is done

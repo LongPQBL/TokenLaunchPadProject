@@ -48,7 +48,7 @@ test("a buy shows up as a position with its cost and value, and in the order his
   await panel(page).getByRole("tab", { name: "Sell" }).click();
   await expect(panel(page).getByRole("button", { name: "Max" })).toBeEnabled({ timeout: 30_000 });
   await panel(page).getByRole("button", { name: "Max" }).click();
-  await panel(page).getByRole("button", { name: "Step 1 of 2: approve selling" }).click();
+  await panel(page).getByRole("button", { name: "Sell", exact: true }).click();
   await expect(panel(page).getByText(new RegExp(`You sold .* ${symbol} and received `))).toBeVisible({ timeout: 60_000 });
 
   await nav.getByRole("link", { name: "Positions" }).click();

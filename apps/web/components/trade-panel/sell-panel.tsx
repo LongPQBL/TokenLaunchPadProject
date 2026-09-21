@@ -48,6 +48,10 @@ export function SellPanel({ chain, token, ticker }: { chain: string; token: Addr
   const [text, setText] = useState("");
   const [exactApproval, setExactApproval] = useState(false);
   const [stage, setStage] = useState<"approving" | "selling">("approving");
+  // A wallet that signs by itself (the trading wallet, an embedded one) sends the approval and the sale without asking anyone anything, so
+  // the person is shown none of it: one press of Sell, and the approval (the most it can be, so later sales need none) is part of it.
+  const silent = trade.capabilities.isZeroPrompt;
+  const [twoStep, setTwoStep] = useState(false); // this sale began with an approval
 
   /** What tokens are worth in the quote, at the price the curve is at now, and in dollars. */
   const quoteOf = (tokens: bigint) => (priced ? (tokens * curve!.virtualQuoteReserves) / curve!.virtualTokenReserves : 0n);
@@ -72,15 +76,17 @@ export function SellPanel({ chain, token, ticker }: { chain: string; token: Addr
   }
 
   function sell() {
+    const exact = exactApproval; // (the choice is only offered to a wallet that asks, so a wallet that signs by itself always approves the most)
+    setTwoStep(needsApproval);
     void run(
       async () => {
         if (needsApproval) {
           setStage("approving");
-          await trade.approveIfNeeded({ token, amount, exact: exactApproval });
+          await trade.approveIfNeeded({ token, amount, exact });
           void queryClient.invalidateQueries(); // the allowance just changed
           setStage("selling");
         }
-        return trade.sell({ token, amount, minQuoteOutput, exactApproval });
+        return trade.sell({ token, amount, minQuoteOutput, exactApproval: exact });
       },
       (r) => {
         setText("");
@@ -98,7 +104,7 @@ export function SellPanel({ chain, token, ticker }: { chain: string; token: Addr
 
   if (graduating) return <Graduating />;
 
-  const label = !needsApproval ? UI.trade.sell : state.status === "pending" && stage === "selling" ? UI.trade.approve.sellStep : UI.trade.approve.step;
+  const label = silent || !needsApproval ? UI.trade.sell : state.status === "pending" && stage === "selling" ? UI.trade.approve.sellStep : UI.trade.approve.step;
 
   return (
     <section aria-label={UI.trade.sell} className="flex flex-col gap-4 border border-border p-4">
@@ -142,7 +148,7 @@ export function SellPanel({ chain, token, ticker }: { chain: string; token: Addr
         </dl>
       )}
 
-      {needsApproval && (
+      {needsApproval && !silent && (
         <div className="flex flex-col gap-1 text-sm">
           <label className="flex items-center gap-2">
             <input type="checkbox" checked={exactApproval} onChange={(e) => setExactApproval(e.target.checked)} />
@@ -152,6 +158,11 @@ export function SellPanel({ chain, token, ticker }: { chain: string; token: Addr
         </div>
       )}
 
+      {silent && twoStep && state.status === "pending" && (
+        <p role="status" className="text-center text-sm text-muted-foreground">
+          {stage === "approving" ? UI.trade.approve.approving : UI.trade.approve.selling}
+        </p>
+      )}
       <TradingWalletNotice />
       <ChainGuard chainName={config?.name ?? chain}>
         {isConnected ? (

@@ -312,6 +312,8 @@ export const UI = {
       sellStep: "Step 2 of 2: sell",
       explain: "Approve once, and every future sale of this token is a single confirmation. You can limit it to this sale instead.",
       exact: "Approve only this sale",
+      approving: "Approving the sale…",
+      selling: "Selling…",
     },
   },
   session: {

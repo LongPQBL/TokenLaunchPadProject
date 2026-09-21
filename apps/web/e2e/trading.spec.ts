@@ -17,11 +17,11 @@ test.describe("with a wallet", () => {
     await panel(page).getByRole("button", { name: "Buy" }).click();
     await expect(panel(page).getByText(new RegExp(`You bought .* ${symbol} for `))).toBeVisible({ timeout: 45_000 });
 
-    // Sell it all back: approve first (this wallet cannot batch), then sell
+    // Sell it all back: one press. The tokens need approving first, and the trading wallet signs both by itself.
     await panel(page).getByRole("tab", { name: "Sell" }).click();
     await expect(panel(page).getByRole("button", { name: "Max" })).toBeEnabled({ timeout: 30_000 });
     await panel(page).getByRole("button", { name: "Max" }).click();
-    const sell = panel(page).getByRole("button", { name: "Step 1 of 2: approve selling" });
+    const sell = panel(page).getByRole("button", { name: "Sell", exact: true });
     await expect(sell).toBeEnabled();
     await sell.click();
     await expect(panel(page).getByText(new RegExp(`You sold .* ${symbol} and received `))).toBeVisible({ timeout: 60_000 });

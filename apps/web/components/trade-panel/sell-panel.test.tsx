@@ -47,6 +47,13 @@ async function setup(initial = {}) {
   return { chain, ...view, user: userEvent.setup() };
 }
 
+/** A promise the test settles by hand, to look at the panel while a step is still under way. */
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((r) => void (resolve = r));
+  return { promise, resolve };
+}
+
 const amountInput = () => screen.getByLabelText("Amount to sell (DEMO)");
 const okResult = { hash: HASH, tokenAmount: 1_000n * E18, quoteAmount: 4n * 10n ** 15n, fee: 4n * 10n ** 13n, launchTax: 0n };
 
@@ -126,6 +133,88 @@ describe("SellPanel: allowance", () => {
     await waitFor(() => expect(trade.approveIfNeeded).toHaveBeenCalled());
     expect(trade.sell).not.toHaveBeenCalled();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+});
+
+// The launchpad can only take tokens the owner has approved, so a first sale needs an approval transaction before the sale itself. A wallet
+// that signs by itself (the trading wallet, an embedded one) sends both without asking anyone anything, so there is nothing to show about it:
+// one press of Sell, and the approval is part of it.
+describe("SellPanel: a wallet that signs by itself", () => {
+  beforeEach(() => {
+    trade.capabilities.isZeroPrompt = true;
+    trade.capabilities.kind = "session";
+  });
+  afterEach(() => {
+    trade.capabilities.isZeroPrompt = false;
+    trade.capabilities.kind = "self-custody";
+  });
+
+  it("shows a plain Sell, with no step label, checkbox or explanation, though the tokens are not approved yet", async () => {
+    const { user } = await setup({ allowance: 0n });
+    await user.type(amountInput(), "1000000");
+    expect(await screen.findByRole("button", { name: "Sell" })).toBeInTheDocument();
+    expect(screen.queryByText(/Step 1 of 2/)).toBeNull();
+    expect(screen.queryByRole("checkbox", { name: "Approve only this sale" })).toBeNull();
+    expect(screen.queryByText(/Approve once, and every future sale/)).toBeNull();
+  });
+
+  it("approves the most it can, then sells, in that one press", async () => {
+    const order: string[] = [];
+    trade.approveIfNeeded.mockImplementation(async () => void order.push("approve"));
+    trade.sell.mockImplementation(async () => (order.push("sell"), okResult));
+    const { user } = await setup({ allowance: 0n });
+    await user.type(amountInput(), "1000000");
+    const button = await screen.findByRole("button", { name: "Sell" });
+    await waitFor(() => expect(button).toBeEnabled());
+    await user.click(button);
+    await waitFor(() => expect(order).toEqual(["approve", "sell"]));
+    expect(trade.approveIfNeeded).toHaveBeenCalledWith({ token: TOKEN, amount: 1_000_000n * E18, exact: false }); // the maximum: later sales need none
+    expect(trade.sell).toHaveBeenCalledWith(expect.objectContaining({ exactApproval: false }));
+  });
+
+  it("does not ask for an approval when the tokens are already approved, and does not say it is approving", async () => {
+    const selling = deferred<typeof okResult>();
+    trade.sell.mockReturnValue(selling.promise);
+    const { user } = await setup({ allowance: 10n ** 30n });
+    await user.type(amountInput(), "1000000");
+    const button = await screen.findByRole("button", { name: "Sell" });
+    await waitFor(() => expect(button).toBeEnabled());
+    await user.click(button);
+    await waitFor(() => expect(trade.sell).toHaveBeenCalledOnce()); // the sale is under way
+    expect(trade.approveIfNeeded).not.toHaveBeenCalled();
+    expect(screen.queryByText("Approving the sale…")).toBeNull();
+    expect(screen.queryByText("Selling…")).toBeNull(); // (it is a sale that had no approval before it: nothing to narrate)
+    await act(async () => selling.resolve(okResult));
+  });
+
+  it("says what it is doing while it works: approving the sale, then selling", async () => {
+    const approving = deferred<void>();
+    const selling = deferred<typeof okResult>();
+    trade.approveIfNeeded.mockReturnValue(approving.promise);
+    trade.sell.mockReturnValue(selling.promise);
+    const { user } = await setup({ allowance: 0n });
+    await user.type(amountInput(), "1000000");
+    const button = await screen.findByRole("button", { name: "Sell" });
+    await waitFor(() => expect(button).toBeEnabled());
+    await user.click(button);
+    expect(await screen.findByText("Approving the sale…")).toBeInTheDocument();
+    await act(async () => approving.resolve());
+    expect(await screen.findByText("Selling…")).toBeInTheDocument();
+    expect(screen.queryByText("Approving the sale…")).toBeNull();
+    await act(async () => selling.resolve(okResult));
+    await waitFor(() => expect(screen.queryByText("Selling…")).toBeNull());
+  });
+
+  it("does not sell if the approval fails", async () => {
+    trade.approveIfNeeded.mockRejectedValue(new Error("down"));
+    const { user } = await setup({ allowance: 0n });
+    await user.type(amountInput(), "1000000");
+    const button = await screen.findByRole("button", { name: "Sell" });
+    await waitFor(() => expect(button).toBeEnabled());
+    await user.click(button);
+    await waitFor(() => expect(trade.approveIfNeeded).toHaveBeenCalled());
+    expect(trade.sell).not.toHaveBeenCalled();
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
   });
 });
 
