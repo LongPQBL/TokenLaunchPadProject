@@ -63,6 +63,24 @@ describe("tradeKey", () => {
 describe("createCandleAccumulator", () => {
   const make = (initial = [candle(960, 2e-11, 3e-11, 1e-11, 2e-11)]) => createCandleAccumulator({ token: TOKEN, interval: 60, decimals: 18, initial });
 
+  it("switches to another candle size: the new candles are the series, and the next trades are put in buckets of the new size", () => {
+    const acc = make();
+    acc.switchTo(300, [candle(900, 2e-11, 3e-11, 1e-11, 2e-11)]);
+    expect(acc.series).toEqual([candle(900, 2e-11, 3e-11, 1e-11, 2e-11)]);
+    acc.apply(trade({ n: 1, timestamp: 1_100, priceWei: 30_000_000n })); // 1100 is in the bucket 900..1199 of five-minute candles
+    expect(acc.series).toEqual([candle(900, 2e-11, 3e-11, 1e-11, 3e-11)]);
+    acc.apply(trade({ n: 2, timestamp: 1_250, priceWei: 10_000_000n })); // and 1250 starts the next
+    expect(acc.series.map((c) => c.time)).toEqual([900, 1_200]);
+  });
+
+  it("does not count a trade again after a switch: one it had already applied stays applied", () => {
+    const acc = make([candle(960, 2e-11, 2e-11, 2e-11, 2e-11)]);
+    expect(acc.apply(trade({ n: 1, timestamp: 990, priceWei: 30_000_000n }))).toBe(true);
+    acc.switchTo(300, [candle(900, 2e-11, 3e-11, 2e-11, 3e-11)]); // the fetched candles already include that trade
+    expect(acc.apply(trade({ n: 1, timestamp: 990, priceWei: 30_000_000n }))).toBe(false); // delivered again by the socket: ignored
+    expect(acc.series).toEqual([candle(900, 2e-11, 3e-11, 2e-11, 3e-11)]);
+  });
+
   it("moves the last candle in place for a trade inside its bucket: high, low and close move, open does not", () => {
     const acc = make([candle(960, 2e-11, 2.5e-11, 1.5e-11, 2e-11)]);
     acc.apply(trade({ n: 1, timestamp: 990, priceWei: 30_000_000n })); // 3e-11

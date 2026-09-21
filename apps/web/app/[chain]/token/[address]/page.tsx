@@ -15,10 +15,11 @@ import { TokenTabs } from "@/components/token-tabs";
 import { TradePanel } from "@/components/trade-panel/trade-panel";
 import { api, ApiError } from "@/lib/api";
 import { toChartSeries } from "@/lib/candles";
+import { DEFAULT_CHART_INTERVAL } from "@/lib/chart-intervals";
 import { isAddress } from "@/lib/format";
 
-/** One candle per minute. */
-const CHART_INTERVAL = 60;
+/** The candle size the page is rendered with: one minute. The chart offers the others (see lib/chart-intervals). */
+const CHART_INTERVAL = DEFAULT_CHART_INTERVAL;
 const TRADES_LIMIT = 30;
 const HOLDERS_LIMIT = 20;
 const COMMENTS_LIMIT = 30;

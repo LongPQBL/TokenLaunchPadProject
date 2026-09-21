@@ -88,6 +88,8 @@ export const UI = {
   token: {
     status: { trading: "TRADING", graduating: "GRADUATING…", graduated: "GRADUATED" },
     progress: "Graduation progress",
+    chartInterval: "Candle size",
+    chartIntervalFailed: "Could not load candles of that size. Please try again.",
     collected: (have: string, target: string, symbol: string) => `${have} / ${target} ${symbol} collected`,
     tabs: { trades: "Trades", holders: "Holders", comments: "Comments" },
     tradeOnUniswap: "Trade on Uniswap",

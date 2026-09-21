@@ -143,6 +143,18 @@ test.describe("token page: a graduated token", () => {
     await expect(page.getByTestId("price-chart").locator("canvas").first()).toBeVisible();
   });
 
+  test("offers the candle sizes and draws the chart again in the one chosen", async ({ page }) => {
+    const sizes = page.getByRole("group", { name: "Candle size" });
+    await expect(sizes.getByRole("button")).toHaveText(["1m", "5m", "1h", "4h", "1d"]);
+    await expect(sizes.getByRole("button", { name: "1m" })).toHaveAttribute("aria-pressed", "true");
+    for (const size of ["5m", "1h", "4h", "1d", "1m"]) {
+      await sizes.getByRole("button", { name: size }).click();
+      await expect(sizes.getByRole("button", { name: size })).toHaveAttribute("aria-pressed", "true"); // the size on show is the one chosen once its candles are in
+      await expect(page.getByTestId("price-chart").locator("canvas").first()).toBeVisible(); // and the chart is drawn, not blank or broken
+    }
+    await expect(page.getByRole("alert").filter({ hasText: "Could not load candles" })).toHaveCount(0);
+  });
+
   test("lists the trades, then the holders, without the launchpad or the pool", async ({ page }) => {
     await expect(page.getByTestId("trade-row")).toHaveCount(3); // the flow's buy, sell and final buy
     await expect(page.getByTestId("trade-row").filter({ hasText: "Sell" })).toHaveCount(1);

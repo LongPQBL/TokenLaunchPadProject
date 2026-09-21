@@ -76,7 +76,8 @@ const MAX_SEEN = 5_000;
  * and so can a poll racing the socket) is ignored, so nothing is counted twice; so is a trade for another token, and one
  * older than the newest bucket (that needs a refetch, not a patch). It never changes the series it was given.
  */
-export function createCandleAccumulator({ token, interval, decimals, initial }: { token: string; interval: number; decimals: number; initial: ChartCandle[] }) {
+export function createCandleAccumulator({ token, interval: initialInterval, decimals, initial }: { token: string; interval: number; decimals: number; initial: ChartCandle[] }) {
+  let interval = initialInterval;
   let series = initial;
   const seen = new Set<string>();
   const wanted = token.toLowerCase();
@@ -110,6 +111,14 @@ export function createCandleAccumulator({ token, interval, decimals, initial }: 
       }
       series = [...series, { time: bucket, open: price, high: price, low: price, close: price }];
       return true;
+    },
+    /**
+     * The chart was switched to another candle size: `next` are the candles of that size, and trades from now on go into buckets of it.
+     * Trades already seen stay seen, so one the fetched candles include and the socket delivers again is not applied a second time.
+     */
+    switchTo(size: number, next: ChartCandle[]) {
+      interval = size;
+      series = next;
     },
     /** After a refetch: the fetched candles are the truth. Trades already seen stay seen. */
     replace(next: ChartCandle[]) {

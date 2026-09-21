@@ -13,12 +13,23 @@ const api = vi.hoisted(() => ({ trades: vi.fn(), candles: vi.fn() }));
 vi.mock("@/lib/api", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/api")>()), api }));
 
 // The chart itself needs a canvas; what it is asked to draw is what matters here.
-const drawn = vi.hoisted(() => ({ candles: [] as unknown[], usdPerEth: undefined as number | undefined }));
+const drawn = vi.hoisted(() => ({ candles: [] as unknown[], usdPerEth: undefined as number | undefined, interval: undefined as number | undefined }));
 vi.mock("./price-chart", () => ({
-  PriceChart: ({ candles, usdPerEth }: { candles: unknown[]; usdPerEth?: number }) => {
+  PriceChart: ({ candles, usdPerEth, interval, onIntervalChange }: { candles: unknown[]; usdPerEth?: number; interval?: number; onIntervalChange?: (seconds: number) => void }) => {
     drawn.candles = candles;
     drawn.usdPerEth = usdPerEth;
-    return <div data-testid="price-chart">{candles.length} candles</div>;
+    drawn.interval = interval;
+    return (
+      <div data-testid="price-chart">
+        {candles.length} candles
+        {onIntervalChange &&
+          ([["1m", 60], ["5m", 300], ["1h", 3_600]] as const).map(([label, seconds]) => (
+            <button key={seconds} onClick={() => onIntervalChange(seconds)}>
+              {label}
+            </button>
+          ))}
+      </div>
+    );
   },
 }));
 
@@ -176,5 +187,104 @@ describe("LivePriceChart", () => {
     await act(async () => fake.reconnect());
     expect(api.candles).toHaveBeenCalledWith("sepolia", TOKEN, 60);
     expect(drawn.candles).toHaveLength(2);
+  });
+});
+
+describe("LivePriceChart: the candle size", () => {
+  const initial = [{ time: 960, open: 2e-11, high: 2e-11, low: 2e-11, close: 2e-11 }];
+  const item = (time: number, price: string) => ({ time, open: price, high: price, low: price, close: price, volume: "1" });
+  const fiveMinute = { items: [item(900, "20000000"), item(1_200, "30000000")] };
+  const show = () => {
+    const fake = fakeClient();
+    render(<LivePriceChart chain="sepolia" token={TOKEN} initial={initial} interval={60} decimals={18} client={fake.client} />);
+    return fake;
+  };
+  const choose = async (label: string) => {
+    await act(async () => screen.getByRole("button", { name: label }).click());
+  };
+
+  it("starts at the size the page was rendered with, and offers the others", () => {
+    show();
+    expect(drawn.interval).toBe(60);
+    expect(screen.getAllByRole("button").map((b) => b.textContent)).toEqual(["1m", "5m", "1h"]);
+  });
+
+  it("asks for the candles of the size chosen and draws them at that size", async () => {
+    api.candles.mockResolvedValue(fiveMinute);
+    show();
+    await choose("5m");
+    expect(api.candles).toHaveBeenCalledWith("sepolia", TOKEN, 300);
+    expect(drawn.interval).toBe(300);
+    expect(drawn.candles).toHaveLength(2); // 900 and 1200 are next to each other at five minutes: no gap to fill
+  });
+
+  it("keeps the size on show, and says why, when the new size cannot be loaded", async () => {
+    api.candles.mockRejectedValue(new Error("down"));
+    show();
+    await choose("5m");
+    expect(drawn.interval).toBe(60);
+    expect(screen.getByRole("alert")).toHaveTextContent("Could not load candles of that size. Please try again.");
+  });
+
+  it("clears that message when a size loads", async () => {
+    api.candles.mockRejectedValueOnce(new Error("down")).mockResolvedValueOnce(fiveMinute);
+    show();
+    await choose("5m");
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    await choose("5m");
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(drawn.interval).toBe(300);
+  });
+
+  it("goes with the last size chosen when the answers come back out of order", async () => {
+    const late: { resolve?: (v: unknown) => void } = {};
+    api.candles.mockImplementation((_c: string, _t: string, size: number) =>
+      size === 300 ? new Promise((resolve) => void (late.resolve = resolve)) : Promise.resolve({ items: [item(3_600, "40000000")] }),
+    );
+    show();
+    await choose("5m"); // still on its way
+    await choose("1h"); // answered at once
+    expect(drawn.interval).toBe(3_600);
+    await act(async () => late.resolve!(fiveMinute)); // the answer for 5m, too late
+    expect(drawn.interval).toBe(3_600);
+  });
+
+  it("does not show the failure of a size that is no longer the one wanted", async () => {
+    const late: { reject?: (e: unknown) => void } = {};
+    api.candles.mockImplementation((_c: string, _t: string, size: number) =>
+      size === 300 ? new Promise((_resolve, reject) => void (late.reject = reject)) : Promise.resolve({ items: [item(3_600, "40000000")] }),
+    );
+    show();
+    await choose("5m"); // on its way
+    await choose("1h"); // answered
+    await act(async () => late.reject!(new Error("down"))); // the answer for 5m: a failure, but nobody is waiting for it now
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(drawn.interval).toBe(3_600);
+  });
+
+  it("moves the candles of the size on show for a live trade, in buckets of that size", async () => {
+    api.candles.mockResolvedValue(fiveMinute);
+    const fake = show();
+    await choose("5m");
+    act(() => fake.message(`token:sepolia:${TOKEN}`, wire(21, { timestamp: "1300" }))); // inside the 1200..1499 bucket
+    // in the five-minute buckets that were fetched (900 and 1200), not new ones of one minute: the trade moved the second
+    expect((drawn.candles as { time: number }[]).map((c) => c.time)).toEqual([900, 1_200]);
+    expect((drawn.candles[0] as { close: number }).close).toBeCloseTo(2e-11, 20); // 20000000 wei: untouched
+    expect((drawn.candles[1] as { close: number }).close).toBeCloseTo(2e-11, 20); // 3e-11 before (30000000 wei), the trade's price now
+  });
+
+  it("refetches at the size on show after a reconnect", async () => {
+    api.candles.mockResolvedValue(fiveMinute);
+    const fake = show();
+    await choose("5m");
+    api.candles.mockClear();
+    await act(async () => fake.reconnect());
+    expect(api.candles).toHaveBeenCalledWith("sepolia", TOKEN, 300);
+  });
+
+  it("does not ask again for the size that is already on show", async () => {
+    show();
+    await choose("1m");
+    expect(api.candles).not.toHaveBeenCalled();
   });
 });

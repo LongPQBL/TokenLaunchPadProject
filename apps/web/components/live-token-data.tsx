@@ -1,5 +1,6 @@
 "use client";
 
+import { UI } from "@vezta/shared";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { fillGaps, toChartSeries, type ChartCandle } from "@/lib/candles";
@@ -54,14 +55,17 @@ export function LiveTradesTable({ chain, token, initial, now, client }: { chain:
 }
 
 /**
- * The price chart of one token, kept current. Each live trade moves the last candle (or starts the next one); a
- * reconnect or a dead socket refetches the candles, which are then the truth. Gaps are filled for the drawing only.
+ * The price chart of one token, kept current, in the candle size the person picks. It starts in the size the page was rendered with
+ * (`interval`, one minute) and asks for the candles of another when it is chosen; until they arrive, and if they cannot be had, the
+ * size on show stays. Each live trade moves the last candle (or starts the next) of the size on show; a reconnect or a dead socket
+ * refetches the candles of that size, which are then the truth. Gaps are filled for the drawing only. Answers that come back for a
+ * size no longer wanted are dropped.
  */
 export function LivePriceChart({
   chain,
   token,
   initial,
-  interval,
+  interval: initialInterval,
   decimals,
   client,
 }: {
@@ -72,14 +76,40 @@ export function LivePriceChart({
   decimals: number;
   client?: LiveClient;
 }) {
-  const accumulator = useRef(createCandleAccumulator({ token, interval, decimals, initial }));
-  const [series, setSeries] = useState<ChartCandle[]>(initial);
+  const accumulator = useRef(createCandleAccumulator({ token, interval: initialInterval, decimals, initial }));
+  const [shown, setShown] = useState({ interval: initialInterval, series: initial });
+  const [error, setError] = useState<string>();
+  // What is on show, and which choice is the latest: read by answers that arrive later, to tell whether they are still wanted.
+  const onShow = useRef(initialInterval);
+  const latestChoice = useRef(0);
+
+  const fetchSeries = useCallback(async (size: number) => toChartSeries((await api.candles(chain, token, size)).items, decimals), [chain, token, decimals]);
 
   const refetch = useCallback(async () => {
-    const page = await api.candles(chain, token, interval);
-    accumulator.current.replace(toChartSeries(page.items, decimals));
-    setSeries(accumulator.current.series);
-  }, [chain, token, interval, decimals]);
+    const size = onShow.current;
+    const series = await fetchSeries(size);
+    if (onShow.current !== size) return; // another size was chosen while this was on its way
+    accumulator.current.replace(series);
+    setShown({ interval: size, series: accumulator.current.series });
+  }, [fetchSeries]);
+
+  const choose = useCallback(
+    async (size: number) => {
+      if (size === onShow.current) return;
+      const choice = ++latestChoice.current;
+      setError(undefined);
+      try {
+        const series = await fetchSeries(size);
+        if (choice !== latestChoice.current) return; // a later choice took over
+        accumulator.current.switchTo(size, series);
+        onShow.current = size;
+        setShown({ interval: size, series });
+      } catch {
+        if (choice === latestChoice.current) setError(UI.token.chartIntervalFailed);
+      }
+    },
+    [fetchSeries],
+  );
 
   useLiveRoom({
     room: roomOf(chain, token),
@@ -87,17 +117,33 @@ export function LivePriceChart({
     refetch,
     onMessage: (message) => {
       const parsed = liveTradeSchema.safeParse(message);
-      if (parsed.success && accumulator.current.apply(parsed.data)) setSeries(accumulator.current.series);
+      if (parsed.success && accumulator.current.apply(parsed.data)) setShown((prev) => ({ ...prev, series: accumulator.current.series }));
     },
   });
 
-  const filled = useMemo(() => fillGaps(series, interval), [series, interval]);
-  return useHasChain() ? <PricedChart chain={chain} candles={filled} /> : <PriceChart candles={filled} />;
+  const filled = useMemo(() => fillGaps(shown.series, shown.interval), [shown]);
+  const chart =
+    // (Keyed by the size: a new size is a new chart, with its own view and its own marks.)
+    useHasChain() ? (
+      <PricedChart key={shown.interval} chain={chain} candles={filled} interval={shown.interval} onIntervalChange={(size) => void choose(size)} />
+    ) : (
+      <PriceChart key={shown.interval} candles={filled} interval={shown.interval} onIntervalChange={(size) => void choose(size)} />
+    );
+  return (
+    <div className="flex flex-col gap-1">
+      {chart}
+      {error && (
+        <p role="alert" className="text-xs text-destructive">
+          {error}
+        </p>
+      )}
+    </div>
+  );
 }
 
 /** The chart, told what an ETH is worth once the chain's price feed says, so it can draw in dollars (and in ETH until then). */
-function PricedChart({ chain, candles }: { chain: string; candles: ChartCandle[] }) {
+function PricedChart({ chain, ...chart }: { chain: string } & Omit<React.ComponentProps<typeof PriceChart>, "usdPerEth">) {
   const rate = useUsdRate(chain);
   const usdPerEth = rate ? Number(rate.answer) / 10 ** rate.decimals : undefined;
-  return <PriceChart candles={candles} usdPerEth={usdPerEth} />;
+  return <PriceChart {...chart} usdPerEth={usdPerEth} />;
 }
