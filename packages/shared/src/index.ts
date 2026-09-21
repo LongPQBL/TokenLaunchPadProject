@@ -8,3 +8,4 @@ export * from "./heartbeat";
 export * from "./metadata";
 export * from "./quote";
 export * from "./strings";
+export * from "./usd";

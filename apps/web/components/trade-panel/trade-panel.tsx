@@ -18,8 +18,19 @@ export function TradePanel({ chain, token, ticker }: { chain: string; token: Add
       <CurveGate chain={chain} token={token}>
         <Tabs defaultValue="buy">
           <TabsList className="w-full">
-            <TabsTrigger value="buy">{UI.trade.buy}</TabsTrigger>
-            <TabsTrigger value="sell">{UI.trade.sell}</TabsTrigger>
+            {/* Green for buying and red for selling, in either colour scheme: the default active look would win over one of them. */}
+            <TabsTrigger
+              value="buy"
+              className="data-[state=active]:border-transparent data-[state=active]:bg-buy data-[state=active]:font-semibold data-[state=active]:text-black dark:data-[state=active]:border-transparent dark:data-[state=active]:bg-buy dark:data-[state=active]:text-black"
+            >
+              {UI.trade.buy}
+            </TabsTrigger>
+            <TabsTrigger
+              value="sell"
+              className="data-[state=active]:border-transparent data-[state=active]:bg-sell data-[state=active]:font-semibold data-[state=active]:text-white dark:data-[state=active]:border-transparent dark:data-[state=active]:bg-sell dark:data-[state=active]:text-white"
+            >
+              {UI.trade.sell}
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="buy">
             <BuyPanel chain={chain} token={token} ticker={ticker} />

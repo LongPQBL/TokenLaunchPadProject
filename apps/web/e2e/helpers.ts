@@ -69,3 +69,13 @@ export async function postComment(page: Page, text: string) {
 
 /** The comment bodies on the page whose text contains `needle`. */
 export const commentsWith = (page: Page, needle: string) => page.getByTestId("comment-body").filter({ hasText: needle });
+
+/**
+ * Types an amount of ETH into the buy box. The box takes dollars while the chain's price feed answers (a second or so after the page
+ * loads), so this waits for the switch to ETH and presses it; on a chain with no feed the box is in ETH already and it just types.
+ */
+export async function spendEth(page: Page, eth: string) {
+  const inEth = panel(page).getByRole("button", { name: "Enter in ETH" });
+  if (await inEth.waitFor({ state: "visible", timeout: 10_000 }).then(() => true, () => false)) await inEth.click();
+  await panel(page).getByLabel("Amount to spend (ETH)").fill(eth);
+}
