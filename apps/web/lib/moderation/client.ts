@@ -70,6 +70,9 @@ export function createModerationApi({ baseUrl, fetch: fetchImpl = (...args) => f
     async banUser(chain: string, address: string): Promise<void> {
       await post(`/${seg(chain)}/admin/users/${seg(address)}/ban`);
     },
+    async unbanUser(chain: string, address: string): Promise<void> {
+      await post(`/${seg(chain)}/admin/users/${seg(address)}/unban`);
+    },
     /** `alreadyReported` when this person's earlier report of the token is still open: there is nothing new to say. */
     async report(chain: string, token: string, reason: string): Promise<{ alreadyReported: boolean }> {
       const res = await post(`/${seg(chain)}/tokens/${seg(token)}/report`, { reason });

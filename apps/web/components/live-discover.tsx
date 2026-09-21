@@ -6,6 +6,7 @@ import type { TokenListItem, TokenSort } from "@/lib/types";
 import type { LiveClient } from "@/lib/ws/client";
 import { applyTradeToItem, liveCreatedSchema, newTokenItem, sortItems } from "@/lib/ws/discover";
 import { liveTradeSchema, tradeKey } from "@/lib/ws/live";
+import { liveTokenHiddenSchema } from "@/lib/ws/moderation";
 import { useLiveRoom } from "@/lib/ws/use-live-room";
 import { TokenGrid } from "./token-grid";
 
@@ -41,6 +42,8 @@ export function LiveTokenGrid({
   const [busy, setBusy] = useState(false); // the pointer is over the grid, or a card has focus
   const seen = useRef(new Set<string>());
   const frozenOrder = useRef<string[]>([]);
+  // Tokens a moderator hid while this page was open: gone from the grid, and not to be added again by a late message.
+  const hidden = useRef(new Set<string>());
 
   const takesNewTokens = sort === "new" && q === "" && firstPage;
 
@@ -73,8 +76,15 @@ export function LiveTokenGrid({
     poll: false, // the trades room already refetches this page
     refetch: async () => {},
     onMessage: (message) => {
+      const gone = liveTokenHiddenSchema.safeParse(message);
+      if (gone.success) {
+        if (gone.data.chain !== chain) return;
+        hidden.current.add(gone.data.token);
+        setItems((prev) => prev.filter((i) => i.address !== gone.data.token));
+        return;
+      }
       const parsed = liveCreatedSchema.safeParse(message);
-      if (!parsed.success || !takesNewTokens) return;
+      if (!parsed.success || !takesNewTokens || hidden.current.has(parsed.data.token)) return;
       const token = parsed.data.token;
       if (items.some((i) => i.address === token)) return;
       const created = newTokenItem(parsed.data, Math.floor(Date.now() / 1000));

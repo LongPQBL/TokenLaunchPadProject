@@ -9,6 +9,7 @@ import { getCommentsApi } from "@/lib/comments/client";
 import { liveCommentSchema, mergeComments, newerThan, reachesBack } from "@/lib/comments/live";
 import type { Comment } from "@/lib/types";
 import type { LiveClient } from "@/lib/ws/client";
+import { liveCommentsHiddenSchema } from "@/lib/ws/moderation";
 import { useLiveRoom } from "@/lib/ws/use-live-room";
 import { HideCommentButton } from "../admin/hide-button";
 import { Button } from "../ui/button";
@@ -76,6 +77,11 @@ export function CommentList({
     client,
     refetch,
     onMessage: (message) => {
+      const hiddenNow = liveCommentsHiddenSchema.safeParse(message);
+      if (hiddenNow.success) {
+        if (hiddenNow.data.chain === chain && hiddenNow.data.token === wanted) setGone((prev) => new Set([...prev, ...hiddenNow.data.ids]));
+        return;
+      }
       const parsed = liveCommentSchema.safeParse(message);
       if (!parsed.success || parsed.data.token !== wanted) return;
       setHeld((prev) => ({ ...prev, live: [...prev.live, parsed.data] }));
