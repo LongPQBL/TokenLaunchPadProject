@@ -52,7 +52,10 @@ test.describe("an attacker who got markup into the page still cannot run script"
 
   test("a javascript: link does not run when it is clicked", async ({ page }) => {
     await page.goto("/sepolia");
-    await page.evaluate(() => document.body.insertAdjacentHTML("beforeend", `<a id="evil" href="javascript:window.__pwned = 2">x</a>`));
+    // Fixed in the middle of the window: appended to the end of the page it would sit under the navigation bar on a narrow screen.
+    await page.evaluate(() =>
+      document.body.insertAdjacentHTML("beforeend", `<a id="evil" href="javascript:window.__pwned = 2" style="position:fixed;top:40%;left:50%;z-index:99999">x</a>`),
+    );
     await page.locator("#evil").click();
     await page.waitForTimeout(200);
     expect(await page.evaluate(() => (window as unknown as { __pwned?: number }).__pwned)).toBeUndefined();

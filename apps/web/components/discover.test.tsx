@@ -102,9 +102,10 @@ describe("SiteHeader", () => {
     expect(screen.queryByText(/TESTNET/)).not.toBeInTheDocument();
   });
 
-  it("has a create-token link under the chain, and a link home", () => {
+  it("has a link home, and leaves Create token and Admin to the side nav", () => {
     renderWithWallet(<SiteHeader chain="sepolia" sort="new" q="" isTestnet />);
-    expect(screen.getByRole("link", { name: "Create token" })).toHaveAttribute("href", "/sepolia/create");
+    expect(screen.queryByRole("link", { name: "Create token" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Admin" })).toBeNull();
     const banner = screen.getByRole("banner");
     expect(within(banner).getByRole("link", { name: /vezta/i })).toHaveAttribute("href", "/sepolia");
   });

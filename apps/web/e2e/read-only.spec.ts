@@ -45,14 +45,59 @@ test.describe("discover", () => {
     await expect(page.getByTestId("token-card").first()).toHaveAttribute("href", new RegExp(`${FILLED}$`));
   });
 
-  // The header's main button must not lead anywhere broken, even before the create flow exists.
-  test("the Create token button leads to the create form, not a 404", async ({ page }) => {
+  // The nav's main link must not lead anywhere broken, even before the create flow exists.
+  test("the Create token link leads to the create form, not a 404", async ({ page }) => {
     await page.goto("/sepolia");
     await page.getByRole("link", { name: "Create token" }).click();
     await expect(page).toHaveURL(/\/sepolia\/create$/);
     await expect(page.getByRole("heading", { name: "Create a token" })).toBeVisible();
   });
 
+});
+
+test.describe("the side navigation", () => {
+  test("is a rail of icons that opens over the page, showing each page's name, while the pointer is on it", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/sepolia");
+    const nav = page.getByRole("navigation", { name: "Main" });
+    const create = nav.getByRole("link", { name: "Create token" });
+    const name = create.getByText("Create token");
+    const pageLeft = async () => (await page.getByRole("banner").boundingBox())!.x;
+    const before = (await nav.boundingBox())!.width;
+    const contentBefore = await pageLeft();
+    expect(before).toBeLessThan(80);
+    await expect(name).toHaveCSS("opacity", "0");
+    await nav.hover();
+    await expect(name).toHaveCSS("opacity", "1");
+    await expect.poll(async () => (await nav.boundingBox())!.width).toBeGreaterThan(160);
+    expect(await pageLeft()).toBe(contentBefore); // it opens over the page and pushes nothing
+    await page.mouse.move(700, 400);
+    await expect.poll(async () => (await nav.boundingBox())!.width).toBeLessThan(80);
+  });
+
+  test("opens for the keyboard too, and marks the page that is open", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/sepolia");
+    const nav = page.getByRole("navigation", { name: "Main" });
+    await expect(nav.getByRole("link", { name: "Discover" })).toHaveAttribute("aria-current", "page");
+    await nav.getByRole("link", { name: "Create token" }).focus();
+    await expect.poll(async () => (await nav.boundingBox())!.width).toBeGreaterThan(160);
+    await nav.getByRole("link", { name: "Create token" }).click();
+    await expect(page).toHaveURL(/\/sepolia\/create$/);
+    await expect(nav.getByRole("link", { name: "Create token" })).toHaveAttribute("aria-current", "page");
+    await expect(nav.getByRole("link", { name: "Discover" })).not.toHaveAttribute("aria-current", "page");
+  });
+
+  test("is a bar along the bottom on a phone, with the names showing, and does not cover the page", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 800 });
+    await page.goto("/sepolia");
+    const nav = page.getByRole("navigation", { name: "Main" });
+    const box = (await nav.boundingBox())!;
+    expect(box.y + box.height).toBeCloseTo(800, 0);
+    expect(box.width).toBeCloseTo(390, 0);
+    await expect(nav.getByText("Create token")).toBeVisible();
+    await expect(nav.getByText("Create token")).toHaveCSS("opacity", "1");
+  });
 });
 
 test.describe("a chain that is not configured", () => {
