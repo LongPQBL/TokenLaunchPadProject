@@ -73,13 +73,13 @@ export function TokenHeader({ chain, token }: { chain: string; token: TokenDetai
           <div>
             <dt className="text-xs text-muted-foreground">{UI.token.price}</dt>
             <dd>
-              <PriceValue chain={chain} raw={price} secondary />
+              <PriceValue chain={chain} raw={price} />
             </dd>
           </div>
           <div>
             <dt className="text-xs text-muted-foreground">{UI.token.marketCap}</dt>
             <dd>
-              <QuoteValue chain={chain} raw={cap} secondary compact />
+              <QuoteValue chain={chain} raw={cap} compact />
             </dd>
           </div>
         </dl>

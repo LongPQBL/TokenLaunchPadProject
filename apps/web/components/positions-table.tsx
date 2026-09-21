@@ -25,8 +25,8 @@ export function PositionsTable({ chain, positions }: { chain: string; positions:
     );
   }
 
-  // Dollars when the chain's price feed answers, ETH when it does not; the ETH it comes to is underneath (and in the tooltip).
-  const quote = (raw: bigint) => <QuoteValue chain={chain} raw={raw} secondary />;
+  // Dollars when the chain's price feed answers, ETH when it does not; the ETH it comes to is in the tooltip.
+  const quote = (raw: bigint) => <QuoteValue chain={chain} raw={raw} />;
   const totalValue = positions.reduce((sum, p) => sum + p.value, 0n);
   const totalPnl = positions.reduce((sum, p) => sum + p.pnl, 0n);
   const c = UI.positions.columns;

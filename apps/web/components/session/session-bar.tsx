@@ -1,9 +1,10 @@
 "use client";
 
-import { formatQuote, UI } from "@vezta/shared";
+import { UI } from "@vezta/shared";
 import type { ReactNode } from "react";
 import { useAccount, useBalance } from "wagmi";
 import { FundWallet } from "@/components/fund-wallet";
+import { QuoteValue } from "@/components/quote-value";
 import { Button } from "@/components/ui/button";
 import { getDeployment } from "@/lib/deployment";
 import { shortAddress } from "@/lib/format";
@@ -12,7 +13,7 @@ import { useWalletKind } from "@/lib/wallet/wallet-kind";
 import { TopUpDialog } from "./top-up-dialog";
 import { WithdrawDialog } from "./withdraw-dialog";
 
-function WalletRow({ testId, label, address, balance, spending, children }: { testId: string; label: string; address: string; balance: bigint | undefined; spending: boolean; children?: ReactNode }) {
+function WalletRow({ chain, testId, label, address, balance, spending, children }: { chain: string; testId: string; label: string; address: string; balance: bigint | undefined; spending: boolean; children?: ReactNode }) {
   return (
     <div data-testid={testId} data-spending={spending} className={`flex flex-col gap-1 border p-3 ${spending ? "border-primary" : "border-border"}`}>
       <div className="flex items-center justify-between gap-2">
@@ -21,7 +22,7 @@ function WalletRow({ testId, label, address, balance, spending, children }: { te
       </div>
       <div className="flex items-center justify-between gap-2 font-mono text-sm">
         <span title={address}>{shortAddress(address)}</span>
-        <span>{balance === undefined ? "…" : `${formatQuote(balance, 18, 6)} ETH`}</span>
+        <span>{balance === undefined ? "…" : <QuoteValue chain={chain} raw={balance} digits={6} />}</span>
       </div>
       {children}
     </div>
@@ -47,7 +48,7 @@ export function SessionBar({ chain }: { chain: string }) {
   if (kind === "embedded") {
     return (
       <section aria-label={UI.session.yourWallet} className="flex flex-col gap-2">
-        <WalletRow testId="main-wallet" label={UI.session.yourWallet} address={address} balance={main.data?.value} spending />
+        <WalletRow chain={chain} testId="main-wallet" label={UI.session.yourWallet} address={address} balance={main.data?.value} spending />
         <FundWallet address={address} balance={main.data?.value} chain={chain} />
       </section>
     );
@@ -56,10 +57,10 @@ export function SessionBar({ chain }: { chain: string }) {
 
   return (
     <section aria-label={UI.session.tradingWallet} className="flex flex-col gap-2">
-      <WalletRow testId="main-wallet" label={UI.session.mainWallet} address={address} balance={main.data?.value} spending={!tradingWith && session.status === "off"} />
+      <WalletRow chain={chain} testId="main-wallet" label={UI.session.mainWallet} address={address} balance={main.data?.value} spending={!tradingWith && session.status === "off"} />
 
       {session.status === "ready" && session.account && (
-        <WalletRow testId="trading-wallet" label={UI.session.tradingWallet} address={session.account.address} balance={trading.data?.value} spending>
+        <WalletRow chain={chain} testId="trading-wallet" label={UI.session.tradingWallet} address={session.account.address} balance={trading.data?.value} spending>
           <div className="flex gap-2">
             <TopUpDialog chain={chain} to={session.account.address} mainBalance={main.data?.value} />
             <WithdrawDialog chain={chain} account={session.account} />

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatAge, formatChangeBps, formatPnlBps, formatSignedQuote, parseAmount, formatCountdown, formatMultiplier, formatPercentBps, formatRelativeTime, formatShareOfSupply, isAddress, shortAddress } from "./format";
+import { formatAge, formatChangeBps, formatPnlBps, formatSignedQuote, roundQuote, parseAmount, formatCountdown, formatMultiplier, formatPercentBps, formatRelativeTime, formatShareOfSupply, isAddress, shortAddress } from "./format";
 
 describe("formatRelativeTime", () => {
   const now = 1_700_000_000;
@@ -211,5 +211,19 @@ describe("formatPnlBps", () => {
   it("shows no sign or colour for what rounds to nothing", () => {
     expect(formatPnlBps(0)).toEqual({ text: "0.0%", direction: "flat" });
     expect(formatPnlBps(3)).toEqual({ text: "0.0%", direction: "flat" });
+  });
+});
+
+describe("roundQuote", () => {
+  it("rounds an amount to the nearest at a number of decimals, so a figure a wei off a round number reads as the round number", () => {
+    expect(roundQuote(49_999_999_999_999_999n, 18, 6)).toBe(50_000_000_000_000_000n); // 0.049999999999999999 -> 0.05
+    expect(roundQuote(50_000_000_000_000_001n, 18, 6)).toBe(50_000_000_000_000_000n);
+    expect(roundQuote(5_236_499_999_999_999n, 18, 6)).toBe(5_236_000_000_000_000n);
+    expect(roundQuote(5_236_500_000_000_000n, 18, 6)).toBe(5_237_000_000_000_000n);
+  });
+
+  it("leaves an amount that has no more decimals than that alone, and zero as zero", () => {
+    expect(roundQuote(1_234_567n, 6, 6)).toBe(1_234_567n);
+    expect(roundQuote(0n, 18, 6)).toBe(0n);
   });
 });

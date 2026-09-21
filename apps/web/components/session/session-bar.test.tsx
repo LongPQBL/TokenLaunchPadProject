@@ -32,8 +32,9 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllEnvs());
 
-async function setup(balances: { main?: bigint; session?: bigint } = {}) {
+async function setup(balances: { main?: bigint; session?: bigint } = {}, extra: Record<string, unknown> = {}) {
   const chain = fakeChain({
+    ...extra,
     balances: {
       [TEST_USER.toLowerCase()]: balances.main ?? parseEther("1.5"),
       [SESSION.address.toLowerCase()]: balances.session ?? parseEther("0.25"),
@@ -45,6 +46,14 @@ async function setup(balances: { main?: bigint; session?: bigint } = {}) {
 }
 
 const row = (name: string) => screen.getByTestId(name);
+
+describe("SessionBar: balances in dollars", () => {
+  it("shows a wallet's balance in dollars, and only dollars, once the chain's price feed answers", async () => {
+    await setup({ main: parseEther("1.5") }, { usd: { answer: 3_000n * 10n ** 8n } });
+    await waitFor(() => expect(within(row("main-wallet")).getByText("$4,500.00")).toBeInTheDocument());
+    expect(within(row("main-wallet")).queryByText(/ETH/)).toBeNull();
+  });
+});
 
 describe("SessionBar: off", () => {
   it("shows the main wallet and its balance, and offers a trading wallet, saying what the signature does", async () => {

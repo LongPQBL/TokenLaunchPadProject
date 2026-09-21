@@ -104,7 +104,7 @@ export default async function TokenPage({
           ) : (
             <PanelError className="flex h-80 items-center justify-center border border-border text-muted-foreground" />
           )}
-          <GraduationProgress token={detail} decimals={config.quoteDecimals} symbol={config.quoteSymbol} />
+          <GraduationProgress chain={chain} token={detail} decimals={config.quoteDecimals} symbol={config.quoteSymbol} />
           <TokenTabs
             trades={trades ? <LiveTradesTable chain={chain} token={token} initial={trades.items} now={now} /> : <PanelError />}
             holders={holders ? <HoldersTable holders={holders.items} chain={chain} /> : <PanelError />}

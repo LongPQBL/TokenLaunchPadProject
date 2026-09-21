@@ -12,14 +12,16 @@ interface QuoteProps {
   compact?: boolean;
   signed?: boolean;
   secondary?: boolean;
+  /** How many decimals the amount in ETH is cut to, for the tooltip and for when there is no price. Default 4. */
+  digits?: number;
   className?: string;
 }
 
-function quoteText({ chain, raw, signed }: QuoteProps) {
+function quoteText({ chain, raw, signed, digits = 4 }: QuoteProps) {
   const config = chainBySlug(chain);
   const decimals = config?.quoteDecimals ?? 18;
   const symbol = config?.quoteSymbol ?? "ETH";
-  return { decimals, text: `${signed ? formatSignedQuote(raw, decimals, 4) : formatQuote(raw, decimals, 4)} ${symbol}` };
+  return { decimals, text: `${signed ? formatSignedQuote(raw, decimals, digits) : formatQuote(raw, decimals, digits)} ${symbol}` };
 }
 
 function QuoteView(props: QuoteProps & { rate: UsdRate | undefined }) {

@@ -288,6 +288,7 @@ export const UI = {
     enterIn: (unit: string) => `Enter in ${unit}`,
     youReceive: (amount: string, ticker: string) => `You receive ≈ ${amount} ${ticker}`,
     youReceiveQuote: (amount: string) => `You receive ≈ ${amount}`,
+    balanceLabel: "Balance",
     balanceLine: (amount: string) => `Balance ${amount}`,
     amountToSell: (ticker: string) => `Amount to sell (${ticker})`,
     max: "Max",

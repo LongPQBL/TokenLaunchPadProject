@@ -111,3 +111,10 @@ export function formatPnlBps(bps: number | null): { text: string; direction: "up
   const percent = (Math.abs(bps) / 100).toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
   return { text: `${bps > 0 ? "+" : "-"}${percent}%`, direction: bps > 0 ? "up" : "down" };
 }
+
+/** An amount of the quote rounded to the NEAREST at `fractionDigits` decimals, for figures that are themselves a wei or two off a round number. */
+export function roundQuote(raw: bigint, quoteDecimals: number, fractionDigits: number): bigint {
+  if (quoteDecimals <= fractionDigits) return raw;
+  const unit = 10n ** BigInt(quoteDecimals - fractionDigits);
+  return ((raw + unit / 2n) / unit) * unit;
+}

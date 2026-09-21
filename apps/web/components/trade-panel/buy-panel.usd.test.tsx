@@ -82,16 +82,17 @@ describe("BuyPanel in dollars", () => {
     }
   });
 
-  it("shows the balance in ETH and in dollars", async () => {
+  it("shows the balance in dollars, with no ETH on the page", async () => {
     await setup({ ethBalance: parseEther("1") });
     await dollars();
-    await waitFor(() => expect(screen.getByTestId("balance")).toHaveTextContent(`1 ETH ≈ ${formatUsd(300_000n)}`));
+    await waitFor(() => expect(screen.getByTestId("balance")).toHaveTextContent(`Balance ${formatUsd(300_000n)}`));
+    expect(screen.getByTestId("balance")).not.toHaveTextContent("ETH");
   });
 
   it("Max fills in the most that can be spent: what is held, less the network fee (250,000 gas at 1 gwei), less 1% for slippage", async () => {
     const { user } = await setup({ ethBalance: parseEther("1") });
     const box = await dollars();
-    await waitFor(() => expect(screen.getByTestId("balance")).toHaveTextContent("1 ETH"));
+    await waitFor(() => expect(screen.getByTestId("balance")).toHaveTextContent("$3,000.00"));
     await user.click(screen.getByRole("button", { name: "Max" }));
     const spendable = ((parseEther("1") - 250_000n * 1_000_000_000n) * 10_000n) / 10_100n;
     await waitFor(() => expect(box).toHaveValue(centsToText(quoteToUsdCents(spendable, RATE))));

@@ -61,14 +61,14 @@ export function OrdersTable({ chain, orders, now }: { chain: string; orders: Ord
                   <span className={cn("font-semibold", o.isBuy ? "text-buy" : "text-sell")}>{o.isBuy ? UI.token.side.buy : UI.token.side.sell}</span>
                 </TableCell>
                 <TableCell className="text-right font-mono">
-                  <QuoteValue chain={chain} raw={o.total} secondary />
+                  <QuoteValue chain={chain} raw={o.total} />
                 </TableCell>
                 <TableCell className="text-right font-mono">
                   {formatCompactTokens(o.tokenAmount)}
                   {o.token.ticker && <span className="ml-1 text-xs text-muted-foreground">{o.token.ticker}</span>}
                 </TableCell>
                 <TableCell className="text-right font-mono">
-                  <PriceValue chain={chain} raw={o.price} secondary />
+                  <PriceValue chain={chain} raw={o.price} />
                 </TableCell>
                 <TableCell className="text-right font-mono text-xs">
                   {tx && (

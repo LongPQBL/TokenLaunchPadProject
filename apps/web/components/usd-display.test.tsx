@@ -1,10 +1,12 @@
 import { act, screen, within } from "@testing-library/react";
-import { formatUsdPrice, formatUsdValue, marketCap, spotPrice, type UsdRate } from "@vezta/shared";
+import { collectedQuote, formatUsdValue, formatUsdPrice, graduationAmountFromReserves, marketCap, spotPrice, type UsdRate } from "@vezta/shared";
+import { roundQuote } from "@/lib/format";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Order, Position, TokenDetail, TokenRow, Trade } from "@/lib/types";
 import { fakeChain } from "@/test/fake-chain";
 import { renderWithWallet, TEST_DEPLOYMENT } from "@/test/wallet";
 import { fakeLiveClient } from "../test/fake-live-client";
+import { GraduationProgress } from "./graduation-progress";
 import { OrdersTable } from "./orders-table";
 import { PositionsTable } from "./positions-table";
 import { TokenCard } from "./token-card";
@@ -92,12 +94,13 @@ describe("the token header in dollars", () => {
   const price = spotPrice(detail.virtualQuoteReserves, detail.virtualTokenReserves);
   const cap = marketCap(detail.virtualQuoteReserves, detail.virtualTokenReserves);
 
-  it("shows the price and the market cap in dollars, with the ETH underneath", async () => {
+  it("shows the price and the market cap in dollars only: the ETH is in the tooltip, not on the page", async () => {
     show(<TokenHeader chain="sepolia" token={detail} />);
-    expect(await screen.findByText(formatUsdPrice(price, RATE))).toBeInTheDocument();
+    const dollars = await screen.findByText(formatUsdPrice(price, RATE));
     expect(screen.getByText(formatUsdValue(cap, RATE, 18, { compact: true }))).toBeInTheDocument();
-    expect(screen.getByText("0.000000000026985 ETH")).toBeInTheDocument(); // the price in ETH, underneath
-    expect(screen.getByText("0.0269 ETH")).toBeInTheDocument(); // and the cap
+    expect(screen.queryByText(/ETH/)).toBeNull();
+    expect(dollars.closest("[title]")).toHaveAttribute("title", "0.000000000026985 ETH");
+    expect(screen.getByText(formatUsdValue(cap, RATE, 18, { compact: true })).closest("[title]")).toHaveAttribute("title", "0.0269 ETH");
   });
 
   it("shows ETH alone, with the price written out in full, when there is no price", async () => {
@@ -105,6 +108,42 @@ describe("the token header in dollars", () => {
     await act(() => new Promise((r) => setTimeout(r, 120)));
     expect(screen.getByText("0.000000000026985 ETH")).toBeInTheDocument();
     expect(screen.queryByText(/\$/)).toBeNull();
+  });
+});
+
+describe("the graduation progress in dollars", () => {
+  const token = {
+    address: A,
+    creator: "0xc0",
+    name: "D",
+    ticker: "D",
+    progressBps: 4500,
+    volumeQuote: 1n,
+    tradeCount: 3,
+    complete: false,
+    migrated: false,
+    createdAt: 1n,
+    quoteToken: "0xfff9976782d46cc05630d1f6ebab18b2324d6b14",
+    antiSniperWindow: 60,
+    virtualQuoteReserves: 21_902_806_297_056_811n,
+    virtualTokenReserves: 811_666_666_666_666_666_666_666_666n,
+    metadataStatus: "ok" as const,
+    socials: {},
+  };
+  const collected = collectedQuote(token.virtualQuoteReserves, token.virtualTokenReserves);
+  const target = graduationAmountFromReserves(token.virtualQuoteReserves, token.virtualTokenReserves);
+
+  it("says how much is collected against the target in dollars, the target rounded so a wei off does not read as a cent off", async () => {
+    show(<GraduationProgress chain="sepolia" token={token} decimals={18} symbol="ETH" />);
+    const usd = (raw: bigint) => formatUsdValue(roundQuote(raw, 18, 6), RATE);
+    expect(await screen.findByText(`${usd(collected)} / ${usd(target)} collected`)).toBeInTheDocument();
+    expect(usd(target)).toBe("$150.00"); // not $149.99
+  });
+
+  it("says it in ETH, as before, when there is no price", async () => {
+    show(<GraduationProgress chain="sepolia" token={token} decimals={18} symbol="ETH" />, false);
+    await act(() => new Promise((r) => setTimeout(r, 120)));
+    expect(screen.getByText("0.0052 / 0.05 ETH collected")).toBeInTheDocument();
   });
 });
 
@@ -155,11 +194,11 @@ describe("positions and orders in dollars", () => {
     pnlBps: 10_000,
   };
 
-  it("shows value, what it cost and the profit in dollars, with the ETH underneath, and the totals too", async () => {
+  it("shows value, what it cost and the profit in dollars, and the totals too, with no ETH on the page", async () => {
     show(<PositionsTable chain="sepolia" positions={[position]} />);
     const cells = within(await screen.findByTestId("position-row")).getAllByRole("cell");
     await within(cells[2]!).findByText("$60.00"); // value: 0.02 ETH
-    expect(cells[2]).toHaveTextContent("0.02 ETH");
+    expect(cells[2]).not.toHaveTextContent("ETH");
     expect(cells[3]).toHaveTextContent("$30.00"); // cost: 0.01 ETH
     expect(cells[5]).toHaveTextContent("+$30.00");
     const totals = screen.getByRole("group", { name: "Totals" });
@@ -167,7 +206,7 @@ describe("positions and orders in dollars", () => {
     expect(totals).toHaveTextContent("+$30.00");
   });
 
-  it("shows the order total in dollars with ETH underneath, and the price in dollars written out in full", async () => {
+  it("shows the order total and the price in dollars, the price written out in full, with no ETH on the page", async () => {
     const order: Order = {
       id: `11155111-${HASH}-0`,
       txHash: HASH,
@@ -185,8 +224,8 @@ describe("positions and orders in dollars", () => {
     show(<OrdersTable chain="sepolia" orders={[order]} now={NOW} />);
     const cells = within(await screen.findByTestId("order-row")).getAllByRole("cell");
     await within(cells[3]!).findByText("$30.00");
-    expect(cells[3]).toHaveTextContent("0.01 ETH");
+    expect(cells[3]).not.toHaveTextContent("ETH");
     expect(cells[5]).toHaveTextContent("$0.000000046875");
-    expect(cells[5]).toHaveTextContent("0.000000000015625 ETH");
+    expect(cells[5]).not.toHaveTextContent("ETH");
   });
 });

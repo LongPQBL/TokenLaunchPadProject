@@ -11,6 +11,7 @@ import { ConnectButton } from "@/components/connect-button";
 import { LaunchTaxBanner } from "@/components/launch-tax-banner";
 import { LaunchTaxGuard } from "@/components/launch-tax-dialog";
 import { TxToast } from "@/components/tx-toast";
+import { QuoteValue } from "@/components/quote-value";
 import { Button } from "@/components/ui/button";
 import { useBuyQuote } from "@/lib/chain/use-buy-quote";
 import { useLaunchTax } from "@/lib/chain/use-launch-tax";
@@ -136,9 +137,11 @@ export function BuyPanel({ chain, token, ticker }: { chain: string; token: Addre
       {isConnected && (
         <div className="flex items-center justify-between gap-2 text-sm">
           <span data-testid="balance" className="font-mono text-muted-foreground">
-            {balance.data
-              ? UI.trade.balanceLine(`${formatQuote(balance.data.value, decimals, 4)} ${symbol}${rate ? ` ≈ ${formatUsd(quoteToUsdCents(balance.data.value, rate, decimals))}` : ""}`)
-              : ""}
+            {balance.data ? (
+              <>
+                {UI.trade.balanceLabel} <QuoteValue chain={chain} raw={balance.data.value} />
+              </>
+            ) : null}
           </span>
           <Button type="button" variant="ghost" size="xs" disabled={balance.data === undefined || balance.data.value === 0n} onClick={useMax}>
             {UI.trade.max}

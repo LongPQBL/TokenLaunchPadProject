@@ -66,7 +66,8 @@ test("clearing all storage and signing again recovers the same trading wallet an
   await enableSession(page);
   await topUp(page, "0.2");
   const before = await sessionAddress(page);
-  const balanceBefore = await bar(page).getByText(/ETH$/).textContent();
+  // The balance is drawn in dollars; the ETH it is (to the wei that matters here) is in its tooltip.
+  const balanceBefore = await bar(page).locator('[title$=" ETH"]').first().getAttribute("title");
   expect(balanceBefore).toBe("0.2 ETH");
 
   // Everything a browser keeps: what a new browser, a new machine or "clear site data" amounts to.
@@ -87,7 +88,7 @@ test("clearing all storage and signing again recovers the same trading wallet an
   await enableSession(page);
   expect(count(wallet.requests, "personal_sign")).toBe(signed + 1);
   expect(await sessionAddress(page)).toBe(before);
-  await expect(bar(page).getByText("0.2 ETH")).toBeVisible({ timeout: 30_000 });
+  await expect(bar(page).locator('[title="0.2 ETH"]').first()).toBeVisible({ timeout: 30_000 });
 });
 
 test("withdraw all empties the trading wallet of ETH and tokens", async ({ page }) => {

@@ -62,6 +62,14 @@ describe("QuoteValue", () => {
   });
 });
 
+describe("QuoteValue digits", () => {
+  it("cuts the ETH to the number of decimals asked for, when there is no price", async () => {
+    show(<QuoteValue chain="sepolia" raw={1_234_567_890_123_456_789n} digits={6} />, fakeChain());
+    await new Promise((r) => setTimeout(r, 120));
+    expect(screen.getByText("1.234567 ETH")).toBeInTheDocument();
+  });
+});
+
 describe("without a wallet layer around it", () => {
   it("still draws, in ETH, rather than failing: there is no chain to ask for a price", () => {
     render(
