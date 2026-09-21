@@ -222,6 +222,8 @@ export const UI = {
     connectTitle: "Connect a wallet",
     noWallet: "No wallet found. Install a browser wallet such as MetaMask, then reload this page.",
     disconnect: "Disconnect",
+    login: "Log in",
+    logout: "Log out",
     switchTo: (chainName: string) => `Switch to ${chainName}`,
     wrongNetwork: (chainName: string) => `Your wallet is on another network. Switch to ${chainName} to continue.`,
     notConfigured: "Trading is not configured for this deployment.",

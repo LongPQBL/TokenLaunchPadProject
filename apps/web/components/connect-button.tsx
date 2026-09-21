@@ -1,16 +1,17 @@
 "use client";
 
 import { UI } from "@vezta/shared";
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { useAccount, useConnect, useConnectors, useDisconnect } from "wagmi";
 import { shortAddress } from "@/lib/format";
+import { usePrivyActive } from "@/lib/wallet/privy-context";
 import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "./ui/dialog";
 
 /** A wallet announces its own icon. It is shown only if it is an inline image or https: never a URL of any other kind. */
 const safeIcon = (icon: string | undefined) => (icon && /^(data:image\/|https:\/\/)/.test(icon) ? icon : undefined);
 
-export function ConnectButton() {
+function WalletConnectButton() {
   const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
   const connectors = useConnectors();
@@ -60,5 +61,27 @@ export function ConnectButton() {
         </ul>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// Loaded only when Privy is running: it pulls in Privy's libraries, which a build without them must neither carry nor load.
+const LoginButton = lazy(() => import("./login-button").then((m) => ({ default: m.LoginButton })));
+
+/**
+ * How a person gets in. With Privy running it is one Log in for Google, email and wallets; without it (no App ID, or Privy could
+ * not start) it is the list of the wallets found in the browser, exactly as before.
+ */
+export function ConnectButton() {
+  if (!usePrivyActive()) return <WalletConnectButton />;
+  return (
+    <Suspense
+      fallback={
+        <Button variant="outline" size="sm" className="shrink-0" disabled>
+          {UI.wallet.login}
+        </Button>
+      }
+    >
+      <LoginButton />
+    </Suspense>
   );
 }

@@ -1,0 +1,125 @@
+import { act, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { http, HttpResponse } from "msw";
+import { connect } from "wagmi/actions";
+import { sepolia } from "wagmi/chains";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { API } from "../test/msw/handlers";
+import { server } from "../test/msw/server";
+import { renderWithWallet, TEST_DEPLOYMENT } from "../test/wallet";
+import { PrivyActiveProvider } from "@/lib/wallet/privy-context";
+import { ConnectButton } from "./connect-button";
+import { LoginButton } from "./login-button";
+
+// What Privy says, set by each test. Privy itself is not started: its own screens are Privy's to test.
+const privy = vi.hoisted(() => ({ ready: true, authenticated: false, login: vi.fn(), logout: vi.fn() }));
+vi.mock("@privy-io/react-auth", () => ({ usePrivy: () => privy }));
+
+const order: string[] = [];
+
+beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
+afterEach(() => server.resetHandlers());
+afterAll(() => server.close());
+beforeEach(() => {
+  localStorage.clear();
+  order.length = 0;
+  Object.assign(privy, { ready: true, authenticated: false });
+  privy.login.mockReset();
+  privy.logout.mockReset().mockImplementation(async () => void order.push("privy-logout"));
+  vi.stubEnv("NEXT_PUBLIC_DEPLOYMENT", TEST_DEPLOYMENT);
+  vi.stubEnv("NEXT_PUBLIC_API_URL", API);
+  server.use(
+    http.get(`${API}/me`, () => HttpResponse.json({ error: "unauthenticated", message: "x" }, { status: 401 })),
+    http.post(`${API}/auth/logout`, () => {
+      order.push("api-logout");
+      return HttpResponse.json({ ok: true });
+    }),
+  );
+});
+afterEach(() => vi.unstubAllEnvs());
+
+async function show(ui = <LoginButton />, connected = false) {
+  const wallet = renderWithWallet(ui);
+  if (connected) await act(() => connect(wallet.config, { connector: wallet.config.connectors[0]!, chainId: sepolia.id }));
+  return wallet;
+}
+
+describe("LoginButton", () => {
+  it("offers Log in when nobody is logged in, and the click opens Privy's login, not a wallet list of ours", async () => {
+    await show();
+    await userEvent.click(screen.getByRole("button", { name: "Log in" }));
+    expect(privy.login).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  // Review Focus 1 (the UI half): a Privy that is not ready yet must not crash or send anyone anywhere.
+  it("is disabled, not broken, while Privy is not ready", async () => {
+    privy.ready = false;
+    await show();
+    const button = screen.getByRole("button", { name: "Log in" });
+    expect(button).toBeDisabled();
+    await userEvent.click(button).catch(() => undefined);
+    expect(privy.login).not.toHaveBeenCalled();
+  });
+
+  it("shows who is logged in and a Log out, once there is an address", async () => {
+    privy.authenticated = true;
+    await show(<LoginButton />, true);
+    expect(await screen.findByText(/^0x0000…00a1$/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Log out" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Log in" })).toBeNull();
+  });
+
+  it("still offers Log out while the wallet address is not there yet", async () => {
+    privy.authenticated = true;
+    await show();
+    expect(screen.getByRole("button", { name: "Log out" })).toBeInTheDocument();
+  });
+
+  // Review Focus 4: logging out ends BOTH sessions, ours first.
+  it("ends our API session, and then Privy's", async () => {
+    privy.authenticated = true;
+    await show(<LoginButton />, true);
+    await userEvent.click(await screen.findByRole("button", { name: "Log out" }));
+    await waitFor(() => expect(order).toEqual(["api-logout", "privy-logout"]));
+  });
+
+  it("logs out of Privy even when ending our session fails, so a person is never stuck logged in", async () => {
+    privy.authenticated = true;
+    server.use(http.post(`${API}/auth/logout`, () => HttpResponse.error()));
+    await show(<LoginButton />, true);
+    await userEvent.click(await screen.findByRole("button", { name: "Log out" }));
+    await waitFor(() => expect(privy.logout).toHaveBeenCalledTimes(1));
+  });
+
+  it("logs out once however fast it is clicked", async () => {
+    privy.authenticated = true;
+    await show(<LoginButton />, true);
+    const button = await screen.findByRole("button", { name: "Log out" });
+    const { fireEvent } = await import("@testing-library/react");
+    act(() => {
+      fireEvent.click(button);
+      fireEvent.click(button);
+    });
+    await waitFor(() => expect(privy.logout).toHaveBeenCalled());
+    expect(privy.logout).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("ConnectButton with and without Privy", () => {
+  it("is the wallet dialog, as ever, when Privy is not running", async () => {
+    await show(<ConnectButton />);
+    expect(screen.getByRole("button", { name: "Connect wallet" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Log in" })).toBeNull();
+  });
+
+  it("is Log in when Privy is running", async () => {
+    await show(
+      <PrivyActiveProvider value>
+        <ConnectButton />
+      </PrivyActiveProvider>,
+    );
+    expect(screen.getByRole("button", { name: "Log in" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Connect wallet" })).toBeNull();
+  });
+});

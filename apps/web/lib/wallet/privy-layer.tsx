@@ -9,6 +9,7 @@ import { sepolia } from "wagmi/chains";
 import { getDeployment } from "../deployment";
 import { SessionProvider } from "../session/use-session";
 import { privyConfig } from "./privy";
+import { PrivyActiveProvider } from "./privy-context";
 
 /** The same, plus Privy: email and Google logins (an embedded wallet), and the person's own wallets through the same modal. */
 export default function WithPrivy({ appId, children }: { appId: string; children: ReactNode }) {
@@ -22,7 +23,9 @@ export default function WithPrivy({ appId, children }: { appId: string; children
     <PrivyProvider appId={appId} config={privyConfig(state.chainId)}>
       <QueryClientProvider client={state.queryClient}>
         <PrivyWagmiProvider config={state.config} reconnectOnMount>
-          <SessionProvider>{children}</SessionProvider>
+          <SessionProvider>
+            <PrivyActiveProvider value>{children}</PrivyActiveProvider>
+          </SessionProvider>
         </PrivyWagmiProvider>
       </QueryClientProvider>
     </PrivyProvider>
