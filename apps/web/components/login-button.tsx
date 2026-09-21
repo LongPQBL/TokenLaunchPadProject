@@ -8,6 +8,7 @@ import { useSiwe } from "@/lib/auth/use-siwe";
 import { shortAddress } from "@/lib/format";
 import { useAutoSiwe } from "@/lib/auth/use-auto-siwe";
 import { ExportKeyButton } from "./export-key-button";
+import { LOGIN_TRIGGER } from "@/lib/wallet/login-trigger";
 import { Button } from "./ui/button";
 import { injected } from "wagmi/connectors";
 import { WalletConnectButton, type FallbackWallet } from "./wallet-connect-button";
@@ -61,7 +62,7 @@ export function LoginButton() {
   if (!authenticated && !ready && gaveUp) return <WalletConnectButton fallback={BROWSER_WALLET} />;
   if (!authenticated) {
     return (
-      <Button variant="outline" size="sm" className="shrink-0" disabled={!ready} onClick={() => login()}>
+      <Button variant="outline" size="sm" className="shrink-0" disabled={!ready} onClick={() => login()} {...LOGIN_TRIGGER}>
         {UI.wallet.login}
       </Button>
     );

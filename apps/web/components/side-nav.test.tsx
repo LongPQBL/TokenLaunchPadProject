@@ -1,4 +1,5 @@
 import { act, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { connect } from "wagmi/actions";
 import { sepolia } from "wagmi/chains";
@@ -6,6 +7,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { API } from "../test/msw/handlers";
 import { server } from "../test/msw/server";
 import { renderWithWallet, TEST_DEPLOYMENT, TEST_USER } from "../test/wallet";
+import { ConnectButton } from "./connect-button";
 import { SideNav } from "./side-nav";
 
 const nav = vi.hoisted(() => ({ pathname: "/sepolia" }));
@@ -50,10 +52,40 @@ describe("the side navigation", () => {
   });
 
   describe("Profile", () => {
-    it("is not offered until a wallet is connected, since there is no profile to go to", async () => {
+    it("is offered before anyone is connected, as a button that asks them to connect: there is no profile to go to yet", async () => {
       await show();
       await settle();
       expect(screen.queryByRole("link", { name: "Profile" })).toBeNull();
+      expect(screen.getByRole("button", { name: "Profile" })).toBeInTheDocument();
+    });
+
+    it("opens what the header's connect button opens when it is pressed", async () => {
+      const wallet = renderWithWallet(
+        <>
+          <SideNav chain="sepolia" />
+          <ConnectButton />
+        </>,
+      );
+      server.use(http.get(`${API}/me`, () => HttpResponse.json({ error: "unauthenticated", message: "x" }, { status: 401 })));
+      expect(screen.queryByRole("dialog")).toBeNull();
+      await userEvent.click(screen.getByRole("button", { name: "Profile" }));
+      expect(await screen.findByRole("dialog", { name: "Connect a wallet" })).toBeInTheDocument();
+      wallet.unmount();
+    });
+
+    it("does nothing, and does not fail, when the page has no way to connect", async () => {
+      await show();
+      await userEvent.click(screen.getByRole("button", { name: "Profile" }));
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+
+    it("becomes a link to the wallet's own profile the moment one is connected, and no longer a button", async () => {
+      const wallet = await show();
+      await settle();
+      expect(screen.getByRole("button", { name: "Profile" })).toBeInTheDocument();
+      await act(() => connect(wallet.config, { connector: wallet.config.connectors[0]!, chainId: sepolia.id }));
+      expect(await screen.findByRole("link", { name: "Profile" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Profile" })).toBeNull();
     });
 
     it("goes to the connected wallet's own profile once one is connected", async () => {

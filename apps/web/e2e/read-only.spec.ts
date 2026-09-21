@@ -88,6 +88,15 @@ test.describe("the side navigation", () => {
     await expect(nav.getByRole("link", { name: "Discover" })).not.toHaveAttribute("aria-current", "page");
   });
 
+  test("lists Profile before anyone is connected, and pressing it asks them to connect", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/sepolia");
+    const nav = page.getByRole("navigation", { name: "Main" });
+    await expect(nav.getByRole("link", { name: "Profile" })).toHaveCount(0);
+    await nav.getByRole("button", { name: "Profile" }).click();
+    await expect(page.getByRole("dialog", { name: "Connect a wallet" })).toBeVisible();
+  });
+
   test("is a bar along the bottom on a phone, with the names showing, and does not cover the page", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 800 });
     await page.goto("/sepolia");

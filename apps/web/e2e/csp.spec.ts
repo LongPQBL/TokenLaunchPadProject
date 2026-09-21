@@ -41,9 +41,14 @@ test.describe("an attacker who got markup into the page still cannot run script"
       () =>
         new Promise<string[]>((resolve) => {
           const seen: string[] = [];
-          document.addEventListener("securitypolicyviolation", (e) => seen.push(e.violatedDirective));
+          // Done at the first report (the browser raises it when the handler is refused), or after a generous wait: a fixed short
+          // wait failed once on a busy machine.
+          document.addEventListener("securitypolicyviolation", (e) => {
+            seen.push(e.violatedDirective);
+            resolve(seen);
+          });
           document.body.insertAdjacentHTML("beforeend", `<img src="x" onerror="window.__pwned = 1">`);
-          setTimeout(() => resolve(seen), 300);
+          setTimeout(() => resolve(seen), 5_000);
         }),
     );
     expect(await page.evaluate(() => (window as unknown as { __pwned?: number }).__pwned)).toBeUndefined();

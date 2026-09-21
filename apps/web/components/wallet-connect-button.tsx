@@ -4,6 +4,7 @@ import { UI } from "@vezta/shared";
 import { useState } from "react";
 import { useAccount, useConnect, useConnectors, useDisconnect, type CreateConnectorFn } from "wagmi";
 import { shortAddress } from "@/lib/format";
+import { LOGIN_TRIGGER } from "@/lib/wallet/login-trigger";
 import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "./ui/dialog";
 
@@ -41,7 +42,7 @@ export function WalletConnectButton({ fallback = [] }: { fallback?: FallbackWall
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="shrink-0">
+        <Button variant="outline" size="sm" className="shrink-0" {...LOGIN_TRIGGER}>
           {UI.wallet.connect}
         </Button>
       </DialogTrigger>

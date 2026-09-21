@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 import { useAccount } from "wagmi";
 import { useSiwe } from "@/lib/auth/use-siwe";
 import { cn } from "@/lib/utils";
+import { requestLogin } from "@/lib/wallet/login-trigger";
 
 type Page = "discover" | "create" | "profile" | "admin";
 
@@ -59,8 +60,9 @@ const ICONS: Record<Page, ReactNode> = {
  * pushes the page around. On a narrow screen it is a bar along the bottom. The names are always in the page, only drawn
  * when there is room, so a screen reader hears the same thing whether the rail is open or not.
  *
- * Profile needs a wallet to have a profile of its own, and Admin is drawn only for a signed-in admin (the API says who that
- * is): nobody else is shown that the admin page exists. This only decides what to draw; the API decides who may act.
+ * Profile is always listed, but needs a wallet to have a profile of its own: without one it is a button that opens the same
+ * login the header's does. Admin is drawn only for a signed-in admin (the API says who that is): nobody else is shown that the
+ * admin page exists. This only decides what to draw; the API decides who may act.
  */
 export function SideNav({ chain }: { chain: string }) {
   const pathname = usePathname();
@@ -68,10 +70,11 @@ export function SideNav({ chain }: { chain: string }) {
   const { isAdmin } = useSiwe();
   const open = pageOf(pathname, chain);
 
-  const items: { page: Page; label: string; href: string }[] = [
+  const items: { page: Page; label: string; href?: string }[] = [
     { page: "discover", label: UI.nav.discover, href: `/${chain}` },
     { page: "create", label: UI.nav.create, href: `/${chain}/create` },
-    ...(address ? [{ page: "profile" as const, label: UI.nav.profile, href: `/${chain}/profile/${address}` }] : []),
+    // Always listed: without a wallet there is no profile to open, so it asks to connect one instead (see below).
+    { page: "profile", label: UI.nav.profile, href: address ? `/${chain}/profile/${address}` : undefined },
     ...(isAdmin ? [{ page: "admin" as const, label: UI.nav.admin, href: `/${chain}/admin` }] : []),
   ];
 
@@ -97,24 +100,34 @@ export function SideNav({ chain }: { chain: string }) {
         <span className="opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:transition-none">Vezta Launchpad</span>
       </Link>
       <ul className="flex flex-row justify-around gap-1 lg:mt-3 lg:flex-col lg:justify-start lg:px-2">
-        {items.map((item) => (
-          <li key={item.page}>
-            <Link
-              href={item.href}
-              aria-current={open === item.page ? "page" : undefined}
-              className={cn(
-                "flex items-center gap-3 whitespace-nowrap px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                "flex-col gap-1 text-[0.65rem] lg:flex-row lg:gap-3 lg:text-sm",
-                open === item.page && "bg-accent text-primary",
-              )}
-            >
+        {items.map((item) => {
+          const className = cn(
+            "flex items-center gap-3 whitespace-nowrap px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            "flex-col gap-1 text-[0.65rem] lg:flex-row lg:gap-3 lg:text-sm",
+            open === item.page && "bg-accent text-primary",
+          );
+          const content = (
+            <>
               {ICONS[item.page]}
               {/* Drawn always on a phone; on a wide screen only while the rail is open. In the page either way. */}
               <span className="lg:opacity-0 lg:transition-opacity lg:group-hover:opacity-100 lg:group-focus-within:opacity-100 motion-reduce:transition-none">{item.label}</span>
-            </Link>
-          </li>
-        ))}
+            </>
+          );
+          return (
+            <li key={item.page}>
+              {item.href ? (
+                <Link href={item.href} aria-current={open === item.page ? "page" : undefined} className={className}>
+                  {content}
+                </Link>
+              ) : (
+                <button type="button" onClick={() => requestLogin()} className={cn(className, "w-full")}>
+                  {content}
+                </button>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </nav>
   );

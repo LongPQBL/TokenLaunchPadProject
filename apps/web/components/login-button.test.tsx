@@ -8,6 +8,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { API } from "../test/msw/handlers";
 import { server } from "../test/msw/server";
 import { renderWithWallet, TEST_DEPLOYMENT, TEST_USER } from "../test/wallet";
+import { requestLogin } from "@/lib/wallet/login-trigger";
 import { PrivyActiveProvider } from "@/lib/wallet/privy-context";
 import { ConnectButton } from "./connect-button";
 import { LoginButton, PRIVY_PATIENCE_MS } from "./login-button";
@@ -46,6 +47,19 @@ async function show(ui = <LoginButton />, connected = false) {
 }
 
 describe("LoginButton", () => {
+  it("is the control the side nav presses to start logging in, so Profile opens Privy's screen too", async () => {
+    await show(<><LoginButton /></>);
+    await waitFor(() => expect(requestLogin()).toBe(true));
+    expect(privy.login).toHaveBeenCalledOnce();
+  });
+
+  it("is not pressed for the side nav while Privy is not ready, since a disabled button does nothing", async () => {
+    Object.assign(privy, { ready: false });
+    await show();
+    expect(requestLogin()).toBe(false);
+    expect(privy.login).not.toHaveBeenCalled();
+  });
+
   it("offers Log in when nobody is logged in, and the click opens Privy's login, not a wallet list of ours", async () => {
     await show();
     await userEvent.click(screen.getByRole("button", { name: "Log in" }));
