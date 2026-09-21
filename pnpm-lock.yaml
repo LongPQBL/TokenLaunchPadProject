@@ -24,7 +24,7 @@ importers:
         specifier: ^8.0.0
         version: 8.70.0(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3)
 
-  apps/api:
+  TokenLaunchpad-be/apps/api:
     dependencies:
       '@hono/node-server':
         specifier: ^1.13.0
@@ -76,7 +76,7 @@ importers:
         specifier: ^3.2.0
         version: 3.2.7(@types/debug@4.1.13)(@types/node@22.20.4)(jiti@2.7.0)(jsdom@26.1.0(bufferutil@4.1.0)(utf-8-validate@5.0.10))(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.4)(typescript@5.9.3))(tsx@4.23.15)
 
-  apps/bot:
+  TokenLaunchpad-be/apps/bot:
     dependencies:
       '@vezta/abi':
         specifier: workspace:*
@@ -107,7 +107,7 @@ importers:
         specifier: ^3.2.0
         version: 3.2.7(@types/debug@4.1.13)(@types/node@22.20.4)(jiti@2.7.0)(jsdom@26.1.0(bufferutil@4.1.0)(utf-8-validate@5.0.10))(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.4)(typescript@5.9.3))(tsx@4.23.15)
 
-  apps/indexer:
+  TokenLaunchpad-be/apps/indexer:
     dependencies:
       '@vezta/abi':
         specifier: workspace:*
@@ -147,7 +147,7 @@ importers:
         specifier: ^3.2.0
         version: 3.2.7(@types/debug@4.1.13)(@types/node@22.20.4)(jiti@2.7.0)(jsdom@26.1.0(bufferutil@4.1.0)(utf-8-validate@5.0.10))(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.4)(typescript@5.9.3))(tsx@4.23.15)
 
-  apps/web:
+  TokenLaunchpad-fe:
     dependencies:
       '@privy-io/react-auth':
         specifier: 3.44.0
@@ -160,13 +160,13 @@ importers:
         version: 5.103.1(react@19.3.0)
       '@vezta/abi':
         specifier: workspace:*
-        version: link:../../packages/abi
+        version: link:../TokenLaunchpad-be/packages/abi
       '@vezta/deployments':
         specifier: workspace:*
-        version: link:../../packages/deployments
+        version: link:../TokenLaunchpad-be/packages/deployments
       '@vezta/shared':
         specifier: workspace:*
-        version: link:../../packages/shared
+        version: link:../TokenLaunchpad-be/packages/shared
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -253,7 +253,7 @@ importers:
         specifier: ^3.2.0
         version: 3.2.7(@types/debug@4.1.13)(@types/node@22.20.4)(jiti@2.7.0)(jsdom@26.1.0(bufferutil@4.1.0)(utf-8-validate@5.0.10))(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.4)(typescript@5.9.3))(tsx@4.23.15)
 
-  packages/abi:
+  TokenLaunchpad-be/packages/abi:
     devDependencies:
       typescript:
         specifier: ^5.9.3
@@ -265,7 +265,7 @@ importers:
         specifier: ^3.2.0
         version: 3.2.7(@types/debug@4.1.13)(@types/node@22.20.4)(jiti@2.7.0)(jsdom@26.1.0(bufferutil@4.1.0)(utf-8-validate@5.0.10))(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.4)(typescript@5.9.3))(tsx@4.23.15)
 
-  packages/app-db:
+  TokenLaunchpad-be/packages/app-db:
     dependencies:
       '@prisma/client':
         specifier: ^6.0.0
@@ -284,7 +284,7 @@ importers:
         specifier: ^3.2.0
         version: 3.2.7(@types/debug@4.1.13)(@types/node@22.20.4)(jiti@2.7.0)(jsdom@26.1.0(bufferutil@4.1.0)(utf-8-validate@5.0.10))(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.4)(typescript@5.9.3))(tsx@4.23.15)
 
-  packages/deployments:
+  TokenLaunchpad-be/packages/deployments:
     dependencies:
       viem:
         specifier: ^2.47.0
@@ -300,7 +300,7 @@ importers:
         specifier: ^3.2.0
         version: 3.2.7(@types/debug@4.1.13)(@types/node@22.20.4)(jiti@2.7.0)(jsdom@26.1.0(bufferutil@4.1.0)(utf-8-validate@5.0.10))(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.4)(typescript@5.9.3))(tsx@4.23.15)
 
-  packages/shared:
+  TokenLaunchpad-be/packages/shared:
     dependencies:
       viem:
         specifier: ^2.47.0

@@ -2,16 +2,23 @@
   "name": "vezta-launchpad",
   "private": true,
   "packageManager": "pnpm@10.33.2",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "pnpm": {
-    "onlyBuiltDependencies": ["@prisma/client", "@prisma/engines", "prisma", "esbuild"]
+    "onlyBuiltDependencies": [
+      "@prisma/client",
+      "@prisma/engines",
+      "prisma",
+      "esbuild"
+    ]
   },
   "scripts": {
     "typecheck": "turbo run typecheck",
-    "lint": "eslint apps packages tools --no-error-on-unmatched-pattern",
+    "lint": "eslint TokenLaunchpad-be TokenLaunchpad-fe --no-error-on-unmatched-pattern",
     "test": "turbo run test",
     "build": "turbo run build",
-    "verify:quote": "cd examples/evm-flow && pnpm --silent verify:quote"
+    "verify:quote": "cd TokenLaunchpad-be/examples/evm-flow && pnpm --silent verify:quote"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",

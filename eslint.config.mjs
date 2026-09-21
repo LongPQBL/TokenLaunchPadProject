@@ -5,7 +5,7 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    ignores: ["**/dist/**", "**/.next/**", "**/.next-demo/**", "**/generated/**", "**/node_modules/**", "**/.ponder/**"],
+    ignores: ["**/dist/**", "**/.next/**", "**/.next-demo/**", "**/legacy-solana/**", "**/generated/**", "**/node_modules/**", "**/.ponder/**"],
   },
   {
     rules: {
