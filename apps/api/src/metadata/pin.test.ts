@@ -2,33 +2,41 @@ import { describe, expect, it, vi } from "vitest";
 import { fakePinner, PinError, pinataPinner } from "./pin.js";
 
 const CID = "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi";
-const ok = (hash = CID) => new Response(JSON.stringify({ IpfsHash: hash, PinSize: 1, Timestamp: "now" }), { status: 200 });
+// What Pinata's Files API answers with.
+const ok = (cid = CID) => new Response(JSON.stringify({ data: { id: "1", cid, cid_version: "v1", network: "public", size: 1 } }), { status: 200 });
 
 describe("pinataPinner", () => {
-  it("uploads a file as multipart with the JWT, asking for CIDv1, and returns the CID", async () => {
+  it("uploads a file as multipart to the public network with the JWT, asking for CIDv1, and returns the CID", async () => {
     const fetchMock = vi.fn<typeof fetch>(async () => ok());
     const cid = await pinataPinner("secret-jwt", fetchMock).pinFile(Buffer.from("bytes"), "logo.png", "image/png");
 
     expect(cid).toBe(CID);
     const [url, init] = fetchMock.mock.calls[0]!;
-    expect(String(url)).toBe("https://api.pinata.cloud/pinning/pinFileToIPFS");
+    expect(String(url)).toBe("https://uploads.pinata.cloud/v3/files");
     expect(init!.method).toBe("POST");
     expect((init!.headers as Record<string, string>).authorization).toBe("Bearer secret-jwt");
     const form = init!.body as FormData;
     expect((form.get("file") as File).name).toBe("logo.png");
     expect((form.get("file") as File).type).toBe("image/png");
-    expect(JSON.parse(String(form.get("pinataOptions")))).toEqual({ cidVersion: 1 });
-    expect(JSON.parse(String(form.get("pinataMetadata")))).toEqual({ name: "logo.png" });
+    expect(form.get("network")).toBe("public"); // an IPFS URI on chain has to be readable by anyone
+    expect(form.get("cid_version")).toBe("v1");
+    expect(form.get("name")).toBe("logo.png");
   });
 
-  it("pins a JSON document with the JWT and returns the CID", async () => {
+  it("pins a JSON document as a file of its own, so its CID is the document's and a gateway serves it as it is", async () => {
     const fetchMock = vi.fn<typeof fetch>(async () => ok());
     const cid = await pinataPinner("secret-jwt", fetchMock).pinJson({ name: "Demo" }, "demo.json");
     expect(cid).toBe(CID);
     const [url, init] = fetchMock.mock.calls[0]!;
-    expect(String(url)).toBe("https://api.pinata.cloud/pinning/pinJSONToIPFS");
+    expect(String(url)).toBe("https://uploads.pinata.cloud/v3/files");
     expect((init!.headers as Record<string, string>).authorization).toBe("Bearer secret-jwt");
-    expect(JSON.parse(String(init!.body))).toMatchObject({ pinataContent: { name: "Demo" }, pinataOptions: { cidVersion: 1 } });
+    const form = init!.body as FormData;
+    const file = form.get("file") as File;
+    expect(file.name).toBe("demo.json");
+    expect(file.type).toBe("application/json");
+    expect(JSON.parse(await file.text())).toEqual({ name: "Demo" });
+    expect(form.get("network")).toBe("public");
+    expect(form.get("cid_version")).toBe("v1");
   });
 
   it("never lets Pinata's error text, or the key, out: a failure is a PinError with a fixed message", async () => {
@@ -40,7 +48,7 @@ describe("pinataPinner", () => {
   });
 
   it("does not accept a failed response just because its body happens to contain a CID", async () => {
-    const f = vi.fn<typeof fetch>(async () => new Response(JSON.stringify({ IpfsHash: CID }), { status: 500 }));
+    const f = vi.fn<typeof fetch>(async () => new Response(JSON.stringify({ data: { cid: CID } }), { status: 500 }));
     await expect(pinataPinner("k", f).pinJson({}, "x")).rejects.toBeInstanceOf(PinError);
   });
 

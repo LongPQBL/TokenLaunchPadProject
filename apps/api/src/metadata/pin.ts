@@ -15,50 +15,51 @@ export interface Pinner {
 
 // A CID becomes part of an ipfs:// URI written on chain, so what a service answers with is checked, not trusted.
 const CID = /^[A-Za-z0-9]{5,100}$/;
-const PINATA = "https://api.pinata.cloud";
+const PINATA_UPLOADS = "https://uploads.pinata.cloud/v3/files";
 
 /**
- * Pins through Pinata. The key lives only here, in the API's environment. Whatever goes wrong is reported as a PinError
- * with a fixed message: the service's own error text and the underlying network error can carry the key or account
- * details, and none of it belongs in a response or a log line.
+ * Pins through Pinata's Files API (v3), which is what a key made in Pinata's dashboard today is scoped for: the older
+ * pinFileToIPFS / pinJSONToIPFS endpoints answer such a key with 403 NO_SCOPES_FOUND. Everything is pinned to the PUBLIC network,
+ * since the CID goes on chain in an ipfs:// URI that anyone has to be able to read. The key lives only here, in the API's
+ * environment. Whatever goes wrong is reported as a PinError with a fixed message: the service's own error text and the
+ * underlying network error can carry the key or account details, and none of it belongs in a response or a log line.
  */
 export function pinataPinner(jwt: string, fetchImpl: typeof fetch = fetch, timeoutMs = 30_000): Pinner {
-  async function call(path: string, init: RequestInit): Promise<string> {
+  async function upload(file: Blob, name: string): Promise<string> {
+    const form = new FormData();
+    form.append("file", file, name);
+    form.append("network", "public");
+    form.append("cid_version", "v1");
+    form.append("name", name);
     let res: Response;
     try {
-      res = await fetchImpl(`${PINATA}${path}`, {
-        ...init,
-        headers: { authorization: `Bearer ${jwt}`, ...init.headers },
+      res = await fetchImpl(PINATA_UPLOADS, {
+        method: "POST",
+        body: form,
+        headers: { authorization: `Bearer ${jwt}` },
         signal: AbortSignal.timeout(timeoutMs),
       });
     } catch {
       throw new PinError();
     }
     if (!res.ok) throw new PinError(res.status);
-    let hash: unknown;
+    let cid: unknown;
     try {
-      hash = ((await res.json()) as { IpfsHash?: unknown }).IpfsHash;
+      cid = ((await res.json()) as { data?: { cid?: unknown } }).data?.cid;
     } catch {
       throw new PinError(res.status);
     }
-    if (typeof hash !== "string" || !CID.test(hash)) throw new PinError(res.status);
-    return hash;
+    if (typeof cid !== "string" || !CID.test(cid)) throw new PinError(res.status);
+    return cid;
   }
 
   return {
     pinFile(bytes, name, contentType) {
-      const form = new FormData();
-      form.append("file", new Blob([new Uint8Array(bytes)], { type: contentType }), name);
-      form.append("pinataOptions", JSON.stringify({ cidVersion: 1 }));
-      form.append("pinataMetadata", JSON.stringify({ name }));
-      return call("/pinning/pinFileToIPFS", { method: "POST", body: form });
+      return upload(new Blob([new Uint8Array(bytes)], { type: contentType }), name);
     },
+    // A document is a file of its own: its CID is the document's, and a gateway serves it as it is.
     pinJson(value, name) {
-      return call("/pinning/pinJSONToIPFS", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ pinataContent: value, pinataMetadata: { name }, pinataOptions: { cidVersion: 1 } }),
-      });
+      return upload(new Blob([JSON.stringify(value)], { type: "application/json" }), name);
     },
   };
 }
