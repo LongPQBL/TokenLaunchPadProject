@@ -52,6 +52,22 @@ describe("GET /:chain/tokens", () => {
     expect((await res.json()).error).toBe("bad_sort");
   });
 
+  it("serves every sort the table can ask for, with the numbers on each row as text where they can be large", async () => {
+    await seedToken({ address: "0xd1", name: "One", ticker: "ONE", virtualQuoteReserves: 15_000_000_000_000_000n, virtualTokenReserves: (16n * 10n ** 27n) / 15n });
+    for (const sort of ["mcap", "txns", "volume24h", "traders", "change1h", "change6h", "change24h"]) {
+      const res = await get(`/sepolia/tokens?sort=${sort}`);
+      expect(res.status, sort).toBe(200);
+      const [row] = (await res.json()).items;
+      expect(row.stats, sort).toMatchObject({ marketCap: expect.stringMatching(/^\d+$/), athMarketCap: expect.stringMatching(/^\d+$/), volume24h: "0", traders24h: 0, change24hBps: 0 });
+    }
+  });
+
+  it("accepts a negative cursor for a change sort, and refuses it for a sort that cannot be negative", async () => {
+    const negative = Buffer.from(JSON.stringify(["-2500", "0xab"])).toString("base64url");
+    expect((await get(`/sepolia/tokens?sort=change1h&cursor=${negative}`)).status).toBe(200);
+    expect((await get(`/sepolia/tokens?sort=mcap&cursor=${negative}`)).status).toBe(400);
+  });
+
   it("rejects a malformed cursor with a machine-readable error", async () => {
     const res = await get("/sepolia/tokens?cursor=zzz");
     expect(res.status).toBe(400);
