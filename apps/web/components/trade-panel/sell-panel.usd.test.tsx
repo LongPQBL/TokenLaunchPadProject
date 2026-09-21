@@ -1,6 +1,6 @@
 import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { centsToText, formatCompactTokens, formatQuote, formatUsd, previewSellLocal, quoteToUsdCents, usdToQuote } from "@vezta/shared";
+import { formatCompactTokens, formatQuote, formatUsd, previewSellLocal, quoteToUsdCents } from "@vezta/shared";
 import { formatUnits } from "viem";
 import { connect } from "wagmi/actions";
 import { sepolia } from "wagmi/chains";
@@ -23,16 +23,15 @@ const trade = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/wallet/use-trade", () => ({ useTrade: () => trade }));
 
-// (a small curve: the whole 5,000,000-token balance below is worth about $0.28, so the amounts typed here are cents)
+// (a small curve: the whole 5,000,000-token balance below is worth about $0.28)
 const SOLD = 10_000_000n * E18;
 const curve = freshCurve({
   virtualTokenReserves: (10n ** 27n * 16n) / 15n - SOLD,
   virtualQuoteReserves: 20_000_000_000_000_000n,
   realTokenReserves: 10n ** 27n - SOLD,
 });
-/** What a number of tokens is worth at the price the curve is at: the same rule the panel uses to turn dollars into tokens. */
+/** What a number of tokens is worth at the price the curve is at, in dollar cents. */
 const worth = (tokens: bigint) => quoteToUsdCents((tokens * curve.virtualQuoteReserves) / curve.virtualTokenReserves, RATE);
-const tokensFor = (cents: bigint) => (usdToQuote(cents, RATE) * curve.virtualTokenReserves) / curve.virtualQuoteReserves;
 const okResult = { hash: HASH, tokenAmount: 1_000n * E18, quoteAmount: 4n * 10n ** 15n, fee: 4n * 10n ** 13n, launchTax: 0n };
 
 beforeEach(() => {
@@ -50,119 +49,97 @@ async function setup(initial = {}, withRate = true) {
   await act(() => connect(view.config, { connector: view.config.connectors[0]!, chainId: sepolia.id }));
   return { chain, ...view, user: userEvent.setup() };
 }
-const dollars = () => screen.findByRole("textbox", { name: "Amount to sell (USD)" });
+const tokens = () => screen.findByRole("textbox", { name: "Amount to sell (DEMO)" });
 const sellButton = () => screen.getByRole("button", { name: "Sell" });
 
-describe("SellPanel in dollars", () => {
-  it("takes dollars by default once the price is known", async () => {
+// What is typed to sell is a number of TOKENS, whether or not there is a dollar price: the dollars are only said beside it.
+describe("SellPanel: an amount of tokens, with the dollars beside it", () => {
+  it("takes tokens even when the price is known: no dollar box, no switch to one", async () => {
     await setup();
-    expect(await dollars()).toBeInTheDocument();
-    expect(screen.getByText("$")).toBeInTheDocument();
-    expect(screen.queryByRole("textbox", { name: "Amount to sell (DEMO)" })).toBeNull();
+    expect(await tokens()).toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Amount to sell (USD)" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Enter in/ })).toBeNull();
+    expect(screen.queryByText("$")).toBeNull(); // no dollar sign in front of the box
   });
 
-  it("says how many tokens that many dollars is, at the price the curve is at", async () => {
+  it("says what that many tokens are worth in dollars, at the price the curve is at", async () => {
     const { user } = await setup();
-    await user.type(await dollars(), "0.1");
-    expect(screen.getByTestId("equivalent")).toHaveTextContent(`≈ ${formatCompactTokens(tokensFor(10n))} DEMO`);
+    await user.type(await tokens(), "1000000");
+    expect(screen.getByTestId("equivalent")).toHaveTextContent(`≈ ${formatUsd(worth(1_000_000n * E18))}`);
   });
 
   it("says what selling them pays, in ETH and in dollars", async () => {
     const { user } = await setup();
-    await user.type(await dollars(), "0.1");
-    const payout = previewSellLocal(curve, 100n, tokensFor(10n)).payout;
+    await user.type(await tokens(), "1000000");
+    const payout = previewSellLocal(curve, 100n, 1_000_000n * E18).payout;
     await waitFor(() =>
       expect(screen.getByTestId("receive")).toHaveTextContent(`You receive ≈ ${formatQuote(payout, 18, 6)} ETH ≈ ${formatUsd(quoteToUsdCents(payout, RATE))}`),
     );
   });
 
-  it("sells the tokens those dollars are worth", async () => {
+  it("sells exactly the tokens typed, decimals included", async () => {
     trade.sell.mockResolvedValue(okResult);
     const { user } = await setup();
-    await user.type(await dollars(), "0.1");
+    await user.type(await tokens(), "1234.5");
     await waitFor(() => expect(sellButton()).toBeEnabled());
     await user.click(sellButton());
-    expect(trade.sell).toHaveBeenCalledWith(expect.objectContaining({ token: TOKEN, amount: tokensFor(10n) }));
+    expect(trade.sell).toHaveBeenCalledWith(expect.objectContaining({ token: TOKEN, amount: 12_345n * E18 / 10n }));
   });
 
   it("shows the balance in tokens and in dollars", async () => {
     await setup();
-    await dollars();
+    await tokens();
     await waitFor(() => expect(screen.getByTestId("balance")).toHaveTextContent(`Balance ${formatCompactTokens(BALANCE)} DEMO ≈ ${formatUsd(worth(BALANCE))}`));
   });
 
-  it("Max fills in what the whole balance is worth, and sells the balance to the last unit, not that figure turned back into tokens", async () => {
+  it("Max fills in the whole balance, in tokens, and sells it to the last unit", async () => {
     trade.sell.mockResolvedValue(okResult);
-    const { user } = await setup();
-    const box = await dollars();
+    const { user } = await setup({ tokenBalance: 5_000_000n * E18 + 123n }); // a balance with dust: no rounding may leave any behind
+    const box = await tokens();
     await waitFor(() => expect(screen.getByRole("button", { name: "Max" })).toBeEnabled());
     await user.click(screen.getByRole("button", { name: "Max" }));
-    expect(box).toHaveValue(centsToText(worth(BALANCE)));
+    expect(box).toHaveValue(formatUnits(5_000_000n * E18 + 123n, 18));
     await waitFor(() => expect(sellButton()).toBeEnabled());
     await user.click(sellButton());
-    expect(trade.sell).toHaveBeenCalledWith(expect.objectContaining({ amount: BALANCE }));
+    expect(trade.sell).toHaveBeenCalledWith(expect.objectContaining({ amount: 5_000_000n * E18 + 123n }));
   });
 
-  it("stops being 'all of it' the moment the number is changed by hand", async () => {
+  it("sells what is typed after Max, not the balance", async () => {
     trade.sell.mockResolvedValue(okResult);
     const { user } = await setup();
-    const box = await dollars();
+    const box = await tokens();
     await waitFor(() => expect(screen.getByRole("button", { name: "Max" })).toBeEnabled());
     await user.click(screen.getByRole("button", { name: "Max" }));
     await user.clear(box);
-    await user.type(box, "0.1");
+    await user.type(box, "1000");
     await waitFor(() => expect(sellButton()).toBeEnabled());
     await user.click(sellButton());
-    expect(trade.sell).toHaveBeenCalledWith(expect.objectContaining({ amount: tokensFor(10n) }));
+    expect(trade.sell).toHaveBeenCalledWith(expect.objectContaining({ amount: 1_000n * E18 }));
   });
 
-  it("says there are not enough tokens, and will not sell, when the dollars are worth more than are held", async () => {
+  it("says there are not enough tokens, and will not sell, when more are typed than are held", async () => {
     const { user } = await setup();
-    await user.type(await dollars(), centsToText(worth(BALANCE) + 5_000n)); // $50 more than the whole balance is worth
+    await user.type(await tokens(), "5000001");
     expect(await screen.findByText("Insufficient token balance")).toBeInTheDocument();
     expect(sellButton()).toBeDisabled();
   });
 
-  it("does not quote what is not money: a third decimal, text, or a minus", async () => {
+  it("does not quote what is not a number of tokens: text, a minus, two points", async () => {
     const { user } = await setup();
-    const box = await dollars();
-    for (const bad of ["1.234", "abc", "-5"]) {
+    const box = await tokens();
+    for (const bad of ["abc", "-5", "1.2.3"]) {
       await user.clear(box);
       await user.type(box, bad);
       expect(screen.queryByTestId("receive"), bad).toBeNull();
       expect(sellButton(), bad).toBeDisabled();
     }
   });
-
-  it("switches to tokens, keeping the same amount, and back", async () => {
-    const { user } = await setup();
-    await user.type(await dollars(), "0.1");
-    await user.click(screen.getByRole("button", { name: "Enter in DEMO" }));
-    const tokens = screen.getByRole("textbox", { name: "Amount to sell (DEMO)" });
-    expect(tokens).toHaveValue(formatUnits(tokensFor(10n), 18));
-    expect(screen.getByTestId("equivalent")).toHaveTextContent(/^≈ \$0\.09$|^≈ \$0\.10$/);
-    await user.click(screen.getByRole("button", { name: "Enter in USD" }));
-    expect(screen.getByRole("textbox", { name: "Amount to sell (USD)" })).toBeInTheDocument();
-  });
-
-  it("with the switch on tokens, Max still sells the whole balance", async () => {
-    trade.sell.mockResolvedValue(okResult);
-    const { user } = await setup();
-    await dollars();
-    await user.click(screen.getByRole("button", { name: "Enter in DEMO" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Max" })).toBeEnabled());
-    await user.click(screen.getByRole("button", { name: "Max" }));
-    expect(screen.getByRole("textbox", { name: "Amount to sell (DEMO)" })).toHaveValue(formatUnits(BALANCE, 18));
-    await waitFor(() => expect(sellButton()).toBeEnabled());
-    await user.click(sellButton());
-    expect(trade.sell).toHaveBeenCalledWith(expect.objectContaining({ amount: BALANCE }));
-  });
 });
 
 describe("SellPanel when there is no price", () => {
-  it("takes tokens, offers no switch, and shows no dollar anywhere", async () => {
+  it("takes tokens the same way, and shows no dollar anywhere", async () => {
     const { user } = await setup({}, false);
-    await user.type(await screen.findByRole("textbox", { name: "Amount to sell (DEMO)" }), "1000000");
+    await user.type(await tokens(), "1000000");
     expect(screen.queryByRole("button", { name: /Enter in/ })).toBeNull();
     expect(screen.queryByText("$")).toBeNull();
     expect(screen.queryByText(/\$\d/)).toBeNull();
@@ -172,7 +149,7 @@ describe("SellPanel when there is no price", () => {
 describe("SellPanel colours", () => {
   it("the Sell button is red", async () => {
     await setup();
-    await dollars();
+    await tokens();
     expect(sellButton().className).toContain("bg-sell");
     expect(sellButton().className).not.toContain("bg-primary");
   });

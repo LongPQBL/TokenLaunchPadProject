@@ -1,7 +1,7 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { centsToText, chainBySlug, formatCompactTokens, formatQuote, formatUsd, minPayoutWithSlippage, parseUsd, quoteToUsdCents, UI, usdToQuote } from "@vezta/shared";
+import { chainBySlug, formatCompactTokens, formatQuote, formatUsd, minPayoutWithSlippage, quoteToUsdCents, UI } from "@vezta/shared";
 import { useState } from "react";
 import { formatUnits, type Address } from "viem";
 import { ChainGuard } from "@/components/chain-guard";
@@ -40,25 +40,19 @@ export function SellPanel({ chain, token, ticker }: { chain: string; token: Addr
   const { state, run } = useTxRun();
   const { setLast } = useLastTrade();
 
-  // What the person types is dollars when there is a price to turn them into tokens (the dollar price of ETH, and the curve's own
-  // price of the token), and tokens when there is not, or when they choose it.
+  // What the person types is a number of TOKENS. When there is a dollar price (the dollar price of ETH, and the curve's own price of the
+  // token) what they are worth is said beside it; without one, only tokens are shown.
   const rate = useUsdRate(chain);
   const { curve } = useCurve(token);
   const priced = !!rate && !!curve && curve.virtualQuoteReserves > 0n && curve.virtualTokenReserves > 0n;
-  const [chosen, setChosen] = useState<"usd" | "token">("usd");
-  const mode = priced ? chosen : "token";
   const [text, setText] = useState("");
-  // "Sell everything" is the whole balance to the last unit, not a dollar figure turned back into tokens, which would leave dust.
-  const [maxed, setMaxed] = useState(false);
   const [exactApproval, setExactApproval] = useState(false);
   const [stage, setStage] = useState<"approving" | "selling">("approving");
 
-  /** What tokens are worth in the quote, at the price the curve is at now; and the reverse. */
+  /** What tokens are worth in the quote, at the price the curve is at now, and in dollars. */
   const quoteOf = (tokens: bigint) => (priced ? (tokens * curve!.virtualQuoteReserves) / curve!.virtualTokenReserves : 0n);
-  const tokensOf = (quoteAmount: bigint) => (priced ? (quoteAmount * curve!.virtualTokenReserves) / curve!.virtualQuoteReserves : 0n);
   const usdOf = (tokens: bigint) => (priced ? quoteToUsdCents(quoteOf(tokens), rate!, decimals) : 0n);
-  const amount =
-    mode === "usd" ? (maxed && balance !== undefined ? balance : tokensOf(usdToQuote(parseUsd(text) ?? 0n, rate!, decimals))) : (parseAmount(text, TOKEN_DECIMALS) ?? 0n);
+  const amount = parseAmount(text, TOKEN_DECIMALS) ?? 0n;
   const quote = useSellQuote({ token, amount });
   const minQuoteOutput = minPayoutWithSlippage(quote.payout, slippageBps);
 
@@ -71,23 +65,10 @@ export function SellPanel({ chain, token, ticker }: { chain: string; token: Addr
   const graduating = state.status === "error" && state.code === "CurveCompleted";
   useRefreshCurveWhen(graduating);
 
-  function type(value: string) {
-    setMaxed(false);
-    setText(value);
-  }
-
-  /** The same amount in the other unit, so switching does not change what is about to be sold. */
-  function switchMode() {
-    if (!priced) return;
-    if (mode === "usd") setText(amount > 0n ? formatUnits(amount, TOKEN_DECIMALS) : "");
-    else setText(amount > 0n ? centsToText(usdOf(amount)) : "");
-    setChosen(mode === "usd" ? "token" : "usd");
-  }
-
+  /** The whole balance, to the last unit: it is written out in full, so nothing is left behind as dust. */
   function useMax() {
     if (balance === undefined || balance === 0n) return;
-    setMaxed(true);
-    setText(mode === "usd" ? centsToText(usdOf(balance)) : formatUnits(balance, TOKEN_DECIMALS));
+    setText(formatUnits(balance, TOKEN_DECIMALS));
   }
 
   function sell() {
@@ -103,7 +84,6 @@ export function SellPanel({ chain, token, ticker }: { chain: string; token: Addr
       },
       (r) => {
         setText("");
-        setMaxed(false);
         void queryClient.invalidateQueries();
         // What the Trade event says: the payout is the curve price less the fee.
         const done = {
@@ -122,27 +102,13 @@ export function SellPanel({ chain, token, ticker }: { chain: string; token: Addr
 
   return (
     <section aria-label={UI.trade.sell} className="flex flex-col gap-4 border border-border p-4">
-      <div className="flex items-center justify-between gap-2">
-        {priced ? (
-          <Button type="button" variant="ghost" size="xs" onClick={switchMode}>
-            {UI.trade.enterIn(mode === "usd" ? ticker : "USD")}
-          </Button>
-        ) : (
-          <span />
-        )}
+      <div className="flex items-center justify-end gap-2">
         <SlippagePopover bps={slippageBps} onChange={setSlippage} />
       </div>
-      <AmountInput
-        id="sell-amount"
-        label={mode === "usd" ? UI.trade.amountToSell("USD") : UI.trade.amountToSell(ticker)}
-        prefix={mode === "usd" ? "$" : ""}
-        value={text}
-        onChange={type}
-        className={mode === "usd" ? undefined : "text-3xl"}
-      />
+      <AmountInput id="sell-amount" label={UI.trade.amountToSell(ticker)} prefix="" value={text} onChange={setText} className="text-3xl" />
       {priced && (
         <p data-testid="equivalent" className="-mt-2 text-center text-sm text-muted-foreground">
-          {mode === "usd" ? `≈ ${formatCompactTokens(amount)} ${ticker}` : `≈ ${formatUsd(usdOf(amount))}`}
+          {`≈ ${formatUsd(usdOf(amount))}`}
         </p>
       )}
 

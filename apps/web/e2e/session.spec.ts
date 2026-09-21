@@ -10,7 +10,8 @@ const PROMPTS = ["personal_sign", "eth_sign", "eth_signTypedData_v4", "eth_sendT
 const prompts = (requests: string[]) => requests.filter((m) => PROMPTS.includes(m)).length;
 const count = (requests: string[], method: string) => requests.filter((m) => m === method).length;
 
-const bar = (page: Page) => page.getByTestId("trading-wallet");
+// The trading wallet is in the header: its balance and short address on the chip, and behind it the whole address (the wallet menu).
+const chip = (page: Page) => page.getByRole("banner").getByRole("button", { name: "Wallet" });
 
 async function topUp(page: Page, amount: "0.1" | "0.2" | "0.3") {
   // Deposit is in the header, beside the network badge: it works from any page.
@@ -22,7 +23,12 @@ async function topUp(page: Page, amount: "0.1" | "0.2" | "0.3") {
   await page.keyboard.press("Escape");
 }
 
-const sessionAddress = async (page: Page) => (await bar(page).locator("[title]").first().getAttribute("title"))!;
+async function sessionAddress(page: Page) {
+  await chip(page).click();
+  const address = (await page.getByLabel("Address", { exact: true }).textContent())!.trim();
+  await page.keyboard.press("Escape");
+  return address;
+}
 const tokenOf = (page: Page) => /\/token\/(0x[0-9a-f]{40})/.exec(page.url())![1]!;
 
 async function buy(page: Page, eth: string, symbol: string) {
@@ -32,15 +38,17 @@ async function buy(page: Page, eth: string, symbol: string) {
   await expect(panel(page).getByText(new RegExp(`You bought .* ${symbol} for `))).toBeVisible({ timeout: 60_000 });
 }
 
-/** The trading wallet opens by itself when a wallet connects, so on a page it is simply there. */
-const opened = (page: Page) => expect(bar(page)).toBeVisible({ timeout: 30_000 });
-const ethBalance = async (page: Page) => (await bar(page).locator('[title$=" ETH"]').first().getAttribute("title"))!;
+/** The trading wallet opens by itself when a wallet connects: the header offers Deposit only once it is there. */
+const opened = (page: Page) => expect(page.getByRole("banner").getByRole("button", { name: "Deposit" })).toBeVisible({ timeout: 30_000 });
+const ethBalance = async (page: Page) => (await chip(page).locator('[title$=" ETH"]').first().getAttribute("title"))!;
 
 test("the trading wallet opens by itself with ONE signature, and creating, buying and selling never reach the main wallet", async ({ page }) => {
   const wallet = await installWallet(page, RPC_URL);
   const symbol = await createToken(page, { window: "No protection" });
   await opened(page);
   expect((await sessionAddress(page)).toLowerCase()).toBe(wallet.tradingAddress.toLowerCase());
+  // The wallets are in the header (the chip and its menu): the trading panel of the token page does not list them.
+  await expect(page.getByTestId("trade-panel").getByText(/trading wallet|main wallet/i)).toHaveCount(0);
 
   // Trade, twice over: a purchase, then a sale that has to approve first.
   await buy(page, "0.01", symbol);

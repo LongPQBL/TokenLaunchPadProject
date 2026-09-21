@@ -8,7 +8,6 @@ import { GraduationProgress } from "@/components/graduation-progress";
 import { IndexingNotice } from "@/components/indexing-notice";
 import { HoldersTable } from "@/components/holders-table";
 import { LivePriceChart, LiveTradesTable } from "@/components/live-token-data";
-import { SessionBar } from "@/components/session/session-bar";
 import { SiteHeader } from "@/components/site-header";
 import { TokenHeader } from "@/components/token-header";
 import { TokenTabs } from "@/components/token-tabs";
@@ -114,7 +113,6 @@ export default async function TokenPage({
         </div>
         {/* Trading happens on chain, straight from the person's wallet: this panel never asks the API for a price. */}
         <aside data-testid="trade-panel" className="flex flex-col gap-4 lg:sticky lg:top-20 lg:self-start">
-          <SessionBar chain={chain} />
           <TradePanel chain={chain} token={token as `0x${string}`} ticker={detail.ticker ?? "tokens"} />
         </aside>
       </div>
