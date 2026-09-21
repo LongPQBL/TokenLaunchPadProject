@@ -22,6 +22,8 @@ const deployment = browserDeployment();
 
 const config: NextConfig = {
   reactStrictMode: true,
+  // `next dev` would otherwise write AGENTS.md and CLAUDE.md into this folder on every start: files nobody wrote, and not for the repo.
+  agentRules: false,
   // Workspace packages are shipped as TypeScript source, so Next has to compile them.
   transpilePackages: ["@vezta/shared", "@vezta/abi"],
   env: deployment ? { NEXT_PUBLIC_DEPLOYMENT: deployment } : {},
