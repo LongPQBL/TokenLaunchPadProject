@@ -127,6 +127,8 @@ wait_for "the API" 60 curl -sf "http://localhost:$API_PORT/ready"
 
 # --- web -------------------------------------------------------------------------------------------------------------------
 log "Building and starting the web app on :$WEB_PORT"
+# Built into a folder of its own: the browser tests build the app too (into .next), and a build overwrites the files a running server serves.
+export NEXT_DIST_DIR=.next-demo
 (cd "$ROOT/apps/web" && DEPLOYMENT=sepolia NEXT_PUBLIC_API_URL="http://localhost:$API_PORT" pnpm exec next build > "$LOGS/web-build.log" 2>&1) \
   || { tail -20 "$LOGS/web-build.log"; die "the web build failed"; }
 (cd "$ROOT/apps/web" && pnpm exec next start -p "$WEB_PORT" > "$LOGS/web.log" 2>&1) &

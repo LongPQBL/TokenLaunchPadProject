@@ -21,6 +21,9 @@ function browserDeployment(): string | undefined {
 const deployment = browserDeployment();
 
 const config: NextConfig = {
+  // Where the build is written. A build overwrites the files a running server reads, so the demo (scripts/demo-sepolia.sh) builds into a
+  // folder of its own and the browser tests' builds cannot pull the scripts out from under it.
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   reactStrictMode: true,
   // `next dev` would otherwise write AGENTS.md and CLAUDE.md into this folder on every start: files nobody wrote, and not for the repo.
   agentRules: false,
