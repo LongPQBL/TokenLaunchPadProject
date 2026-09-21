@@ -6,6 +6,9 @@ import { createConfig, http, WagmiProvider, type CreateConnectorFn } from "wagmi
 import { mainnet, sepolia } from "wagmi/chains";
 import { mock } from "wagmi/connectors";
 
+/** The connector id Privy gives the wallet it makes for an email or Google login: the address is part of it. */
+export const embeddedId = (address: string) => `io.privy.wallet.${address}`;
+
 export const TEST_USER = "0x00000000000000000000000000000000000000a1" as const;
 
 export const TEST_DEPLOYMENT = JSON.stringify({

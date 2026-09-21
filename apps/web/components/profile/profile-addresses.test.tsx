@@ -3,7 +3,7 @@ import { connect } from "wagmi/actions";
 import { sepolia } from "wagmi/chains";
 import { mock } from "wagmi/connectors";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { renderWithWallet, TEST_USER } from "../../test/wallet";
+import { embeddedId, renderWithWallet, TEST_USER } from "../../test/wallet";
 import { ProfileAddresses } from "./profile-addresses";
 
 const session = vi.hoisted(() => ({ account: undefined as { address: string } | undefined }));
@@ -56,7 +56,7 @@ describe("ProfileAddresses for an embedded wallet", () => {
   it("shows one address and no trading wallet, even if a session object exists (spec 7.4: an embedded user has one address)", async () => {
     session.account = { address: SESSION };
     const base = mock({ accounts: [TEST_USER] });
-    const embedded = [(cfg: Parameters<typeof base>[0]) => ({ ...base(cfg), id: "io.privy.wallet" })];
+    const embedded = [(cfg: Parameters<typeof base>[0]) => ({ ...base(cfg), id: embeddedId(TEST_USER) })];
     const wallet = renderWithWallet(<ProfileAddresses chain="sepolia" address={TEST_USER} />, embedded);
     await act(() => connect(wallet.config, { connector: wallet.config.connectors[0]!, chainId: sepolia.id }));
     expect(screen.getByText(TEST_USER)).toBeInTheDocument();

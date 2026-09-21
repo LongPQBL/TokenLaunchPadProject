@@ -56,7 +56,7 @@ export function useTrade(): UseTrade {
   const deployment = getDeployment();
   const { address, chainId, connector } = useAccount();
   const session = useSession();
-  const embedded = isEmbeddedConnector(connector);
+  const embedded = isEmbeddedConnector(connector, address);
   // The embedded wallet's signer, asked for once per connection. Undefined while it opens.
   const [provider, setProvider] = useState<{ request: (a: { method: string; params?: unknown[] }) => Promise<unknown> }>();
   useEffect(() => {

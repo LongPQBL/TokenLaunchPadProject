@@ -3,7 +3,7 @@ import { connect, disconnect } from "wagmi/actions";
 import { sepolia } from "wagmi/chains";
 import { mock } from "wagmi/connectors";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { TEST_USER, testWallet } from "../../test/wallet";
+import { embeddedId, TEST_USER, testWallet } from "../../test/wallet";
 import { useAutoSiwe } from "./use-auto-siwe";
 
 // What the sign-in hook says, set by each test.
@@ -33,20 +33,20 @@ async function setup(id: string, account: `0x${string}` = TEST_USER) {
 
 describe("useAutoSiwe", () => {
   it("signs an embedded wallet in to the API, once: it signs without asking, so this costs the person nothing", async () => {
-    await setup("io.privy.wallet");
+    await setup(embeddedId(TEST_USER));
     await waitFor(() => expect(siwe.signIn).toHaveBeenCalledTimes(1));
   });
 
   it("does nothing when there is already a session for this address", async () => {
     siwe.isSignedIn = true;
-    await setup("io.privy.wallet");
+    await setup(embeddedId(TEST_USER));
     await act(() => new Promise((r) => setTimeout(r, 60)));
     expect(siwe.signIn).not.toHaveBeenCalled();
   });
 
   it("waits for the session lookup to finish before deciding there is none", async () => {
     siwe.isLoading = true;
-    await setup("io.privy.wallet");
+    await setup(embeddedId(TEST_USER));
     await act(() => new Promise((r) => setTimeout(r, 60)));
     expect(siwe.signIn).not.toHaveBeenCalled();
   });
@@ -66,7 +66,7 @@ describe("useAutoSiwe", () => {
     let handled = 0;
     const failing = { catch: (fn: (e: unknown) => void) => (handled++, fn(new Error("api down")), failing), then: () => failing };
     siwe.signIn.mockReturnValue(failing);
-    const { rerender } = await setup("io.privy.wallet");
+    const { rerender } = await setup(embeddedId(TEST_USER));
     await waitFor(() => expect(siwe.signIn).toHaveBeenCalledTimes(1));
     rerender();
     rerender();
@@ -77,7 +77,7 @@ describe("useAutoSiwe", () => {
 
   it("does not ask again when the person declined", async () => {
     siwe.signIn.mockResolvedValue(false);
-    const { rerender } = await setup("io.privy.wallet");
+    const { rerender } = await setup(embeddedId(TEST_USER));
     await waitFor(() => expect(siwe.signIn).toHaveBeenCalledTimes(1));
     rerender();
     await act(() => new Promise((r) => setTimeout(r, 60)));
@@ -86,7 +86,7 @@ describe("useAutoSiwe", () => {
 
   // Review Focus 4: a different login is a different person, and logging in again is a new sign-in.
   it("signs in again after a log out and back in, and for a different address", async () => {
-    const first = await setup("io.privy.wallet");
+    const first = await setup(embeddedId(TEST_USER));
     await waitFor(() => expect(siwe.signIn).toHaveBeenCalledTimes(1));
     await act(() => disconnect(first.config));
     await act(() => connect(first.config, { connector: first.config.connectors[0]!, chainId: sepolia.id }));
@@ -94,7 +94,7 @@ describe("useAutoSiwe", () => {
     first.unmount();
     localStorage.clear(); // a different browser session: wagmi would otherwise restore the first wallet before the second connects
 
-    const second = await setup("io.privy.wallet", OTHER);
+    const second = await setup(embeddedId(OTHER), OTHER);
     await waitFor(() => expect(siwe.signIn).toHaveBeenCalledTimes(3));
     second.unmount();
   });

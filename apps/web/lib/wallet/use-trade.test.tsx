@@ -7,6 +7,7 @@ import { mainnet, sepolia } from "wagmi/chains";
 import { mock } from "wagmi/connectors";
 import { createConfig, http } from "wagmi";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { embeddedId } from "../../test/wallet";
 import { useTrade } from "./use-trade";
 import { privateKeyToAccount } from "viem/accounts";
 
@@ -122,7 +123,7 @@ describe("useTrade", () => {
 describe("useTrade with an embedded wallet", () => {
   beforeEach(() => localStorage.clear()); // wagmi keeps the connection there, and would carry it into the next test
   /** A wallet that announces itself as Privy's embedded wallet, and hands out the provider it would sign with. */
-  function embeddedHarness(id = "io.privy.wallet") {
+  function embeddedHarness(id = embeddedId(USER)) {
     // Wraps the mock wallet's own provider, so connecting and reading work as they do, and records what it is asked.
     const asked: string[] = [];
     const provider = { request: vi.fn() };

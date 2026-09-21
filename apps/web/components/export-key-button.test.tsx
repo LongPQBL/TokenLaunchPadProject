@@ -4,7 +4,7 @@ import { connect } from "wagmi/actions";
 import { sepolia } from "wagmi/chains";
 import { mock } from "wagmi/connectors";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { renderWithWallet, TEST_USER } from "../test/wallet";
+import { embeddedId, renderWithWallet, TEST_USER } from "../test/wallet";
 import { ExportKeyButton } from "./export-key-button";
 
 const privy = vi.hoisted(() => ({ exportWallet: vi.fn() }));
@@ -28,7 +28,7 @@ async function show(id: string | undefined) {
 
 describe("ExportKeyButton", () => {
   it("is drawn for an embedded wallet, and says the key is theirs to take", async () => {
-    await show("io.privy.wallet");
+    await show(embeddedId(TEST_USER));
     expect(await screen.findByRole("button", { name: "Export key" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Export key" })).toHaveAttribute("title", expect.stringMatching(/your key is yours/i));
   });
@@ -42,7 +42,7 @@ describe("ExportKeyButton", () => {
   });
 
   it("opens Privy's own export screen for this wallet's address, and does nothing else: the key never reaches this page", async () => {
-    await show("io.privy.wallet");
+    await show(embeddedId(TEST_USER));
     await userEvent.click(await screen.findByRole("button", { name: "Export key" }));
     expect(privy.exportWallet).toHaveBeenCalledTimes(1);
     expect(privy.exportWallet.mock.calls[0]![0].address.toLowerCase()).toBe(TEST_USER);
@@ -50,7 +50,7 @@ describe("ExportKeyButton", () => {
 
   it("takes it quietly when the person closes Privy's screen", async () => {
     privy.exportWallet.mockRejectedValue(new Error("closed"));
-    await show("io.privy.wallet");
+    await show(embeddedId(TEST_USER));
     await userEvent.click(await screen.findByRole("button", { name: "Export key" }));
     await waitFor(() => expect(privy.exportWallet).toHaveBeenCalled());
     expect(screen.queryByRole("alert")).toBeNull();

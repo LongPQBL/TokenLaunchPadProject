@@ -7,7 +7,7 @@ import { sepolia } from "wagmi/chains";
 import { mock } from "wagmi/connectors";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeChain } from "@/test/fake-chain";
-import { renderWithWallet, TEST_DEPLOYMENT, TEST_USER } from "@/test/wallet";
+import { embeddedId, renderWithWallet, TEST_DEPLOYMENT, TEST_USER } from "@/test/wallet";
 import { SessionBar } from "./session-bar";
 
 const SESSION = privateKeyToAccount(`0x${"22".repeat(32)}`);
@@ -193,7 +193,7 @@ describe("SessionBar: the trading wallet cannot be used", () => {
 // Spec 7.3 and 7.4: an embedded wallet IS the trading wallet. One wallet, one address, nothing to turn on or top up.
 describe("SessionBar: an embedded wallet", () => {
   /** A mock wallet that calls itself Privy's embedded wallet. */
-  const embedded = (id = "io.privy.wallet") => {
+  const embedded = (id = embeddedId(TEST_USER)) => {
     const base = mock({ accounts: [TEST_USER] });
     return [(cfg: Parameters<typeof base>[0]) => ({ ...base(cfg), id })];
   };
@@ -218,7 +218,7 @@ describe("SessionBar: an embedded wallet", () => {
   it("tells a new embedded user with no ETH how to add some, right where their wallet is shown", async () => {
     const chain = fakeChain({ balances: { [TEST_USER.toLowerCase()]: 0n } });
     const base = mock({ accounts: [TEST_USER] });
-    const connectors = [(cfg: Parameters<typeof base>[0]) => ({ ...base(cfg), id: "io.privy.wallet" })];
+    const connectors = [(cfg: Parameters<typeof base>[0]) => ({ ...base(cfg), id: embeddedId(TEST_USER) })];
     const view = renderWithWallet(<SessionBar chain="sepolia" />, connectors, chain.transport);
     await act(() => connect(view.config, { connector: view.config.connectors[0]!, chainId: sepolia.id }));
     expect(await screen.findByText(/holds no ETH/i)).toBeInTheDocument();
