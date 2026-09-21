@@ -309,6 +309,11 @@ export const UI = {
     },
   },
   session: {
+    receiveTitle: "Add ETH to your wallet",
+    receiveBody: (symbol: string) => `Send ${symbol} to this address, on the network this app is on. It arrives within a block or so.`,
+    menuLabel: "Wallet",
+    menuAddress: "Address",
+    viewOnExplorer: "View on explorer",
     mainWallet: "Main wallet",
     yourWallet: "Your wallet",
     tradingWallet: "Trading wallet",
@@ -322,8 +327,8 @@ export const UI = {
     mismatchTitle: "Your wallet signed differently than before",
     mismatchBody:
       "Your main wallet did not produce the same signature it did when the trading wallet was created, so the trading wallet cannot be recovered here. Nothing has been created or changed, and no funds are lost. Contact support before putting more funds in a trading wallet.",
-    topUp: "Top up",
-    topUpTitle: "Move ETH to your trading wallet",
+    topUp: "Deposit",
+    topUpTitle: "Deposit ETH to your trading wallet",
     topUpWhy: "A key kept in a browser should not hold your whole balance. 0.1 to 0.3 ETH is plenty for many trades.",
     topUpAmount: "Amount (ETH)",
     topUpSend: "Send from main wallet",

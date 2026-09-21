@@ -13,8 +13,9 @@ const LoginButton = lazy(() => import("./login-button").then((m) => ({ default: 
  * How a person gets in. With Privy running it is one Log in for Google, email and wallets; without it (no App ID, or Privy could
  * not start) it is the list of the wallets found in the browser, exactly as before.
  */
-export function ConnectButton() {
-  if (!usePrivyActive()) return <WalletConnectButton />;
+/** `chain` is given by the header, which is where the wallet menu (address, balance, withdraw) is drawn; elsewhere it is only how to get in. */
+export function ConnectButton({ chain }: { chain?: string } = {}) {
+  if (!usePrivyActive()) return <WalletConnectButton chain={chain} />;
   return (
     <Suspense
       fallback={
@@ -23,7 +24,7 @@ export function ConnectButton() {
         </Button>
       }
     >
-      <LoginButton />
+      <LoginButton chain={chain} />
     </Suspense>
   );
 }

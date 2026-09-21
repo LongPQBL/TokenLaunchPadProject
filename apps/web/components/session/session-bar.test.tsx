@@ -105,74 +105,9 @@ describe("SessionBar: on", () => {
     expect(within(row("trading-wallet")).getByText("Trading from this wallet")).toBeInTheDocument();
   });
 
-  it("offers Withdraw all, from the trading wallet's own row", async () => {
+  it("leaves Deposit and Withdraw all to the header: the bar has no buttons for moving funds", async () => {
     await setup();
-    expect(within(row("trading-wallet")).getByRole("button", { name: "Withdraw all" })).toBeInTheDocument();
-    expect(within(row("main-wallet")).queryByRole("button", { name: "Withdraw all" })).not.toBeInTheDocument();
-  });
-});
-
-describe("SessionBar: top up", () => {
-  beforeEach(() => {
-    session.value = { status: "ready", account: SESSION };
-  });
-
-  async function openTopUp() {
-    const view = await setup();
-    await view.user.click(screen.getByRole("button", { name: "Top up" }));
-    return view;
-  }
-
-  it("suggests 0.1 to 0.3 ETH and says why: a key in a browser should not hold a whole balance", async () => {
-    await openTopUp();
-    const dialog = screen.getByRole("dialog");
-    expect(within(dialog).getByText(/should not hold your whole balance/)).toBeInTheDocument();
-    for (const amount of ["0.1", "0.2", "0.3"]) expect(within(dialog).getByRole("button", { name: `${amount} ETH` })).toBeInTheDocument();
-  });
-
-  it("sends the amount from the main wallet to the trading wallet, and shows the resulting balance", async () => {
-    const { user, chain } = await openTopUp();
-    const dialog = screen.getByRole("dialog");
-    await user.click(within(dialog).getByRole("button", { name: "0.2 ETH" }));
-    expect(within(dialog).getByLabelText("Amount (ETH)")).toHaveValue("0.2");
-    // after the transfer the trading wallet holds 0.45
-    send.sendTransactionAsync.mockImplementation(async () => {
-      chain.set({ balances: { [TEST_USER.toLowerCase()]: parseEther("1.3"), [SESSION.address.toLowerCase()]: parseEther("0.45") } });
-      return HASH;
-    });
-    await user.click(within(dialog).getByRole("button", { name: "Send from main wallet" }));
-
-    expect(send.sendTransactionAsync).toHaveBeenCalledWith({ to: SESSION.address, value: parseEther("0.2") });
-    expect(await screen.findByText("Sent 0.2 ETH. Your trading wallet now has 0.45 ETH.")).toBeInTheDocument();
-  });
-
-  it("will not send more than the main wallet holds, and says so", async () => {
-    const { user } = await setup({ main: parseEther("0.05") });
-    await user.click(screen.getByRole("button", { name: "Top up" }));
-    const dialog = screen.getByRole("dialog");
-    await user.type(within(dialog).getByLabelText("Amount (ETH)"), "0.1");
-    expect(within(dialog).getByText("Your main wallet does not have enough ETH for this and network fees.")).toBeInTheDocument();
-    expect(within(dialog).getByRole("button", { name: "Send from main wallet" })).toBeDisabled();
-  });
-
-  it.each(["", "0", "-1", "abc", "1e2"])("will not send an amount of %j, without an error message", async (text) => {
-    const { user } = await openTopUp();
-    const dialog = screen.getByRole("dialog");
-    if (text) await user.type(within(dialog).getByLabelText("Amount (ETH)"), text);
-    expect(within(dialog).getByRole("button", { name: "Send from main wallet" })).toBeDisabled();
-    expect(within(dialog).queryByRole("alert")).not.toBeInTheDocument();
-  });
-
-  it("stays calm when the person declines the transfer", async () => {
-    const { UserRejectedRequestError } = await import("viem");
-    send.sendTransactionAsync.mockRejectedValue(new UserRejectedRequestError(new Error("no")));
-    const { user } = await openTopUp();
-    const dialog = screen.getByRole("dialog");
-    await user.click(within(dialog).getByRole("button", { name: "0.1 ETH" }));
-    await user.click(within(dialog).getByRole("button", { name: "Send from main wallet" }));
-    await waitFor(() => expect(send.sendTransactionAsync).toHaveBeenCalled());
-    expect(within(dialog).queryByRole("alert")).not.toBeInTheDocument();
-    expect(within(dialog).getByRole("button", { name: "Send from main wallet" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: /Top up|Deposit|Withdraw/ })).not.toBeInTheDocument();
   });
 });
 

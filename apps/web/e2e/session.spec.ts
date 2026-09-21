@@ -13,7 +13,8 @@ const count = (requests: string[], method: string) => requests.filter((m) => m =
 const bar = (page: Page) => page.getByTestId("trading-wallet");
 
 async function topUp(page: Page, amount: "0.1" | "0.2" | "0.3") {
-  await bar(page).getByRole("button", { name: "Top up" }).click();
+  // Deposit is in the header, beside the network badge: it works from any page.
+  await page.getByRole("banner").getByRole("button", { name: "Deposit" }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByRole("button", { name: `${amount} ETH` }).click();
   await dialog.getByRole("button", { name: "Send from main wallet" }).click();
@@ -110,7 +111,9 @@ test("withdraw all empties the trading wallet of ETH and tokens", async ({ page 
   const eth = async (owner: string) => BigInt((await wallet.rpc("eth_getBalance", [owner, "latest"])) as string);
   expect(await balanceOf(session)).toBeGreaterThan(0n);
 
-  await bar(page).getByRole("button", { name: "Withdraw all" }).click();
+  // Withdraw all is in the wallet menu: the chip with the balance and address, in the header.
+  await page.getByRole("banner").getByRole("button", { name: "Wallet" }).click();
+  await page.getByRole("button", { name: "Withdraw all" }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByRole("button", { name: "Withdraw everything" }).click();
   await expect(dialog.getByText(/^Sent 1 token and .* ETH to your main wallet\.$/)).toBeVisible({ timeout: 90_000 });

@@ -11,6 +11,7 @@ import { ExportKeyButton } from "./export-key-button";
 import { LOGIN_TRIGGER } from "@/lib/wallet/login-trigger";
 import { Button } from "./ui/button";
 import { injected } from "wagmi/connectors";
+import { WalletMenu } from "./wallet-menu";
 import { WalletConnectButton, type FallbackWallet } from "./wallet-connect-button";
 
 /** The browser's own wallet (window.ethereum), for when Privy cannot be reached. */
@@ -24,7 +25,7 @@ export const PRIVY_PATIENCE_MS = 8_000;
  * way out. Logging out ends OUR API session first and then Privy's, and a failure of the first never keeps a person logged in
  * to the second. It is only ever drawn inside the Privy layer (its hooks need it); ConnectButton decides that.
  */
-export function LoginButton() {
+export function LoginButton({ chain }: { chain?: string } = {}) {
   const { ready, authenticated, login, logout } = usePrivy();
   const { address: connected } = useAccount();
   // Who the person is: the trading wallet once it is open, the connected wallet until then.
@@ -60,7 +61,7 @@ export function LoginButton() {
     }
   }
 
-  if (!authenticated && !ready && gaveUp) return <WalletConnectButton fallback={BROWSER_WALLET} />;
+  if (!authenticated && !ready && gaveUp) return <WalletConnectButton fallback={BROWSER_WALLET} chain={chain} />;
   if (!authenticated) {
     return (
       <Button variant="outline" size="sm" className="shrink-0" disabled={!ready} onClick={() => login()} {...LOGIN_TRIGGER}>
@@ -70,7 +71,7 @@ export function LoginButton() {
   }
   return (
     <div className="flex shrink-0 items-center gap-2">
-      {address && <span className="font-mono text-xs">{shortAddress(address)}</span>}
+      {address && (chain ? <WalletMenu chain={chain} address={address} /> : <span className="font-mono text-xs">{shortAddress(address)}</span>)}
       <ExportKeyButton />
       <Button variant="outline" size="sm" onClick={() => void leave()}>
         {UI.wallet.logout}

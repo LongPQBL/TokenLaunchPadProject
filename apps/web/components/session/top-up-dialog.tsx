@@ -17,7 +17,18 @@ const SUGGESTED = ["0.1", "0.2", "0.3"];
 const TRANSFER_GAS = 42_000n;
 
 /** Moves ETH from the main wallet to the trading wallet: one prompt, in the main wallet, and then trading needs none. */
-export function TopUpDialog({ chain, to, mainBalance }: { chain: string; to: Address; mainBalance: bigint | undefined }) {
+export function TopUpDialog({
+  chain,
+  to,
+  mainBalance,
+  trigger = { size: "xs", variant: "outline" },
+}: {
+  chain: string;
+  to: Address;
+  mainBalance: bigint | undefined;
+  /** How the button that opens the dialog looks: small in a panel, larger in the header. */
+  trigger?: { size: "xs" | "sm"; variant: "outline" | "default" };
+}) {
   const deployment = getDeployment();
   const publicClient = usePublicClient({ chainId: deployment?.chainId });
   const gasPrice = useGasPrice({ chainId: deployment?.chainId });
@@ -33,7 +44,8 @@ export function TopUpDialog({ chain, to, mainBalance }: { chain: string; to: Add
   function send() {
     void run(
       async () => {
-        const hash = await sendTransactionAsync({ to, value });
+        // On the app's chain: a main wallet on another network is asked to switch first, never to send there.
+        const hash = await sendTransactionAsync({ to, value, chainId: deployment?.chainId });
         await publicClient!.waitForTransactionReceipt({ hash });
         // Read the balance now rather than wait for the next poll: this is the figure the person is looking for.
         const now = await publicClient!.getBalance({ address: to });
@@ -47,7 +59,7 @@ export function TopUpDialog({ chain, to, mainBalance }: { chain: string; to: Add
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button size="xs" variant="outline">
+        <Button size={trigger.size} variant={trigger.variant}>
           {UI.session.topUp}
         </Button>
       </DialogTrigger>

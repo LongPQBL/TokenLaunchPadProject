@@ -46,6 +46,18 @@ async function show(ui = <LoginButton />, connected = false) {
   return wallet;
 }
 
+describe("LoginButton: the wallet menu", () => {
+  it("is drawn beside Log out when the header gives it a chain, and left out when it does not", async () => {
+    privy.authenticated = true;
+    const { unmount } = await show(<LoginButton chain="sepolia" />, true);
+    expect(await screen.findByRole("button", { name: "Wallet" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Log out" })).toBeInTheDocument();
+    unmount();
+    await show(<LoginButton />, true);
+    expect(screen.queryByRole("button", { name: "Wallet" })).toBeNull();
+  });
+});
+
 describe("LoginButton", () => {
   it("is the control the side nav presses to start logging in, so Profile opens Privy's screen too", async () => {
     await show(<><LoginButton /></>);

@@ -7,6 +7,7 @@ import { shortAddress } from "@/lib/format";
 import { LOGIN_TRIGGER } from "@/lib/wallet/login-trigger";
 import { useIdentity } from "@/lib/wallet/use-identity";
 import { Button } from "./ui/button";
+import { WalletMenu } from "./wallet-menu";
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "./ui/dialog";
 
 /** A wallet announces its own icon. It is shown only if it is an inline image or https: never a URL of any other kind. */
@@ -22,7 +23,7 @@ export interface FallbackWallet {
   connector: CreateConnectorFn;
 }
 
-export function WalletConnectButton({ fallback = [] }: { fallback?: FallbackWallet[] } = {}) {
+export function WalletConnectButton({ fallback = [], chain }: { fallback?: FallbackWallet[]; chain?: string } = {}) {
   const { address: connected, isConnected } = useAccount();
   // The header shows who the person is: the trading wallet once it is open, and the connected wallet until then.
   const address = useIdentity().address ?? connected;
@@ -34,7 +35,7 @@ export function WalletConnectButton({ fallback = [] }: { fallback?: FallbackWall
   if (isConnected && address) {
     return (
       <div className="flex shrink-0 items-center gap-2">
-        <span className="font-mono text-xs">{shortAddress(address)}</span>
+        {chain ? <WalletMenu chain={chain} address={address} /> : <span className="font-mono text-xs">{shortAddress(address)}</span>}
         <Button variant="outline" size="sm" onClick={() => disconnect()}>
           {UI.wallet.disconnect}
         </Button>
