@@ -349,3 +349,34 @@ describe("CommentList: moderation", () => {
     expect(bodies()).toEqual([]);
   });
 });
+
+describe("CommentList: hidden by a moderator elsewhere", () => {
+  const hiddenMsg = (ids: string[], over: Record<string, unknown> = {}) => ({ type: "comments_hidden", chain: "sepolia", token: TOKEN, ids, ...over });
+
+  it("takes those comments off the list at once, and leaves the others", async () => {
+    sessionApi();
+    const { fake } = await setup({ initial: [c(3), c(2), c(1)] });
+    act(() => fake.message(ROOM, hiddenMsg(["3", "1"])));
+    expect(bodies()).toEqual(["comment 2"]);
+  });
+
+  it("takes off a comment that arrived live too, and does not bring one back when a stale copy arrives", async () => {
+    sessionApi();
+    const { fake } = await setup({ initial: [c(1)] });
+    act(() => fake.message(ROOM, wire(2)));
+    act(() => fake.message(ROOM, hiddenMsg(["2"])));
+    expect(bodies()).toEqual(["comment 1"]);
+    act(() => fake.message(ROOM, wire(2)));
+    expect(bodies()).toEqual(["comment 1"]);
+  });
+
+  it("ignores the announcement when it is for another token or chain, or is not well-formed", async () => {
+    sessionApi();
+    const { fake } = await setup({ initial: [c(2), c(1)] });
+    act(() => fake.message(ROOM, hiddenMsg(["2"], { token: "0x00000000000000000000000000000000000000b3" })));
+    act(() => fake.message(ROOM, hiddenMsg(["2"], { chain: "mainnet" })));
+    act(() => fake.message(ROOM, hiddenMsg(["x"])));
+    expect(bodies()).toEqual(["comment 2", "comment 1"]);
+  });
+});
+

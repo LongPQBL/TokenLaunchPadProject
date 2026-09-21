@@ -6,13 +6,15 @@ import { createPublicClient, http } from "viem";
 import { createApp } from "./app.js";
 import { verifyEoaSignature, verifyWithChain } from "./auth/signature.js";
 import { loadConfig } from "./config.js";
-import { isDatabaseReady } from "./db.js";
+import { getSql, isDatabaseReady } from "./db.js";
 import { readHeartbeat, readIndexerBlock } from "./health/sources.js";
 import { startLoop } from "./loop.js";
 import { fakePinner, pinataPinner } from "./metadata/pin.js";
 import { resolvePending } from "./metadata/resolver.js";
 import { Redis } from "ioredis";
 import { createCommentPublisher } from "./realtime/comments.js";
+import { createHiddenTokens } from "./realtime/hidden.js";
+import { createModerationPublisher } from "./realtime/moderation.js";
 import { attachRealtime } from "./realtime/server.js";
 
 const config = loadConfig();
@@ -23,6 +25,7 @@ const redis = config.redisUrl ? new Redis(config.redisUrl, { enableOfflineQueue:
 redis?.on("error", () => {});
 const app = createApp({
   publishComment: createCommentPublisher(redis ? (channel, message) => redis.publish(channel, message) : undefined),
+  publishModeration: createModerationPublisher(redis ? (channel, message) => redis.publish(channel, message) : undefined),
   corsOrigins: config.corsOrigins,
   adminAddresses: config.adminAddresses,
   health: {
@@ -53,7 +56,24 @@ const server = serve({ fetch: app.fetch, port: config.port }, (info) => {
 
 // Live updates: this instance subscribes to what the watcher publishes and delivers to the browsers connected to it.
 if (config.redisUrl) {
-  attachRealtime(server as Server, { redisUrl: config.redisUrl, corsOrigins: config.corsOrigins, chains: Object.keys(CHAINS) });
+  // A hidden token's trades and creation are not delivered live either, or a page opened after the hide would still draw them.
+  const hidden = createHiddenTokens({
+    everyMs: 5_000,
+    load: async () => {
+      const rows = await getSql()`select chain_id, token from app.token_metadata where status = 'hidden'`;
+      return rows.flatMap((r) => {
+        const slug = chainSlugById(r.chain_id as number);
+        return slug ? [`${slug}:${(r.token as string).toLowerCase()}`] : [];
+      });
+    },
+  });
+  void hidden.refresh();
+  attachRealtime(server as Server, {
+    redisUrl: config.redisUrl,
+    corsOrigins: config.corsOrigins,
+    chains: Object.keys(CHAINS),
+    hiddenTokens: hidden.get,
+  });
 } else {
   console.warn("REDIS_URL is not set: no live updates, pages will poll");
 }

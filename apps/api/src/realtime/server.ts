@@ -9,6 +9,11 @@ export interface RealtimeOptions {
   corsOrigins: string[];
   /** Chain slugs that have rooms. */
   chains: string[];
+  /**
+   * The tokens that are hidden right now, as `<chain slug>:<lower-case address>`. Asked for on every message, so it must be
+   * cheap (a set kept fresh elsewhere). Nothing about a hidden token is delivered, in the global feeds or its own room.
+   */
+  hiddenTokens?: () => ReadonlySet<string>;
   onError?: (error: unknown) => void;
 }
 
@@ -70,6 +75,18 @@ export function attachRealtime(httpServer: HttpServer, opts: RealtimeOptions) {
   void subscriber.subscribe("tokens", "trades").catch(onError);
   void subscriber.psubscribe("token:*").catch(onError);
 
+  /**
+   * A message about a hidden token, which no page should draw. The announcement that a token WAS hidden is the exception: it
+   * is how a page that already shows the token learns to stop.
+   */
+  function isHiddenToken(payload: unknown): boolean {
+    const hidden = opts.hiddenTokens?.();
+    if (!hidden || hidden.size === 0 || typeof payload !== "object" || payload === null) return false;
+    const { type, chain, token } = payload as { type?: unknown; chain?: unknown; token?: unknown };
+    if (type === "token_hidden" || typeof chain !== "string" || typeof token !== "string") return false;
+    return hidden.has(`${chain}:${token.toLowerCase()}`);
+  }
+
   function deliver(channel: string, raw: string) {
     // The channel is trusted no more than a client's room name: only channels that could be rooms are delivered to.
     const room = parseRoom(channel, opts.chains);
@@ -80,6 +97,7 @@ export function attachRealtime(httpServer: HttpServer, opts: RealtimeOptions) {
     } catch {
       return; // not ours to deliver
     }
+    if (isHiddenToken(payload)) return;
     io.local.to(room).emit("event", payload);
   }
   subscriber.on("message", deliver);

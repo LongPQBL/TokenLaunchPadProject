@@ -29,6 +29,69 @@ function banRoute(status = 200, code = "internal") {
   return banned;
 }
 
+const unbanButton = () => screen.getByRole("button", { name: "Unban address" });
+
+function unbanRoute(status = 200) {
+  const lifted: string[] = [];
+  server.use(
+    http.post(`${API}/sepolia/admin/users/:address/unban`, ({ params }) => {
+      lifted.push(String(params.address));
+      return status === 200 ? HttpResponse.json({ address: params.address, banned: false }) : HttpResponse.json({ error: "internal", message: "x" }, { status });
+    }),
+  );
+  return lifted;
+}
+
+describe("BanForm: lifting a ban", () => {
+  it("will not lift until what was typed is an address", async () => {
+    render(<BanForm chain="sepolia" />);
+    expect(unbanButton()).toBeDisabled();
+    await userEvent.type(box(), "bob");
+    expect(unbanButton()).toBeDisabled();
+    await userEvent.clear(box());
+    await userEvent.type(box(), ADDRESS);
+    expect(unbanButton()).toBeEnabled();
+  });
+
+  it("asks first, then lifts the ban, and says so", async () => {
+    const lifted = unbanRoute();
+    render(<BanForm chain="sepolia" />);
+    await userEvent.type(box(), `  ${ADDRESS}  `);
+    await userEvent.click(unbanButton());
+    expect(lifted).toEqual([]);
+    expect(await screen.findByRole("dialog")).toHaveTextContent("Let this address post again?");
+    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Unban" }));
+    await waitFor(() => expect(lifted).toEqual([ADDRESS]));
+    expect(await screen.findByText("Ban lifted.")).toBeInTheDocument();
+    expect(box()).toHaveValue("");
+  });
+
+  it("does not say the address was banned after it was unbanned, or the other way round", async () => {
+    unbanRoute();
+    banRoute();
+    render(<BanForm chain="sepolia" />);
+    await userEvent.type(box(), ADDRESS);
+    await userEvent.click(banButton());
+    await userEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Ban" }));
+    expect(await screen.findByText("Banned.")).toBeInTheDocument();
+    await userEvent.type(box(), ADDRESS);
+    await userEvent.click(unbanButton());
+    await userEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Unban" }));
+    expect(await screen.findByText("Ban lifted.")).toBeInTheDocument();
+    expect(screen.queryByText("Banned.")).toBeNull();
+  });
+
+  it("says why and keeps the address when the server refuses", async () => {
+    unbanRoute(500);
+    render(<BanForm chain="sepolia" />);
+    await userEvent.type(box(), ADDRESS);
+    await userEvent.click(unbanButton());
+    await userEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Unban" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("That did not work. Please try again.");
+    expect(screen.getByRole("textbox", { name: "Address", hidden: true })).toHaveValue(ADDRESS);
+  });
+});
+
 describe("BanForm", () => {
   it("will not ban until what was typed is an address", async () => {
     render(<BanForm chain="sepolia" />);

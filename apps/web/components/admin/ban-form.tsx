@@ -7,10 +7,10 @@ import { ConfirmAction } from "./confirm-action";
 
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 
-/** Bans an address: its comments stop being shown and it cannot post. Asks first; nothing is deleted. */
+/** Bans an address (its comments stop being shown and it cannot post), or lifts a ban. Asks first; nothing is deleted. */
 export function BanForm({ chain }: { chain: string }) {
   const [value, setValue] = useState("");
-  const [done, setDone] = useState(false);
+  const [done, setDone] = useState<"banned" | "lifted">();
   const address = value.trim();
 
   return (
@@ -22,7 +22,7 @@ export function BanForm({ chain }: { chain: string }) {
             value={value}
             onChange={(e) => {
               setValue(e.target.value);
-              setDone(false);
+              setDone(undefined);
             }}
             spellCheck={false}
             autoComplete="off"
@@ -39,13 +39,26 @@ export function BanForm({ chain }: { chain: string }) {
           run={() => getModerationApi().banUser(chain, address)}
           onDone={() => {
             setValue("");
-            setDone(true);
+            setDone("banned");
+          }}
+        />
+        <ConfirmAction
+          label={UI.admin.ban.unban.button}
+          title={UI.admin.ban.unban.dialogTitle}
+          body={UI.admin.ban.unban.dialogBody}
+          confirmLabel={UI.admin.ban.unban.confirm}
+          busyLabel={UI.admin.ban.unban.confirming}
+          disabled={!ADDRESS.test(address)}
+          run={() => getModerationApi().unbanUser(chain, address)}
+          onDone={() => {
+            setValue("");
+            setDone("lifted");
           }}
         />
       </div>
       {done && (
         <p role="status" className="text-sm text-muted-foreground">
-          {UI.admin.ban.done}
+          {done === "lifted" ? UI.admin.ban.unban.done : UI.admin.ban.done}
         </p>
       )}
     </div>

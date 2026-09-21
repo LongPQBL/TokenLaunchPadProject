@@ -76,6 +76,43 @@ describe("LiveTokenGrid: new tokens", () => {
   });
 });
 
+const hidden = (token: string, over: Record<string, unknown> = {}) => ({ type: "token_hidden", chain: "sepolia", token, ...over });
+
+describe("LiveTokenGrid: a token hidden while the page is open", () => {
+  const grid = (fake = fakeLiveClient()) => {
+    render(<LiveTokenGrid chain="sepolia" initial={[item(A), item(B)]} sort="new" q="" firstPage client={fake.client} />);
+    return fake;
+  };
+
+  it("takes its card off the grid at once, and leaves the others", () => {
+    const fake = grid();
+    act(() => fake.message("tokens", hidden(A)));
+    expect(cards()).toEqual([B]);
+  });
+
+  it("does not bring it back when a late trade or a repeated creation arrives", () => {
+    const fake = grid();
+    act(() => fake.message("tokens", hidden(A)));
+    act(() => fake.message("trades", trade(1, A)));
+    act(() => fake.message("tokens", created(2, A)));
+    expect(cards()).toEqual([B]);
+  });
+
+  it("ignores the announcement when it is for another chain or is not well-formed", () => {
+    const fake = grid();
+    act(() => fake.message("tokens", hidden(A, { chain: "mainnet" })));
+    act(() => fake.message("tokens", hidden(A, { token: "0x12" })));
+    expect(cards()).toEqual([A, B]);
+  });
+
+  it("takes it off even while the pointer is over the grid, since a hidden token must not stay on screen", () => {
+    const fake = grid();
+    fireEvent.pointerEnter(screen.getAllByRole("list")[0]!);
+    act(() => fake.message("tokens", hidden(A)));
+    expect(cards()).toEqual([B]);
+  });
+});
+
 describe("LiveTokenGrid: trades", () => {
   it("updates a card's volume and trade count as trades arrive, and flashes the number that changed", () => {
     const fake = fakeLiveClient();
@@ -218,6 +255,35 @@ describe("TradeTicker", () => {
     expect(screen.getAllByTestId("ticker-item")).toHaveLength(1);
     fireEvent.pointerLeave(region);
     expect(screen.getAllByTestId("ticker-item")).toHaveLength(2);
+  });
+
+  it("drops a token's trades the moment it is hidden, and ignores its trades from then on", () => {
+    const fake = ticker();
+    act(() => fake.message("trades", trade(1, A)));
+    act(() => fake.message("trades", trade(2, B)));
+    act(() => fake.message("trades", hidden(A)));
+    expect(screen.getAllByTestId("ticker-item")).toHaveLength(1);
+    act(() => fake.message("trades", trade(3, A)));
+    expect(screen.getAllByTestId("ticker-item")).toHaveLength(1);
+    expect(screen.getByTestId("ticker-item")).toHaveTextContent("0x0000…00a2");
+  });
+
+  it("drops the hidden token's trades that were held back while the pointer was over the strip", () => {
+    const fake = ticker();
+    act(() => fake.message("trades", trade(1, B)));
+    const region = screen.getByRole("region", { name: "Recent trades" });
+    fireEvent.pointerEnter(region);
+    act(() => fake.message("trades", trade(2, A)));
+    act(() => fake.message("trades", hidden(A)));
+    fireEvent.pointerLeave(region);
+    expect(screen.getAllByTestId("ticker-item")).toHaveLength(1);
+  });
+
+  it("ignores a hidden announcement for another chain", () => {
+    const fake = ticker();
+    act(() => fake.message("trades", trade(1, A)));
+    act(() => fake.message("trades", hidden(A, { chain: "mainnet" })));
+    expect(screen.getAllByTestId("ticker-item")).toHaveLength(1);
   });
 
   it("ignores a message that is not a well-formed trade", () => {

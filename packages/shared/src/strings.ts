@@ -3,7 +3,7 @@
  * not an excavation through components (spec §2.5).
  */
 export const UI = {
-  nav: { create: "Create token", search: "Search tokens" },
+  nav: { create: "Create token", search: "Search tokens", admin: "Admin" },
   // Named after the chain it is on, so a second testnet never says "SEPOLIA".
   badge: { testnet: (chainName: string) => `${chainName.toUpperCase()} TESTNET` },
   create: {
@@ -183,6 +183,14 @@ export const UI = {
       confirm: "Ban",
       confirming: "Banning…",
       done: "Banned.",
+      unban: {
+        button: "Unban address",
+        dialogTitle: "Let this address post again?",
+        dialogBody: "Their comments are shown again, except any a moderator hid by hand, and they can post.",
+        confirm: "Unban",
+        confirming: "Unbanning…",
+        done: "Ban lifted.",
+      },
     },
     loadFailed: "Could not load this section.",
   },

@@ -4,13 +4,16 @@ import { randomAccount, signIn, TEST_CHAIN, TEST_DOMAIN, TEST_URI } from "../../
 import { addr, seedBalance, seedTrade, seedToken } from "../../../test/seed.js";
 import { createApp } from "../../app.js";
 import { getSql } from "../../db.js";
+import type { ModerationEvent } from "../../realtime/moderation.js";
 import { resetAppData } from "../../../test/app-data.js";
 
 const admin = randomAccount();
 const otherAdmin = randomAccount();
+const told: ModerationEvent[] = [];
 const app = createApp({
   auth: { domain: TEST_DOMAIN, uri: TEST_URI, chainId: TEST_CHAIN },
   adminAddresses: [admin.address, otherAdmin.address],
+  publishModeration: async (event) => void told.push(event),
 });
 const SPAM = addr(0x51);
 const GOOD = addr(0x52);
@@ -28,6 +31,7 @@ async function session(account: ReturnType<typeof randomAccount>) {
 }
 
 beforeEach(async () => {
+  told.length = 0;
   await getSql()`truncate app.siwe_nonce, app.session, app.rate_hit`;
   await resetAppData();
   await seedToken.reset();
@@ -255,8 +259,188 @@ describe("banning a user", () => {
   });
 });
 
+describe("putting back a comment", () => {
+  it("serves a hidden comment again, and keeps its place in the thread", async () => {
+    await asUser(userAddress);
+    const a = await comment(GOOD, userAddress, "first");
+    const b = await comment(GOOD, userAddress, "second");
+    await post(`/comments/${a.id}/hide`, adminCookie);
+    const res = await post(`/comments/${a.id}/unhide`, adminCookie);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ id: String(a.id), hidden: false });
+    const list = (await (await app.request(`/sepolia/tokens/${GOOD}/comments`)).json()) as { items: { id: string }[] };
+    expect(list.items.map((c) => c.id)).toEqual([String(b.id), String(a.id)]);
+  });
+
+  it("is idempotent, and is not an error on a comment that was never hidden", async () => {
+    await asUser(userAddress);
+    const c = await comment(GOOD, userAddress, "fine");
+    expect((await post(`/comments/${c.id}/unhide`, adminCookie)).status).toBe(200);
+    expect((await post(`/comments/${c.id}/unhide`, adminCookie)).status).toBe(200);
+    expect((await prisma.comment.findUniqueOrThrow({ where: { id: c.id } })).hidden).toBe(false);
+  });
+
+  it("answers 404 for a comment that does not exist or is on another chain, and 400 for an id that is not a number", async () => {
+    await asUser(userAddress);
+    const elsewhere = await prisma.comment.create({ data: { chainId: 1, token: GOOD, author: userAddress, body: "mainnet", hidden: true } });
+    expect((await post("/comments/999999/unhide", adminCookie)).status).toBe(404);
+    expect((await post(`/comments/${elsewhere.id}/unhide`, adminCookie)).status).toBe(404);
+    expect((await prisma.comment.findUniqueOrThrow({ where: { id: elsewhere.id } })).hidden).toBe(true);
+    for (const bad of ["abc", "1e3", "-1"]) expect((await post(`/comments/${bad}/unhide`, adminCookie)).status, bad).toBe(400);
+  });
+
+  it("does not bring back a comment whose author is banned or whose token is hidden: those stay hidden by their own cause", async () => {
+    await asUser(userAddress);
+    const c = await comment(GOOD, userAddress, "bad");
+    await post(`/comments/${c.id}/hide`, adminCookie);
+    await post(`/users/${userAddress}/ban`, adminCookie);
+    expect((await post(`/comments/${c.id}/unhide`, adminCookie)).status).toBe(200);
+    const list = (await (await app.request(`/sepolia/tokens/${GOOD}/comments`)).json()) as { items: unknown[] };
+    expect(list.items).toEqual([]);
+  });
+});
+
+describe("lifting a ban", () => {
+  it("lets them post again and brings their comments back", async () => {
+    await asUser(userAddress);
+    await comment(GOOD, userAddress, "old");
+    await post(`/users/${userAddress}/ban`, adminCookie);
+    const res = await post(`/users/${userAddress}/unban`, adminCookie);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ address: userAddress, banned: false });
+    const list = (await (await app.request(`/sepolia/tokens/${GOOD}/comments`)).json()) as { items: { body: string }[] };
+    expect(list.items.map((c) => c.body)).toEqual(["old"]);
+    const posted = await app.request(`/sepolia/tokens/${GOOD}/comments`, { method: "POST", headers: { "content-type": "application/json", cookie: userCookie }, body: JSON.stringify({ body: "back" }) });
+    expect(posted.status).toBe(201);
+  });
+
+  it("does not bring back what a moderator hid by hand", async () => {
+    await asUser(userAddress);
+    const c = await comment(GOOD, userAddress, "hidden by hand");
+    await post(`/comments/${c.id}/hide`, adminCookie);
+    await post(`/users/${userAddress}/ban`, adminCookie);
+    await post(`/users/${userAddress}/unban`, adminCookie);
+    const list = (await (await app.request(`/sepolia/tokens/${GOOD}/comments`)).json()) as { items: unknown[] };
+    expect(list.items).toEqual([]);
+  });
+
+  it("is not an error for someone who is not banned, and never creates a person who was never seen", async () => {
+    const stranger = addr(0x7778);
+    expect((await post(`/users/${userAddress}/unban`, adminCookie)).status).toBe(200);
+    expect((await post(`/users/${stranger}/unban`, adminCookie)).status).toBe(200);
+    expect(await prisma.appUser.findUnique({ where: { address: stranger } })).toBeNull();
+  });
+
+  it("takes an address in any case, and refuses what is not one", async () => {
+    await post(`/users/${userAddress}/ban`, adminCookie);
+    expect((await post(`/users/${userAddress.toUpperCase().replace("0X", "0x")}/unban`, adminCookie)).status).toBe(200);
+    expect((await prisma.appUser.findUniqueOrThrow({ where: { address: userAddress } })).bannedAt).toBeNull();
+    expect((await post("/users/nobody/unban", adminCookie)).status).toBe(400);
+  });
+});
+
+describe("the record of what moderators did", () => {
+  const events = () => prisma.moderationEvent.findMany({ orderBy: { id: "asc" } });
+
+  it("writes one row for each thing that changed, saying what, to whom, by whom, on which chain", async () => {
+    await asUser(userAddress);
+    const c = await comment(GOOD, userAddress, "bad");
+    await hide();
+    await unhide();
+    await post(`/comments/${c.id}/hide`, adminCookie);
+    await post(`/comments/${c.id}/unhide`, otherAdminCookie);
+    await post(`/users/${userAddress}/ban`, adminCookie);
+    await post(`/users/${userAddress}/unban`, adminCookie);
+    const rows = await events();
+    expect(rows.map((r) => [r.action, r.target, r.actor])).toEqual([
+      ["token_hide", SPAM, admin.address.toLowerCase()],
+      ["token_unhide", SPAM, admin.address.toLowerCase()],
+      ["comment_hide", String(c.id), admin.address.toLowerCase()],
+      ["comment_unhide", String(c.id), otherAdmin.address.toLowerCase()],
+      ["user_ban", userAddress, admin.address.toLowerCase()],
+      ["user_unban", userAddress, admin.address.toLowerCase()],
+    ]);
+    expect(rows.every((r) => r.chainId === CHAIN_ID && r.createdAt instanceof Date)).toBe(true);
+  });
+
+  it("keeps who hid a token after it is unhidden, since the token row forgets", async () => {
+    await hide();
+    await unhide(SPAM, otherAdminCookie);
+    expect((await events()).map((r) => [r.action, r.actor])).toEqual([
+      ["token_hide", admin.address.toLowerCase()],
+      ["token_unhide", otherAdmin.address.toLowerCase()],
+    ]);
+  });
+
+  it("writes nothing for a repeat that changed nothing", async () => {
+    await asUser(userAddress);
+    const c = await comment(GOOD, userAddress, "bad");
+    for (const path of [`/tokens/${SPAM}/hide`, `/tokens/${SPAM}/hide`, `/comments/${c.id}/hide`, `/comments/${c.id}/hide`, `/users/${userAddress}/ban`, `/users/${userAddress}/ban`]) {
+      await post(path, adminCookie);
+    }
+    expect((await events()).map((r) => r.action)).toEqual(["token_hide", "comment_hide", "user_ban"]);
+    await post(`/tokens/${GOOD}/unhide`, adminCookie);
+    await post(`/users/${addr(0x9999)}/unban`, adminCookie);
+    expect(await prisma.moderationEvent.count()).toBe(3);
+  });
+
+  it("writes nothing when the request is refused or the target is not found", async () => {
+    await post(`/tokens/${SPAM}/hide`, userCookie);
+    await post(`/tokens/${addr(0x1)}/hide`, adminCookie);
+    await post("/comments/999999/hide", adminCookie);
+    await post("/users/nobody/ban", adminCookie);
+    expect(await prisma.moderationEvent.count()).toBe(0);
+  });
+});
+
+describe("telling people who have the page open", () => {
+  it("says a token was hidden, once per change, and not when nothing changed", async () => {
+    await hide();
+    await hide();
+    expect(told).toEqual([{ type: "token_hidden", chain: "sepolia", token: SPAM }]);
+  });
+
+  it("says which comments were hidden: the one comment, and every visible one by a banned author, token by token", async () => {
+    await asUser(userAddress);
+    const a = await comment(GOOD, userAddress, "one");
+    const b = await comment(SPAM, userAddress, "two");
+    const c = await comment(SPAM, userAddress, "three");
+    await post(`/comments/${a.id}/hide`, adminCookie);
+    expect(told).toEqual([{ type: "comments_hidden", chain: "sepolia", token: GOOD, ids: [String(a.id)] }]);
+    told.length = 0;
+    await post(`/users/${userAddress}/ban`, adminCookie);
+    expect(told).toEqual([{ type: "comments_hidden", chain: "sepolia", token: SPAM, ids: [String(b.id), String(c.id)] }]);
+  });
+
+  it("says nothing when the request is refused", async () => {
+    await post(`/tokens/${SPAM}/hide`, userCookie);
+    expect(told).toEqual([]);
+  });
+
+  it("still answers when telling people fails: the change was made", async () => {
+    const failing = createApp({
+      auth: { domain: TEST_DOMAIN, uri: TEST_URI, chainId: TEST_CHAIN },
+      adminAddresses: [admin.address],
+      publishModeration: async () => {
+        throw new Error("redis is down");
+      },
+    });
+    const signed = await signIn(failing, admin);
+    const res = await failing.request(`/sepolia/admin/tokens/${SPAM}/hide`, { method: "POST", headers: { "content-type": "application/json", cookie: signed.cookie }, body: "{}" });
+    expect(res.status).toBe(200);
+    expect(await listed()).not.toContain(SPAM);
+  });
+});
+
 describe("who may do any of this", () => {
-  const targets = (comment: string) => [`/tokens/${SPAM}/hide`, `/tokens/${SPAM}/unhide`, `/comments/${comment}/hide`, `/users/${userAddress}/ban`];
+  const targets = (comment: string) => [
+    `/tokens/${SPAM}/hide`,
+    `/tokens/${SPAM}/unhide`,
+    `/comments/${comment}/hide`,
+    `/comments/${comment}/unhide`,
+    `/users/${userAddress}/ban`,
+    `/users/${userAddress}/unban`,
+  ];
 
   it("refuses a signed-in non-admin and an anonymous caller alike, and changes nothing", async () => {
     await asUser(userAddress);

@@ -6,6 +6,7 @@ import { useRef, useState } from "react";
 import { shortAddress } from "@/lib/format";
 import type { LiveClient } from "@/lib/ws/client";
 import { liveTradeSchema, tradeKey, type LiveTrade } from "@/lib/ws/live";
+import { liveTokenHiddenSchema } from "@/lib/ws/moderation";
 import { useLiveRoom } from "@/lib/ws/use-live-room";
 
 const SHOWN = 20;
@@ -21,6 +22,8 @@ export function TradeTicker({ chain, labels, client }: { chain: string; labels: 
   const held = useRef<LiveTrade[]>([]); // arrived while the pointer was over the strip
   const busy = useRef(false);
   const seen = useRef(new Set<string>());
+  // Tokens a moderator hid while this page was open: their trades are gone from the strip and stay out.
+  const hidden = useRef(new Set<string>());
 
   useLiveRoom({
     room: "trades",
@@ -28,8 +31,16 @@ export function TradeTicker({ chain, labels, client }: { chain: string; labels: 
     poll: false, // a strip of "what just happened" has nothing to refetch
     refetch: async () => {},
     onMessage: (message) => {
+      const gone = liveTokenHiddenSchema.safeParse(message);
+      if (gone.success) {
+        if (gone.data.chain !== chain) return;
+        hidden.current.add(gone.data.token);
+        held.current = held.current.filter((t) => t.token !== gone.data.token);
+        setShown((prev) => prev.filter((t) => t.token !== gone.data.token));
+        return;
+      }
       const parsed = liveTradeSchema.safeParse(message);
-      if (!parsed.success) return;
+      if (!parsed.success || hidden.current.has(parsed.data.token)) return;
       const key = tradeKey(`${parsed.data.txHash}-${parsed.data.logIndex}`);
       if (seen.current.has(key)) return;
       seen.current.add(key);

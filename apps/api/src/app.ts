@@ -9,6 +9,7 @@ import type { HealthDeps } from "./queries/health.js";
 import type { TokenDetail } from "./queries/tokenDetail.js";
 import type { Pinner } from "./metadata/pin.js";
 import type { CommentPublisher } from "./realtime/comments.js";
+import type { ModerationPublisher } from "./realtime/moderation.js";
 import { moderationRoutes } from "./routes/admin/moderation.js";
 import { healthAdminRoutes } from "./routes/admin/health.js";
 import { reportsAdminRoutes } from "./routes/admin/reports.js";
@@ -45,6 +46,8 @@ export interface AppDeps {
   ipfsGateway: string;
   /** Tells a token's live room about a new comment (best-effort). Absent when there is no Redis. */
   publishComment: CommentPublisher;
+  /** Tells the pages that could be showing it when a moderator hides a token or comments (best-effort). Absent: nobody is told. */
+  publishModeration: ModerationPublisher;
   /** Who may moderate, lower-case. Empty or absent: nobody, and the admin routes answer as if they were not there. */
   adminAddresses: string[];
   /** Where the admin health page gets its figures from outside the database. Each is optional: what is absent reads as unknown. */
@@ -106,7 +109,7 @@ export function createApp(deps: Partial<AppDeps> = {}): Hono<AppEnv> {
   const admin = new Hono<AppEnv>();
   admin.use("*", createRequireAdmin(deps.adminAddresses ?? []));
   admin.use("*", requireJsonPosts);
-  admin.route("/", moderationRoutes());
+  admin.route("/", moderationRoutes(deps.publishModeration));
   admin.route("/", reportsAdminRoutes());
   admin.route("/", healthAdminRoutes(deps.health ?? {}));
   chain.route("/admin", admin);

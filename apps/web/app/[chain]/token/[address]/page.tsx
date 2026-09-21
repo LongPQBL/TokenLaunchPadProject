@@ -1,5 +1,6 @@
 import { chainBySlug, UI } from "@vezta/shared";
 import { notFound } from "next/navigation";
+import { TokenHiddenWatcher } from "@/components/admin/token-hidden-watcher";
 import { CommentList } from "@/components/comments/comment-list";
 import { HideTokenButton } from "@/components/admin/hide-button";
 import { ReportButton } from "@/components/admin/report-button";
@@ -89,6 +90,7 @@ export default async function TokenPage({
 
   return shell(
     <div className="flex flex-col gap-6">
+      <TokenHiddenWatcher chain={chain} token={token} />
       <TokenHeader chain={chain} token={detail} />
       {/* Each of these draws nothing unless the viewer may use it, so for most people this row is empty and takes no room. */}
       <div className="-mt-3 flex flex-wrap justify-end gap-2 empty:hidden">

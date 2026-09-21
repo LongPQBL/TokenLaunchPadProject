@@ -81,6 +81,23 @@ model Report {
   @@schema("app")
 }
 
+/// What a moderator did, kept apart from the things it was done to: a token row forgets who hid it once it is unhidden, and a
+/// ban leaves nothing but a time. One row for each change that actually happened, never for a repeat that changed nothing.
+model ModerationEvent {
+  id        BigInt   @id @default(autoincrement())
+  chainId   Int      @map("chain_id")
+  /// token_hide | token_unhide | comment_hide | comment_unhide | user_ban | user_unban
+  action    String
+  /// A token address, a comment id or a user address, whichever the action is about.
+  target    String
+  actor     String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([chainId, createdAt(sort: Desc)])
+  @@map("moderation_event")
+  @@schema("app")
+}
+
 /// A sign-in challenge. Single use: consuming it deletes it, so a signature can never be replayed.
 model SiweNonce {
   nonce     String   @id
