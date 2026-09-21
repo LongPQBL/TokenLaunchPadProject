@@ -4,6 +4,7 @@ import { SiteHeader } from "@/components/site-header";
 import { SortTabs } from "@/components/sort-tabs";
 import { LiveTokenGrid } from "@/components/live-discover";
 import { TradeTicker } from "@/components/trade-ticker";
+import { ViewSwitch } from "@/components/view-switch";
 import { api } from "@/lib/api";
 import { loadDiscover } from "@/lib/discover";
 import { shortAddress } from "@/lib/format";
@@ -32,22 +33,30 @@ export default async function DiscoverPage({
 
   return (
     <>
-      <SiteHeader chain={chain} sort={data?.sort ?? "new"} q={data?.q ?? ""} isTestnet={config.isTestnet} />
-      <main className="mx-auto max-w-6xl px-4 py-6">
+      <SiteHeader chain={chain} sort={data?.sort ?? "new"} q={data?.q ?? ""} isTestnet={config.isTestnet} view={data?.view} />
+      <main className="mx-auto max-w-[90rem] px-4 py-6">
         {data ? (
           <>
             <TradeTicker chain={chain} labels={Object.fromEntries(data.page.items.map((t) => [t.address, t.ticker ?? shortAddress(t.address)]))} />
-            <div className="mt-4">
-              <SortTabs chain={chain} active={data.sort} q={data.q} />
+            <div className="mt-4 flex items-end justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <SortTabs chain={chain} active={data.sort} q={data.q} view={data.view} />
+              </div>
+              <ViewSwitch chain={chain} view={data.view} sort={data.sort} q={data.q} />
             </div>
             <div className="mt-4">
+              {/* Keyed by what the page was asked for: a new sort, search, page or view is a new list, and must not inherit the last one's
+                  rows (or its held-still arrangement, which would keep showing the old order after a header was pressed). */}
               <LiveTokenGrid
+                key={`${data.sort}|${data.q}|${data.view}|${cursorGiven ? data.page.items[0]?.address : ""}`}
                 chain={chain}
                 initial={data.page.items}
                 sort={data.sort}
                 q={data.q}
                 firstPage={!cursorGiven}
                 nextCursor={data.page.nextCursor}
+                view={data.view}
+                now={Math.floor(Date.now() / 1000)}
               />
             </div>
           </>

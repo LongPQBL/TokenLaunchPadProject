@@ -46,9 +46,21 @@ export const UI = {
   },
   discover: {
     tabs: { new: "New", trending: "Trending", progress: "Nearing graduation" },
+    view: { label: "View", table: "Table", grid: "Grid" },
     empty: "No tokens yet. Be the first to create one.",
     searchEmpty: "No tokens match that search.",
     next: "Next page",
+  },
+  favorites: {
+    star: (name: string) => `Star ${name}`,
+    errors: {
+      tooMany: "You can star at most 500 tokens. Remove one first.",
+      rateLimited: "You are changing your stars too fast. Please wait a moment.",
+      network: "Could not reach the server. Your star was not saved.",
+      signedOut: "Log in to star tokens.",
+      signIn: "Could not sign you in. Please try again.",
+      generic: "Could not save your star. Please try again.",
+    },
   },
   token: {
     status: { trading: "TRADING", graduating: "GRADUATING…", graduated: "GRADUATED" },

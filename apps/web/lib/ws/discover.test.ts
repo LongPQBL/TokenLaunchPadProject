@@ -1,5 +1,6 @@
+import { marketCap } from "@vezta/shared";
 import { describe, expect, it } from "vitest";
-import type { TokenListItem } from "@/lib/types";
+import type { TokenRow } from "@/lib/types";
 import { applyTradeToItem, liveCreatedSchema, newTokenItem, sortItems } from "./discover";
 import { liveTradeSchema } from "./live";
 
@@ -7,7 +8,7 @@ const A = "0x00000000000000000000000000000000000000a1";
 const B = "0x00000000000000000000000000000000000000b2";
 const tx = (n: number) => `0x${n.toString(16).padStart(64, "0")}`;
 
-const item = (o: Partial<TokenListItem> = {}): TokenListItem => ({
+const item = (o: Partial<TokenRow> = {}): TokenRow => ({
   address: A, creator: "0xc0ffee", name: "Demo", ticker: "DEMO", progressBps: 0, volumeQuote: 0n, tradeCount: 0, complete: false, migrated: false, createdAt: 100n, ...o,
 });
 const trade = (o: { token?: string; quote?: string; vT?: string } = {}) =>
@@ -35,6 +36,37 @@ describe("liveCreatedSchema and newTokenItem", () => {
     expect(i).toMatchObject({ address: A, creator: B, name: "Fresh", ticker: "FRSH", progressBps: 0, volumeQuote: 0n, tradeCount: 0, complete: false, migrated: false, createdAt: 5_000n });
     expect(i.imageUrl).toBeUndefined();
     expect(i.description).toBeUndefined();
+  });
+});
+
+describe("applyTradeToItem: the numbers on a table row", () => {
+  const stats = { marketCap: 100n, athMarketCap: 500n, volume24h: 1_000n, traders24h: 3, change1hBps: 10, change6hBps: 20, change24hBps: 30 };
+  const withStats = (o: Partial<typeof stats> = {}) => ({ ...item(), stats: { ...stats, ...o } });
+  const at = (vq: string, vt: string, quote = "1000") =>
+    liveTradeSchema.parse({
+      type: "trade", id: `${tx(1)}-0`, chain: "sepolia", token: A, trader: B, isBuy: true, quoteAmount: quote, tokenAmount: "1", fee: "0", launchTax: "0",
+      virtualQuoteReserves: vq, virtualTokenReserves: vt, timestamp: "1", blockNumber: "1", txHash: tx(1), logIndex: 0,
+    });
+
+  it("moves the market cap to where the reserves put it, and the 24 h volume up by the trade", () => {
+    const next = applyTradeToItem(withStats(), at("3000000000000000000", "1000000000000000000000000000", "700"));
+    expect(next.stats).toMatchObject({ marketCap: marketCap(3_000_000_000_000_000_000n, 1_000_000_000_000_000_000_000_000_000n), volume24h: 1_700n });
+  });
+
+  it("raises the ATH when the market cap passes it, and leaves it alone when it does not", () => {
+    const high = applyTradeToItem(withStats({ athMarketCap: 5n }), at("3000000000000000000", "1000000000000000000000000000"));
+    expect(high.stats!.athMarketCap).toBe(high.stats!.marketCap);
+    const low = applyTradeToItem(withStats(), at("3000000000000000000", "1000000000000000000000000000"));
+    expect(low.stats!.athMarketCap).toBe(low.stats!.marketCap > 500n ? low.stats!.marketCap : 500n);
+  });
+
+  it("leaves what a trade cannot tell it (distinct traders, the changes) as they were: they come with the next refresh", () => {
+    const next = applyTradeToItem(withStats(), at("3000000000000000000", "1000000000000000000000000000"));
+    expect(next.stats).toMatchObject({ traders24h: 3, change1hBps: 10, change6hBps: 20, change24hBps: 30 });
+  });
+
+  it("does not invent numbers for a row that has none", () => {
+    expect(applyTradeToItem(item(), at("3000000000000000000", "1000000000000000000000000000")).stats).toBeUndefined();
   });
 });
 

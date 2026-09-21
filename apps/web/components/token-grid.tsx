@@ -1,7 +1,7 @@
 import { UI } from "@vezta/shared";
 import Link from "next/link";
 import { discoverHref } from "@/lib/discover";
-import type { TokenListItem, TokenSort } from "@/lib/types";
+import type { TokenRow, TokenSort } from "@/lib/types";
 import { TokenCard } from "./token-card";
 
 export function TokenGrid({
@@ -15,7 +15,7 @@ export function TokenGrid({
   listProps,
 }: {
   chain: string;
-  items: TokenListItem[];
+  items: TokenRow[];
   sort: TokenSort;
   q: string;
   nextCursor?: string;
@@ -46,7 +46,7 @@ export function TokenGrid({
       </ul>
       {nextCursor && (
         <div className="mt-6 text-center">
-          <Link href={discoverHref(chain, { sort, q, cursor: nextCursor })} className="font-mono text-sm text-primary hover:underline">
+          <Link href={discoverHref(chain, { sort, q, cursor: nextCursor, view: "grid" })} className="font-mono text-sm text-primary hover:underline">
             {UI.discover.next}
           </Link>
         </div>

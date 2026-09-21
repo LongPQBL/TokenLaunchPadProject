@@ -41,7 +41,30 @@ describe("TokenGrid", () => {
     const { rerender } = render(<TokenGrid chain="sepolia" items={[token(1)]} sort="volume" q="dog" />);
     expect(screen.queryByRole("link", { name: /next/i })).not.toBeInTheDocument();
     rerender(<TokenGrid chain="sepolia" items={[token(1)]} sort="volume" q="dog" nextCursor="c1" />);
-    expect(screen.getByRole("link", { name: /next/i })).toHaveAttribute("href", "/sepolia?sort=volume&q=dog&cursor=c1");
+    expect(screen.getByRole("link", { name: /next/i })).toHaveAttribute("href", "/sepolia?sort=volume&q=dog&cursor=c1&view=grid"); // the grid stays a grid on the next page
+  });
+});
+
+describe("keeping the view", () => {
+  it("SortTabs keeps the grid in every link, and leaves the table (the default) out", () => {
+    const { unmount } = render(<SortTabs chain="sepolia" active="new" q="dog" view="grid" />);
+    expect(screen.getAllByRole("link").map((t) => t.getAttribute("href"))).toEqual(["/sepolia?q=dog&view=grid", "/sepolia?sort=volume&q=dog&view=grid", "/sepolia?sort=progress&q=dog&view=grid"]);
+    unmount();
+    render(<SortTabs chain="sepolia" active="new" q="dog" view="table" />);
+    expect(screen.getAllByRole("link").map((t) => t.getAttribute("href"))).toEqual(["/sepolia?q=dog", "/sepolia?sort=volume&q=dog", "/sepolia?sort=progress&q=dog"]);
+  });
+
+  it("SearchBox carries the grid along, and adds nothing for the table", () => {
+    const { container, unmount } = render(<SearchBox chain="sepolia" sort="new" q="" view="grid" />);
+    expect(container.querySelector("input[type=hidden][name=view]")).toHaveValue("grid");
+    unmount();
+    const table = render(<SearchBox chain="sepolia" sort="new" q="" view="table" />);
+    expect(table.container.querySelector("input[name=view]")).toBeNull();
+  });
+
+  it("the grid's next-page link stays in the grid", () => {
+    render(<TokenGrid chain="sepolia" items={[token(1)]} sort="new" q="" nextCursor="c1" />);
+    expect(screen.getByRole("link", { name: /next/i })).toHaveAttribute("href", "/sepolia?cursor=c1&view=grid");
   });
 });
 

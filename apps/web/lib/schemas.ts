@@ -28,7 +28,22 @@ export const tokenListItemSchema = z.object({
   createdAt: amount,
 });
 
-export const tokenPageSchema = z.object({ items: z.array(tokenListItemSchema), nextCursor: z.string().optional() });
+/** What a table row shows besides the token, worked out by the API from its trades. Amounts are in the quote's raw units. */
+export const tokenStatsSchema = z.object({
+  marketCap: amount,
+  athMarketCap: amount,
+  volume24h: amount,
+  traders24h: z.number().int().nonnegative(),
+  /** Basis points, and negative when the price has fallen. */
+  change1hBps: z.number().int(),
+  change6hBps: z.number().int(),
+  change24hBps: z.number().int(),
+});
+
+/** A token as a list of them serves it. Optional here (a row the socket made has no numbers yet); the API always sends them. */
+export const tokenRowSchema = tokenListItemSchema.extend({ stats: tokenStatsSchema.optional() });
+
+export const tokenPageSchema = z.object({ items: z.array(tokenRowSchema), nextCursor: z.string().optional() });
 
 export const tokenDetailSchema = tokenListItemSchema.extend({
   quoteToken: z.string(),
@@ -112,6 +127,8 @@ export const profileSchema = z.object({
 });
 
 export type TokenListItem = z.output<typeof tokenListItemSchema>;
+export type TokenStats = z.output<typeof tokenStatsSchema>;
+export type TokenRow = z.output<typeof tokenRowSchema>;
 export type TokenPage = z.output<typeof tokenPageSchema>;
 export type TokenDetail = z.output<typeof tokenDetailSchema>;
 export type Trade = z.output<typeof tradeSchema>;

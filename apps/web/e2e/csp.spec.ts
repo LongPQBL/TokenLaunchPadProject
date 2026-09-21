@@ -23,7 +23,7 @@ test("every page carries a strict policy, with a nonce that changes on every req
 test("the app itself runs under it: the token page draws its chart and the list renders, with no violation logged", async ({ page }) => {
   // (the page fixture fails the test on any console error, and a CSP violation is one)
   await page.goto("/sepolia");
-  await expect(page.getByTestId("token-card").first()).toBeVisible();
+  await expect(page.getByTestId("token-row").first()).toBeVisible();
   await page.goto(`/sepolia/token/${SAME_BLOCK}`);
   await expect(page.getByTestId("trade-panel")).toBeVisible();
   await expect(page.getByRole("tab", { name: "Trades" })).toBeVisible();

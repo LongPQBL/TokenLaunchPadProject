@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseAmount, formatCountdown, formatMultiplier, formatPercentBps, formatRelativeTime, formatShareOfSupply, isAddress, shortAddress } from "./format";
+import { formatAge, formatChangeBps, parseAmount, formatCountdown, formatMultiplier, formatPercentBps, formatRelativeTime, formatShareOfSupply, isAddress, shortAddress } from "./format";
 
 describe("formatRelativeTime", () => {
   const now = 1_700_000_000;
@@ -137,5 +137,43 @@ describe("parseAmount", () => {
   it("works for a quote with fewer decimals", () => {
     expect(parseAmount("1.5", 6)).toBe(1_500_000n);
     expect(parseAmount("0.0000001", 6)).toBeUndefined();
+  });
+});
+
+describe("formatAge", () => {
+  const now = 1_700_000_000;
+  const age = (seconds: number) => formatAge(BigInt(now - seconds), now);
+
+  it("counts the biggest whole unit, as a table column wants it: 45s, 12m, 3h, 5d", () => {
+    expect(age(45)).toBe("45s");
+    expect(age(60)).toBe("1m");
+    expect(age(12 * 60 + 59)).toBe("12m");
+    expect(age(3 * 3600)).toBe("3h");
+    expect(age(86_400 * 5 + 100)).toBe("5d");
+  });
+
+  it("reads clock skew into the future, and a token made this instant, as 0s: never a negative age", () => {
+    expect(age(0)).toBe("0s");
+    expect(age(-40)).toBe("0s");
+    expect(formatAge(10n ** 30n, now)).toBe("0s");
+  });
+});
+
+describe("formatChangeBps", () => {
+  it("shows basis points as a percent with one decimal and thousands separators", () => {
+    expect(formatChangeBps(8_870)).toEqual({ text: "88.7%", direction: "up" });
+    expect(formatChangeBps(632_070)).toEqual({ text: "6,320.7%", direction: "up" });
+    expect(formatChangeBps(-3_110)).toEqual({ text: "31.1%", direction: "down" });
+  });
+
+  it("says flat, with no sign, for no change and for a change too small to show", () => {
+    expect(formatChangeBps(0)).toEqual({ text: "0.0%", direction: "flat" });
+    expect(formatChangeBps(4)).toEqual({ text: "0.0%", direction: "flat" });
+    expect(formatChangeBps(-4)).toEqual({ text: "0.0%", direction: "flat" });
+  });
+
+  it("does not choke on what should never come: NaN or infinity read as flat", () => {
+    expect(formatChangeBps(Number.NaN).direction).toBe("flat");
+    expect(formatChangeBps(Number.POSITIVE_INFINITY).direction).toBe("flat");
   });
 });

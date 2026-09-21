@@ -2,7 +2,8 @@ import { expect, FILLED, LAUNCHPAD, SAME_BLOCK, setMetadata, sql, test } from ".
 
 test.afterAll(() => sql.end());
 
-const card = (address: string) => `[data-testid="token-card"][href$="/token/${address}"]`;
+/** A token's row in the table, which is what discover draws unless the URL asks for the grid. */
+const card = (address: string) => `[data-testid="token-row"]:has(a[href$="/token/${address}"])`;
 
 test.describe("discover", () => {
   test("shows the testnet badge and both tokens the indexer found", async ({ page }) => {
@@ -27,7 +28,7 @@ test.describe("discover", () => {
     await page.getByPlaceholder("Search tokens").fill("DEMO");
     await page.getByPlaceholder("Search tokens").press("Enter");
     await expect(page).toHaveURL(/[?&]q=DEMO/);
-    await expect(page.getByTestId("token-card")).toHaveCount(1);
+    await expect(page.getByTestId("token-row")).toHaveCount(1);
     await expect(page.locator(card(FILLED))).toBeVisible();
   });
 
@@ -42,7 +43,7 @@ test.describe("discover", () => {
     await expect(page).toHaveURL(/sort=volume/);
     await expect(page.getByRole("link", { name: "Trending" })).toHaveAttribute("aria-current", "page");
     // The busiest token comes first.
-    await expect(page.getByTestId("token-card").first()).toHaveAttribute("href", new RegExp(`${FILLED}$`));
+    await expect(page.getByTestId("token-row").first().locator('a[href*="/token/"]')).toHaveAttribute("href", new RegExp(`${FILLED}$`));
   });
 
   // The nav's main link must not lead anywhere broken, even before the create flow exists.
