@@ -167,7 +167,10 @@ test.describe("token page: a graduated token", () => {
     expect(text).not.toContain(LAUNCHPAD.slice(2, 8));
     expect(text).not.toContain("dead");
     // Every listed holder is a real one, so what is listed cannot exceed the whole supply.
-    const shares = [...text.matchAll(/(\d+\.\d+)%/g)].map((m) => Number(m[1]));
+    // (From the "% supply" cell of each row: the text of all the cells of a row run together, so "+$409.19" and "80.00%" read as "409.1980.00%".)
+    const shares = (await holders.locator("td:nth-child(4)").allTextContents()).map((t) => Number(/(\d+\.\d+)%/.exec(t)?.[1] ?? Number.NaN));
+    expect(shares.length).toBeGreaterThan(0);
+    for (const share of shares) expect(share).not.toBeNaN();
     expect(shares.reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(100);
   });
 
