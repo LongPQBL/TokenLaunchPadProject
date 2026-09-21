@@ -76,9 +76,10 @@ describe("applyTradeToItem", () => {
     expect(next).toMatchObject({ volumeQuote: 1500n, tradeCount: 3 });
   });
 
-  it("moves the progress bar to where the reserves say the curve is", () => {
-    const next = applyTradeToItem(item(), trade()); // 2/5 of the supply sold = half of the sellable 80%
-    expect(next.progressBps).toBe(5_000);
+  // Progress is the share of the ETH needed to graduate that has been collected, not the share of the tokens sold.
+  it("moves the progress bar to where the reserves say the curve is: the share of the graduation ETH collected", () => {
+    const next = applyTradeToItem(item(), trade()); // 2/5 of the supply sold = half of the sellable 80%, but only a fifth of the ETH
+    expect(next.progressBps).toBe(2_000);
   });
 
   it("leaves a token it is not about exactly as it was: the same object", () => {

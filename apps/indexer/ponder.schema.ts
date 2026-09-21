@@ -16,7 +16,7 @@ export const token = onchainTable(
     // Latest curve state, taken from the last Trade event: no RPC call per trade.
     virtualQuoteReserves: t.bigint().notNull().default(0n),
     virtualTokenReserves: t.bigint().notNull().default(0n),
-    progressBps: t.integer().notNull().default(0), // 0..10000 of the sellable 80%
+    progressBps: t.integer().notNull().default(0), // 0..10000 of the ETH needed to graduate, collected
     volumeQuote: t.bigint().notNull().default(0n),
     tradeCount: t.integer().notNull().default(0),
     complete: t.boolean().notNull().default(false),

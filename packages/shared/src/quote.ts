@@ -5,6 +5,8 @@
 // integer rounding here is deliberate and mirrors the contract: do not "simplify" it. `pnpm verify:quote` re-checks
 // it against a running deployment.
 
+import { progressBpsFromVirtualTokens } from "./curve";
+
 export const BPS = 10_000n;
 
 /** The contract shape returned by getCurve(token). */
@@ -72,9 +74,12 @@ export const maxCostWithSlippage = (total: bigint, slippageBps: bigint) => (tota
 /** Sell: the minimum payout you accept. */
 export const minPayoutWithSlippage = (payout: bigint, slippageBps: bigint) => (payout * (BPS - slippageBps)) / BPS;
 
-/** Progress to graduation in basis points: share of the sellable supply (80%) already sold. */
+/**
+ * Progress to graduation in basis points: the share of the graduation amount (ETH) that the curve has collected, from its virtual
+ * token reserve (see progressBpsFromVirtualTokens). Not the share of the tokens sold: that is a straight line, and the ETH is not.
+ */
 export function progressBps(c: Curve): bigint {
-  return ((c.tokenTotalSupply - c.realTokenReserves) * BPS) / (c.tokenTotalSupply - c.floor);
+  return BigInt(progressBpsFromVirtualTokens(c.virtualTokenReserves, c.tokenTotalSupply));
 }
 
 /** What the trade panel should offer. */

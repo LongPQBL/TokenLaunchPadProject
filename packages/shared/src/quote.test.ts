@@ -114,7 +114,13 @@ describe("slippage bounds", () => {
 describe("progressBps and curveStatus", () => {
   it("is 0 on a fresh curve and 10000 once the sellable supply is gone", () => {
     expect(progressBps(curve)).toBe(0n);
-    expect(progressBps({ ...curve, realTokenReserves: curve.floor })).toBe(10_000n);
+    // the curve sold its 80%: the real tokens are down to the floor and the virtual ones to a fifteenth-fourth of the supply
+    expect(progressBps({ ...curve, realTokenReserves: curve.floor, virtualTokenReserves: (SUPPLY * 4n) / 15n })).toBe(10_000n);
+  });
+
+  it("is the share of the ETH to graduate that is collected: half of the tokens sold is a fifth of the way", () => {
+    const halfSold = { ...curve, realTokenReserves: SUPPLY - (SUPPLY * 2n) / 5n, virtualTokenReserves: (SUPPLY * 16n) / 15n - (SUPPLY * 2n) / 5n };
+    expect(progressBps(halfSold)).toBe(2_000n);
   });
 
   it("names the three states", () => {

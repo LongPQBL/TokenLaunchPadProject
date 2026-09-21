@@ -42,15 +42,25 @@ export function marketCap(virtualQuote: bigint, virtualToken: bigint): bigint {
 }
 
 /**
- * How far along the curve a token is, in basis points of the 80% that the curve sells, from its virtual token reserve
- * alone: (initial virtual tokens - now) / sellable. It is the number the indexer stores as progressBps, worked out the
- * same way, so a live update can move a progress bar without asking the API.
+ * How far along to graduating a token is, in basis points: the share of the graduation amount (in the quote, ETH) that the curve has
+ * collected, from its virtual token reserve alone. It is what "collected / target" on the token's page says as a percentage.
+ *
+ * The curve is constant-product, so vQ * vT stays the same along it. It starts at vQ0 = G/3 and vT0 = 16/15 of the supply, so
+ * collected = vQ - vQ0 and the target G = 3 * vQ0 give, with vQ = k / vT and vQ0 = k / vT0:
+ *
+ *     progress = collected / G = (vT0 - vT) / (3 * vT)
+ *
+ * exactly, with no rounded target in it. It is not the share of the tokens sold: the price rises as tokens sell, so the first tokens
+ * cost little and the last ones a lot (half the sellable tokens sold is a fifth of the ETH). Both reach 100% at the same moment, when
+ * the curve completes at vT = 4/15 of the supply. It is the number the indexer stores as progressBps, worked out the same way, so a
+ * live update can move a progress bar without asking the API.
  */
-export function progressBpsFromVirtualTokens(virtualTokenReserves: bigint): number {
-  const initial = (SUPPLY * 16n) / 15n;
-  const sellable = (SUPPLY * 4n) / 5n;
-  const sold = initial - virtualTokenReserves;
-  if (sold <= 0n) return 0;
-  const bps = (sold * 10_000n) / sellable;
+export function progressBpsFromVirtualTokens(virtualTokenReserves: bigint, supply: bigint = SUPPLY): number {
+  const initial = (supply * 16n) / 15n;
+  if (virtualTokenReserves <= 0n) return 10_000; // nothing left to sell
+  if (virtualTokenReserves >= initial) return 0;
+  // At the moment the curve completes (vT = initial - 4/5 of the supply) this is 10000 or a hair over, never under: the integer division of
+  // `initial` only ever makes vT smaller. Past it, and for reserves that are not real, it is held at 10000.
+  const bps = ((initial - virtualTokenReserves) * 10_000n) / (3n * virtualTokenReserves);
   return Number(bps > 10_000n ? 10_000n : bps);
 }

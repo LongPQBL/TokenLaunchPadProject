@@ -83,19 +83,45 @@ describe("spotPrice and marketCap", () => {
 
 describe("progressBpsFromVirtualTokens", () => {
   const start = (SUPPLY * 16n) / 15n; // virtual tokens on a fresh curve
+  const graduated = start - (SUPPLY * 4n) / 5n; // and once the sellable 80% is gone
 
-  it("is 0 on a fresh curve and 10000 once the sellable 80% is gone: the same number the indexer stores", () => {
+  it("is 0 on a fresh curve and 10000 once the curve is full: the same number the indexer stores", () => {
     expect(progressBpsFromVirtualTokens(start)).toBe(0);
-    expect(progressBpsFromVirtualTokens(start - (SUPPLY * 4n) / 5n)).toBe(10_000);
+    expect(progressBpsFromVirtualTokens(graduated)).toBe(10_000);
   });
 
-  it("is proportional in between", () => {
-    expect(progressBpsFromVirtualTokens(start - (SUPPLY * 2n) / 5n)).toBe(5_000);
-    expect(progressBpsFromVirtualTokens(start - SUPPLY / 5n)).toBe(2_500);
+  // Progress is the share of the graduation amount (in ETH) collected, and the curve is not a straight line: the price rises as tokens
+  // sell, so the first tokens cost little and the last cost a lot. Half the tokens sold is a fifth of the way there in ETH.
+  it("is the share of the ETH needed to graduate that has been collected, not the share of the tokens sold", () => {
+    expect(progressBpsFromVirtualTokens(start - (SUPPLY * 2n) / 5n)).toBe(2_000); // 50% of the tokens, 20% of the ETH
+    expect(progressBpsFromVirtualTokens(start - SUPPLY / 5n)).toBe(769); // 25% of the tokens, 7.69% of the ETH: 0.2 / (3 * (16/15 - 0.2))
+  });
+
+  it("agrees with what the page says is collected: the reserves of a real curve, and its own collected / target", () => {
+    const real = (collectedQuote(LIVE.vq, LIVE.vt) * 10_000n) / graduationAmountFromReserves(LIVE.vq, LIVE.vt);
+    expect(abs(BigInt(progressBpsFromVirtualTokens(LIVE.vt)) - real)).toBeLessThanOrEqual(1n);
+    expect(progressBpsFromVirtualTokens(LIVE.vt)).toBe(1_047); // 0.00524 of 0.05 ETH
+  });
+
+  it("only ever goes up as the curve sells", () => {
+    let last = -1;
+    for (let sold = 0n; sold <= (SUPPLY * 4n) / 5n; sold += SUPPLY / 100n) {
+      const now = progressBpsFromVirtualTokens(start - sold);
+      expect(now).toBeGreaterThanOrEqual(last);
+      last = now;
+    }
   });
 
   it("stays inside 0..10000 whatever the reserves say", () => {
     expect(progressBpsFromVirtualTokens(start + SUPPLY)).toBe(0);
+    expect(progressBpsFromVirtualTokens(graduated - 1n)).toBe(10_000);
+    expect(progressBpsFromVirtualTokens(graduated / 2n)).toBe(10_000); // well past full: held there, not 15000
     expect(progressBpsFromVirtualTokens(0n)).toBe(10_000);
+    expect(progressBpsFromVirtualTokens(-5n)).toBe(10_000);
+  });
+
+  it("takes the supply of the token it is asked about", () => {
+    const supply = 5n * 10n ** 26n;
+    expect(progressBpsFromVirtualTokens((supply * 16n) / 15n - (supply * 2n) / 5n, supply)).toBe(2_000);
   });
 });

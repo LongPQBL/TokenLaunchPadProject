@@ -1,14 +1,11 @@
 import { loadDeployment } from "@vezta/deployments";
+import { progressBpsFromVirtualTokens } from "@vezta/shared";
 import { ponder } from "ponder:registry";
 import { balance, token, trade } from "ponder:schema";
 import { zeroAddress } from "viem";
 
 const d = loadDeployment();
 const CHAIN_ID = d.chainId;
-
-const SUPPLY = 10n ** 27n; // 1 billion tokens, 18 decimals
-const INITIAL_VIRTUAL_TOKENS = (SUPPLY * 16n) / 15n; // virtual token reserve at launch
-const SELLABLE = (SUPPLY * 4n) / 5n; // the curve sells 80%; 20% seeds the DEX pool
 
 // Addresses that hold a balance but are not holders: the curve's unsold supply and the burn
 // address that receives the LP tokens. Without this the top holder is always a contract. The
@@ -63,12 +60,11 @@ ponder.on("Launchpad:Trade", async ({ event, context }) => {
     blockNumber: event.block.number,
     logIndex: event.log.logIndex,
   });
-  // Tokens sold = initial virtual tokens - current, so progress needs no extra RPC call.
-  const sold = INITIAL_VIRTUAL_TOKENS - a.virtualTokenReserves;
   await context.db.update(token, { chainId: CHAIN_ID, address: a.mint }).set((row) => ({
     virtualQuoteReserves: a.virtualQuoteReserves,
     virtualTokenReserves: a.virtualTokenReserves,
-    progressBps: Number((sold * 10_000n) / SELLABLE),
+    // The share of the ETH needed to graduate that is collected, from the virtual token reserve alone: no extra RPC call.
+    progressBps: progressBpsFromVirtualTokens(a.virtualTokenReserves),
     volumeQuote: row.volumeQuote + a.quoteAmount,
     tradeCount: row.tradeCount + 1,
   }));

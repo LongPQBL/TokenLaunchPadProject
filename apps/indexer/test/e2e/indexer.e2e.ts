@@ -1,4 +1,5 @@
 import { launchpadAbi } from "@vezta/abi";
+import { collectedQuote, graduationAmountFromReserves } from "@vezta/shared";
 import { loadDeployment } from "@vezta/deployments";
 import postgres from "postgres";
 import { createPublicClient, http } from "viem";
@@ -69,6 +70,19 @@ describe("indexer end to end", () => {
     expect(BigInt(t.virtual_token_reserves)).toBeGreaterThan(0n);
     expect(BigInt(t.virtual_quote_reserves)).toBe(curve.virtualQuoteReserves);
     expect(BigInt(t.virtual_token_reserves)).toBe(curve.virtualTokenReserves);
+  });
+
+  // Progress is the share of the ETH needed to graduate that is collected, which is what the token's page says as "collected / target": not
+  // the share of the tokens sold, which runs far ahead of it (half the tokens sold is a fifth of the ETH).
+  it("stores progress as the share of the graduation ETH collected, which agrees with the collected / target the page shows", async () => {
+    const t = (await tokenRow(SAME_BLOCK))!;
+    const vq = BigInt(t.virtual_quote_reserves);
+    const vt = BigInt(t.virtual_token_reserves);
+    const byEth = Number((collectedQuote(vq, vt) * 10_000n) / graduationAmountFromReserves(vq, vt));
+    expect(t.progress_bps).toBeGreaterThan(0);
+    expect(Math.abs(t.progress_bps - byEth)).toBeLessThanOrEqual(1);
+    const bySoldTokens = Number(((10n ** 27n * 16n) / 15n - vt) * 10_000n / ((10n ** 27n * 4n) / 5n));
+    expect(t.progress_bps).toBeLessThan(bySoldTokens); // the tokens sold are ahead of the ETH collected all along the curve
   });
 
   it("marks a filled curve complete and migrated, with a pair address and 100% progress", async () => {
