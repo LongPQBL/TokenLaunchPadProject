@@ -6,6 +6,8 @@ import { useRef } from "react";
 import { useAccount } from "wagmi";
 import { useSiwe } from "@/lib/auth/use-siwe";
 import { shortAddress } from "@/lib/format";
+import { useAutoSiwe } from "@/lib/auth/use-auto-siwe";
+import { ExportKeyButton } from "./export-key-button";
 import { Button } from "./ui/button";
 
 /**
@@ -18,6 +20,7 @@ export function LoginButton() {
   const { address } = useAccount();
   const { signOut } = useSiwe();
   const leaving = useRef(false);
+  useAutoSiwe();
 
   async function leave() {
     if (leaving.current) return;
@@ -40,6 +43,7 @@ export function LoginButton() {
   return (
     <div className="flex shrink-0 items-center gap-2">
       {address && <span className="font-mono text-xs">{shortAddress(address)}</span>}
+      <ExportKeyButton />
       <Button variant="outline" size="sm" onClick={() => void leave()}>
         {UI.wallet.logout}
       </Button>

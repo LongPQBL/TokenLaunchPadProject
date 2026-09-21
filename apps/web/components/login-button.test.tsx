@@ -13,7 +13,7 @@ import { LoginButton } from "./login-button";
 
 // What Privy says, set by each test. Privy itself is not started: its own screens are Privy's to test.
 const privy = vi.hoisted(() => ({ ready: true, authenticated: false, login: vi.fn(), logout: vi.fn() }));
-vi.mock("@privy-io/react-auth", () => ({ usePrivy: () => privy }));
+vi.mock("@privy-io/react-auth", () => ({ usePrivy: () => privy, useExportWallet: () => ({ exportWallet: vi.fn() }) }));
 
 const order: string[] = [];
 

@@ -232,6 +232,8 @@ export const UI = {
     disconnect: "Disconnect",
     login: "Log in",
     logout: "Log out",
+    exportKey: "Export key",
+    exportKeyHint: "Your key is yours: you can take it to any wallet.",
     switchTo: (chainName: string) => `Switch to ${chainName}`,
     wrongNetwork: (chainName: string) => `Your wallet is on another network. Switch to ${chainName} to continue.`,
     notConfigured: "Trading is not configured for this deployment.",
