@@ -1,14 +1,15 @@
 import { UI } from "@vezta/shared";
-import type { TokenSort } from "@/lib/types";
+import type { DiscoverView, TokenSort } from "@/lib/types";
 
 /**
  * A plain GET form to the chain's page: searching needs no script, and the query lands in the URL where it can be
- * shared. The current sort is carried along; the default sort is left out so the URL stays clean.
+ * shared. The current sort and view are carried along; the defaults are left out so the URL stays clean.
  */
-export function SearchBox({ chain, sort, q }: { chain: string; sort: TokenSort; q: string }) {
+export function SearchBox({ chain, sort, q, view = "table" }: { chain: string; sort: TokenSort; q: string; view?: DiscoverView }) {
   return (
     <form role="search" method="get" action={`/${chain}`} className="min-w-0 flex-1">
       {sort !== "new" && <input type="hidden" name="sort" value={sort} />}
+      {view === "grid" && <input type="hidden" name="view" value="grid" />}
       <input
         type="search"
         name="q"

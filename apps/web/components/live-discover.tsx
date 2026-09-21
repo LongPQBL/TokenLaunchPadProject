@@ -1,14 +1,16 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api";
-import type { TokenListItem, TokenSort } from "@/lib/types";
+import { getFavoritesApi } from "@/lib/favorites/client";
+import type { DiscoverView, TokenRow, TokenSort } from "@/lib/types";
 import type { LiveClient } from "@/lib/ws/client";
 import { applyTradeToItem, liveCreatedSchema, newTokenItem, sortItems } from "@/lib/ws/discover";
 import { liveTradeSchema, tradeKey } from "@/lib/ws/live";
 import { liveTokenHiddenSchema } from "@/lib/ws/moderation";
 import { useLiveRoom } from "@/lib/ws/use-live-room";
 import { TokenGrid } from "./token-grid";
+import { TokenTable } from "./token-table";
 
 /**
  * The discover grid, kept current. New tokens appear at the top, each trade updates its card's volume, count and progress
@@ -18,6 +20,8 @@ import { TokenGrid } from "./token-grid";
  *
  * Only the plain "newest" view takes new tokens: in another sort, or a search, or on a later page, a token would not belong
  * where it would land.
+ *
+ * It draws either the grid of cards or the table (`view`); the live handling is the same for both, so it lives here once.
  */
 export function LiveTokenGrid({
   chain,
@@ -26,17 +30,34 @@ export function LiveTokenGrid({
   q,
   firstPage,
   nextCursor,
+  view = "grid",
+  now,
+  watchlist = false,
+  sortHref,
   client,
 }: {
   chain: string;
-  initial: TokenListItem[];
+  initial: TokenRow[];
   sort: TokenSort;
   q: string;
   firstPage: boolean;
   nextCursor?: string;
+  view?: DiscoverView;
+  /** The server's clock in unix seconds, for the ages in the table: the first draw uses it, so it matches what was rendered. */
+  now?: number;
+  /** This is someone's watchlist, not discover: tokens that are created are not theirs to see, and a token whose star is taken off leaves. */
+  watchlist?: boolean;
+  sortHref?: (sort: TokenSort) => string;
   client?: LiveClient;
 }) {
-  const [items, setItems] = useState<TokenListItem[]>(initial);
+  const [items, setItems] = useState<TokenRow[]>(initial);
+  const [clock, setClock] = useState(now ?? 0);
+  // "3h" ages while the page is open.
+  useEffect(() => {
+    setClock(Math.floor(Date.now() / 1000));
+    const timer = setInterval(() => setClock(Math.floor(Date.now() / 1000)), 30_000);
+    return () => clearInterval(timer);
+  }, []);
   const [fresh, setFresh] = useState<ReadonlySet<string>>(new Set());
   const [flashes, setFlashes] = useState<Record<string, number>>({});
   const [busy, setBusy] = useState(false); // the pointer is over the grid, or a card has focus
@@ -45,13 +66,15 @@ export function LiveTokenGrid({
   // Tokens a moderator hid while this page was open: gone from the grid, and not to be added again by a late message.
   const hidden = useRef(new Set<string>());
 
-  const takesNewTokens = sort === "new" && q === "" && firstPage;
+  const takesNewTokens = !watchlist && sort === "new" && q === "" && firstPage;
 
   const refetch = useCallback(async () => {
+    // A watchlist asks for its own rows: discover's first page is not what it shows.
+    if (watchlist) return void setItems(await getFavoritesApi().watchlist(chain));
     if (!firstPage || q !== "") return; // a later page or a search is not the live view
     const page = await api.tokens(chain, { sort, limit: initial.length || undefined });
     setItems(page.items);
-  }, [chain, sort, q, firstPage, initial.length]);
+  }, [chain, sort, q, firstPage, initial.length, watchlist]);
 
   useLiveRoom({
     room: "trades",
@@ -99,7 +122,7 @@ export function LiveTokenGrid({
     if (busy && frozenOrder.current.length > 0) {
       // Hold the arrangement the person is looking at: the same cards in the same places, with their current numbers.
       const byAddress = new Map(items.map((i) => [i.address, i]));
-      return frozenOrder.current.map((a) => byAddress.get(a)).filter((i): i is TokenListItem => !!i);
+      return frozenOrder.current.map((a) => byAddress.get(a)).filter((i): i is TokenRow => !!i);
     }
     return sortItems(items, sort);
   }, [items, sort, busy]);
@@ -113,16 +136,23 @@ export function LiveTokenGrid({
     frozenOrder.current = [];
   };
 
-  return (
-    <TokenGrid
-      chain={chain}
-      items={ordered}
-      sort={sort}
-      q={q}
-      nextCursor={nextCursor}
-      fresh={fresh}
-      flashes={flashes}
-      listProps={{ onPointerEnter: startHolding, onPointerLeave: stopHolding, onFocus: startHolding, onBlur: stopHolding }}
-    />
-  );
+  const listProps = { onPointerEnter: startHolding, onPointerLeave: stopHolding, onFocus: startHolding, onBlur: stopHolding };
+  if (view === "table") {
+    return (
+      <TokenTable
+        chain={chain}
+        items={ordered}
+        sort={sort}
+        q={q}
+        now={clock}
+        nextCursor={nextCursor}
+        fresh={fresh}
+        flashes={flashes}
+        listProps={listProps}
+        sortHref={sortHref}
+        onStarChange={watchlist ? (token, starred) => !starred && setItems((prev) => prev.filter((i) => i.address !== token)) : undefined}
+      />
+    );
+  }
+  return <TokenGrid chain={chain} items={ordered} sort={sort} q={q} nextCursor={nextCursor} fresh={fresh} flashes={flashes} listProps={listProps} />;
 }

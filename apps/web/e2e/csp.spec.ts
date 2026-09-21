@@ -23,7 +23,7 @@ test("every page carries a strict policy, with a nonce that changes on every req
 test("the app itself runs under it: the token page draws its chart and the list renders, with no violation logged", async ({ page }) => {
   // (the page fixture fails the test on any console error, and a CSP violation is one)
   await page.goto("/sepolia");
-  await expect(page.getByTestId("token-card").first()).toBeVisible();
+  await expect(page.getByTestId("token-row").first()).toBeVisible();
   await page.goto(`/sepolia/token/${SAME_BLOCK}`);
   await expect(page.getByTestId("trade-panel")).toBeVisible();
   await expect(page.getByRole("tab", { name: "Trades" })).toBeVisible();
@@ -41,9 +41,14 @@ test.describe("an attacker who got markup into the page still cannot run script"
       () =>
         new Promise<string[]>((resolve) => {
           const seen: string[] = [];
-          document.addEventListener("securitypolicyviolation", (e) => seen.push(e.violatedDirective));
+          // Done at the first report (the browser raises it when the handler is refused), or after a generous wait: a fixed short
+          // wait failed once on a busy machine.
+          document.addEventListener("securitypolicyviolation", (e) => {
+            seen.push(e.violatedDirective);
+            resolve(seen);
+          });
           document.body.insertAdjacentHTML("beforeend", `<img src="x" onerror="window.__pwned = 1">`);
-          setTimeout(() => resolve(seen), 300);
+          setTimeout(() => resolve(seen), 5_000);
         }),
     );
     expect(await page.evaluate(() => (window as unknown as { __pwned?: number }).__pwned)).toBeUndefined();
@@ -52,7 +57,10 @@ test.describe("an attacker who got markup into the page still cannot run script"
 
   test("a javascript: link does not run when it is clicked", async ({ page }) => {
     await page.goto("/sepolia");
-    await page.evaluate(() => document.body.insertAdjacentHTML("beforeend", `<a id="evil" href="javascript:window.__pwned = 2">x</a>`));
+    // Fixed in the middle of the window: appended to the end of the page it would sit under the navigation bar on a narrow screen.
+    await page.evaluate(() =>
+      document.body.insertAdjacentHTML("beforeend", `<a id="evil" href="javascript:window.__pwned = 2" style="position:fixed;top:40%;left:50%;z-index:99999">x</a>`),
+    );
     await page.locator("#evil").click();
     await page.waitForTimeout(200);
     expect(await page.evaluate(() => (window as unknown as { __pwned?: number }).__pwned)).toBeUndefined();

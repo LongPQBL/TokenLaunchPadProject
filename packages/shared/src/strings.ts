@@ -3,7 +3,7 @@
  * not an excavation through components (spec §2.5).
  */
 export const UI = {
-  nav: { create: "Create token", search: "Search tokens", admin: "Admin" },
+  nav: { create: "Create token", search: "Search tokens", admin: "Admin", discover: "Discover", watchlist: "Watchlist", profile: "Profile", main: "Main" },
   // Named after the chain it is on, so a second testnet never says "SEPOLIA".
   badge: { testnet: (chainName: string) => `${chainName.toUpperCase()} TESTNET` },
   create: {
@@ -46,9 +46,30 @@ export const UI = {
   },
   discover: {
     tabs: { new: "New", trending: "Trending", progress: "Nearing graduation" },
+    view: { label: "View", table: "Table", grid: "Grid" },
     empty: "No tokens yet. Be the first to create one.",
     searchEmpty: "No tokens match that search.",
     next: "Next page",
+  },
+  watchlist: {
+    title: "Watchlist",
+    intro: "The tokens you have starred.",
+    empty: "No starred tokens yet. Press the star beside a token to keep it here.",
+    loggedOut: "Log in to see the tokens you have starred.",
+    login: "Log in",
+    signIn: "Sign in",
+    loading: "Loading your watchlist…",
+  },
+  favorites: {
+    star: (name: string) => `Star ${name}`,
+    errors: {
+      tooMany: "You can star at most 500 tokens. Remove one first.",
+      rateLimited: "You are changing your stars too fast. Please wait a moment.",
+      network: "Could not reach the server. Your star was not saved.",
+      signedOut: "Log in to star tokens.",
+      signIn: "Could not sign you in. Please try again.",
+      generic: "Could not save your star. Please try again.",
+    },
   },
   token: {
     status: { trading: "TRADING", graduating: "GRADUATING…", graduated: "GRADUATED" },

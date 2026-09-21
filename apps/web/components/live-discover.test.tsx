@@ -1,8 +1,15 @@
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeLiveClient } from "@/test/fake-live-client";
+import { renderWithWallet, TEST_DEPLOYMENT, TEST_USER } from "@/test/wallet";
+import userEvent from "@testing-library/user-event";
+import { connect } from "wagmi/actions";
+import { sepolia } from "wagmi/chains";
+import { http, HttpResponse } from "msw";
+import { API } from "@/test/msw/handlers";
+import { server } from "@/test/msw/server";
 import type { TokenListItem } from "@/lib/types";
 import { LiveTokenGrid } from "./live-discover";
 import { TradeTicker } from "./trade-ticker";
@@ -28,7 +35,19 @@ const created = (n: number, token: string) => ({
   name: "Fresh Coin", ticker: "FRSH", metadataURI: "ipfs://bafyabcde", blockNumber: "6", txHash: tx(n), logIndex: 0,
 });
 
-beforeEach(() => api.tokens.mockReset());
+beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
+afterEach(() => server.resetHandlers());
+afterAll(() => server.close());
+beforeEach(() => {
+  api.tokens.mockReset();
+  vi.stubEnv("NEXT_PUBLIC_DEPLOYMENT", TEST_DEPLOYMENT);
+  vi.stubEnv("NEXT_PUBLIC_API_URL", API);
+  server.use(
+    http.get(`${API}/me`, () => HttpResponse.json({ error: "unauthenticated", message: "x" }, { status: 401 })),
+    http.get(`${API}/sepolia/me/favorites`, () => HttpResponse.json({ tokens: [] })),
+  );
+});
+afterEach(() => vi.unstubAllEnvs());
 
 const cards = () => screen.getAllByTestId("token-card").map((c) => c.getAttribute("href")!.split("/").pop());
 
@@ -211,6 +230,107 @@ describe("LiveTokenGrid: keeping right", () => {
     const fake = fakeLiveClient();
     render(<LiveTokenGrid chain="sepolia" initial={[item(A)]} sort="new" q="" firstPage client={fake.client} />);
     expect(fake.rooms().sort()).toEqual(["tokens", "trades"]);
+  });
+});
+
+describe("LiveTokenGrid as a table", () => {
+  const stats = { marketCap: 5n * 10n ** 18n, athMarketCap: 5n * 10n ** 18n, volume24h: 100n, traders24h: 2, change1hBps: 0, change6hBps: 0, change24hBps: 0 };
+  const rows = () => screen.getAllByTestId("token-row").map((r) => r.querySelector<HTMLAnchorElement>('a[href*="/token/"]')!.getAttribute("href")!.split("/").pop());
+  const view = (fake = fakeLiveClient(), over: Partial<React.ComponentProps<typeof LiveTokenGrid>> = {}) => {
+    const wallet = renderWithWallet(
+      <LiveTokenGrid chain="sepolia" initial={[{ ...item(A), stats }, { ...item(B), stats }]} sort="new" q="" firstPage view="table" now={1_000} client={fake.client} {...over} />,
+    );
+    return { fake, ...wallet };
+  };
+
+  it("draws a table, not cards, and listens to the same two rooms", () => {
+    const { fake } = view();
+    expect(screen.getByRole("table")).toBeInTheDocument();
+    expect(screen.queryAllByTestId("token-card")).toHaveLength(0);
+    expect(fake.rooms().sort()).toEqual(["tokens", "trades"]);
+  });
+
+  it("puts a token created a moment ago at the top, with dashes for the numbers it does not have yet", () => {
+    const { fake } = view();
+    act(() => fake.message("tokens", created(9, NEW)));
+    expect(rows()).toEqual([NEW, A, B]);
+    expect(within(screen.getAllByTestId("token-row")[0]!).getAllByRole("cell")[1]).toHaveTextContent("—");
+  });
+
+  it("moves a row's market cap, trades and 24 h volume when a trade arrives, and flashes the volume", () => {
+    const { fake } = view();
+    act(() => fake.message("trades", trade(1, A, "1000")));
+    const cells = within(screen.getAllByTestId("token-row").find((r) => r.querySelector(`a[href$="${A}"]`))!).getAllByRole("cell");
+    expect(cells[4]).toHaveTextContent("1"); // trades
+    expect(cells[5]!.querySelector("[data-tick]")).not.toBeNull();
+    expect(cells[1]).not.toHaveTextContent("5 ETH"); // the market cap is where the trade's reserves put it
+  });
+
+  it("takes a hidden token's row off the table at once", () => {
+    const { fake } = view();
+    act(() => fake.message("tokens", hidden(A)));
+    expect(rows()).toEqual([B]);
+  });
+
+  it("re-sorts by the column it was sorted by as the numbers move", () => {
+    const { fake } = view(fakeLiveClient(), { sort: "txns" });
+    expect(rows()).toEqual([B, A]); // no trades on either: ties go to the higher address
+    act(() => fake.message("trades", trade(1, A)));
+    expect(rows()).toEqual([A, B]);
+  });
+
+  it("holds the arrangement while the pointer is over the table", () => {
+    const { fake } = view(fakeLiveClient(), { sort: "txns" });
+    fireEvent.pointerEnter(screen.getByRole("table"));
+    act(() => fake.message("trades", trade(1, A)));
+    expect(rows()).toEqual([B, A]);
+    fireEvent.pointerLeave(screen.getByRole("table"));
+    expect(rows()).toEqual([A, B]);
+  });
+});
+
+describe("LiveTokenGrid as a watchlist", () => {
+  const stats = { marketCap: 5n * 10n ** 18n, athMarketCap: 5n * 10n ** 18n, volume24h: 100n, traders24h: 2, change1hBps: 0, change6hBps: 0, change24hBps: 0 };
+  const rows = () => screen.getAllByTestId("token-row").map((r) => r.querySelector<HTMLAnchorElement>('a[href*="/token/"]')!.getAttribute("href")!.split("/").pop());
+  const watch = (fake = fakeLiveClient()) => {
+    server.use(
+      http.get(`${API}/me`, () => HttpResponse.json({ address: TEST_USER })),
+      http.get(`${API}/sepolia/me/favorites`, () => HttpResponse.json({ tokens: [A, B] })),
+      http.delete(`${API}/sepolia/me/favorites/:token`, ({ params }) => HttpResponse.json({ token: params.token, starred: false })),
+    );
+    const wallet = renderWithWallet(
+      <LiveTokenGrid chain="sepolia" initial={[{ ...item(A), stats }, { ...item(B), stats }]} sort="new" q="" firstPage view="table" watchlist now={1_000} client={fake.client} />,
+    );
+    return { fake, ...wallet };
+  };
+
+  it("does not add a token that was created, since it was not starred", () => {
+    const { fake } = watch();
+    act(() => fake.message("tokens", created(9, NEW)));
+    expect(rows()).toEqual([A, B]);
+  });
+
+  it("still moves the numbers of a row when a trade arrives", () => {
+    const { fake } = watch();
+    act(() => fake.message("trades", trade(1, A)));
+    const cells = within(screen.getAllByTestId("token-row").find((r) => r.querySelector(`a[href$="${A}"]`))!).getAllByRole("cell");
+    expect(cells[4]).toHaveTextContent("1");
+  });
+
+  it("refetches its own rows after a reconnect, from the watchlist and not from discover", async () => {
+    const { fake } = watch();
+    server.use(http.get(`${API}/sepolia/me/watchlist`, () => HttpResponse.json({ items: [{ address: A, creator: "0xc0ffee", name: "Only One", ticker: "ONE", progressBps: 0, volumeQuote: "0", tradeCount: 0, complete: false, migrated: false, createdAt: "100" }] })));
+    act(() => fake.reconnect());
+    await waitFor(() => expect(rows()).toEqual([A]));
+    expect(api.tokens).not.toHaveBeenCalled();
+  });
+
+  it("takes a row off the list when its star is taken off", async () => {
+    const wallet = watch();
+    await act(() => connect(wallet.config, { connector: wallet.config.connectors[0]!, chainId: sepolia.id }));
+    const starOfA = await screen.findByRole("button", { name: `Star ${item(A).name}`, pressed: true });
+    await userEvent.click(starOfA);
+    await waitFor(() => expect(rows()).toEqual([B]));
   });
 });
 

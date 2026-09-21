@@ -133,7 +133,7 @@ test("an admin sees hide beside each comment, and hiding one removes it for ever
 test("banning an address takes away its comments and its right to post, and deletes nothing", async ({ browser }) => {
   await adminSignedIn();
   await adminPage.getByRole("textbox", { name: "Address" }).fill(creator.address);
-  await adminPage.getByRole("button", { name: "Ban address" }).click();
+  await adminPage.getByRole("button", { name: "Ban address", exact: true }).click();
   await adminPage.getByRole("dialog").getByRole("button", { name: "Ban" }).click();
   await expect(adminPage.getByText("Banned.")).toBeVisible();
 
@@ -161,7 +161,7 @@ test("hiding a token removes it from the grid, from search and from its own URL,
   await expect(adminPage).toHaveURL(/\/sepolia$/); // a token that is gone must not stay on screen
 
   const address = /\/token\/(0x[0-9a-f]{40})/.exec(tokenUrl)![1]!;
-  const card = `[data-testid="token-card"][href$="/token/${address}"]`;
+  const card = `[data-testid="token-row"]:has(a[href$="/token/${address}"])`;
   const other = await stranger(browser, "/sepolia");
   await expect(other.locator(card)).toHaveCount(0);
   expect(Date.now() - started).toBeLessThan(30_000);
@@ -169,7 +169,7 @@ test("hiding a token removes it from the grid, from search and from its own URL,
   await other.getByPlaceholder("Search tokens").fill(ticker);
   await other.getByPlaceholder("Search tokens").press("Enter");
   await expect(other).toHaveURL(new RegExp(`q=${ticker}`));
-  await expect(other.getByTestId("token-card")).toHaveCount(0);
+  await expect(other.getByTestId("token-row")).toHaveCount(0);
 
   await other.goto(tokenUrl);
   await expect(other.getByText("Token not found.")).toBeVisible();

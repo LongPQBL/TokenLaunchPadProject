@@ -71,3 +71,22 @@ export function parseAmount(text: string, decimals = 18): bigint | undefined {
   if (frac.length > decimals) return undefined;
   return BigInt(whole) * 10n ** BigInt(decimals) + BigInt(frac.padEnd(decimals, "0") || "0");
 }
+
+/** How old a token is, in the biggest whole unit, for a column: 45s, 12m, 3h, 5d. Clock skew into the future reads as 0s. */
+export function formatAge(createdAt: bigint, nowSeconds: number): string {
+  const seconds = BigInt(nowSeconds) - createdAt;
+  if (seconds <= 0n) return "0s";
+  if (seconds < 60n) return `${seconds}s`;
+  if (seconds < 3_600n) return `${seconds / 60n}m`;
+  if (seconds < 86_400n) return `${seconds / 3_600n}h`;
+  return `${seconds / 86_400n}d`;
+}
+
+/** A change in price, from basis points, as text without a sign plus which way it went (the arrow and colour are the caller's). */
+export function formatChangeBps(bps: number): { text: string; direction: "up" | "down" | "flat" } {
+  if (!Number.isFinite(bps)) return { text: "0.0%", direction: "flat" };
+  const text = `${(Math.abs(bps) / 100).toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
+  // What rounds to 0.0% is not a move: no arrow, no colour.
+  if (Math.abs(bps) < 5) return { text: "0.0%", direction: "flat" };
+  return { text, direction: bps > 0 ? "up" : "down" };
+}

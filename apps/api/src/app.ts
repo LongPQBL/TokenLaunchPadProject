@@ -10,6 +10,7 @@ import type { TokenDetail } from "./queries/tokenDetail.js";
 import type { Pinner } from "./metadata/pin.js";
 import type { CommentPublisher } from "./realtime/comments.js";
 import type { ModerationPublisher } from "./realtime/moderation.js";
+import { favoritesRoutes, watchlistRoutes } from "./routes/favorites.js";
 import { moderationRoutes } from "./routes/admin/moderation.js";
 import { healthAdminRoutes } from "./routes/admin/health.js";
 import { reportsAdminRoutes } from "./routes/admin/reports.js";
@@ -101,6 +102,8 @@ export function createApp(deps: Partial<AppDeps> = {}): Hono<AppEnv> {
     await next();
   });
   chain.route("/tokens", tokensRoutes({ launchpads: deps.launchpads ?? {}, ipfsGateway: deps.ipfsGateway, publishComment: deps.publishComment }));
+  chain.route("/me/favorites", favoritesRoutes());
+  chain.route("/me/watchlist", watchlistRoutes());
   chain.route("/addresses", holdingsRoutes());
   chain.route("/addresses", profileRoutes({ ipfsGateway: deps.ipfsGateway ?? "https://ipfs.io" }));
   // Under the chain, not beside it: an unknown chain is answered before anything here is reached, and a non-admin is then
