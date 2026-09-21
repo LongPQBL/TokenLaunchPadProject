@@ -2,14 +2,14 @@
 
 import { UI } from "@vezta/shared";
 import type { ReactNode } from "react";
-import { useAccount, useBalance } from "wagmi";
+import { useBalance } from "wagmi";
 import { FundWallet } from "@/components/fund-wallet";
 import { QuoteValue } from "@/components/quote-value";
-import { Button } from "@/components/ui/button";
 import { getDeployment } from "@/lib/deployment";
 import { shortAddress } from "@/lib/format";
 import { useSession } from "@/lib/session/use-session";
-import { useWalletKind } from "@/lib/wallet/wallet-kind";
+import { useIdentity } from "@/lib/wallet/use-identity";
+import { TradingWalletNotice } from "@/components/trading-wallet-notice";
 import { TopUpDialog } from "./top-up-dialog";
 import { WithdrawDialog } from "./withdraw-dialog";
 
@@ -30,36 +30,34 @@ function WalletRow({ chain, testId, label, address, balance, spending, children 
 }
 
 /**
- * Which wallet is spending, always in view. The main wallet and the trading wallet are different addresses with
- * different balances: each is shown with its own label, address and balance, never merged, and the one that pays for a
- * trade is marked. With no session, it offers one and says what its one signature does.
+ * The wallet that trades, always in view. An external wallet's trading wallet is who trades and who the person is here, with its own
+ * address and balance and the way to fill it (Top up, from the main wallet) and to empty it (Withdraw all, to the main wallet); the main
+ * wallet behind it is shown as what it is, never merged with it. There is nothing to turn on: it opens by itself when the wallet
+ * connects, and this says so while it does, and how to open it if the one signature it needs was declined. A wallet that signs by
+ * itself (Google, email) is its own trading wallet: one address, nothing to top up or withdraw.
  */
 export function SessionBar({ chain }: { chain: string }) {
-  const { address } = useAccount();
+  const identity = useIdentity();
   const session = useSession();
-  const kind = useWalletKind();
   const chainId = getDeployment()?.chainId;
-  const main = useBalance({ address, chainId, query: { enabled: !!address, refetchInterval: 10_000 } });
+  const main = useBalance({ address: identity.main, chainId, query: { enabled: !!identity.main, refetchInterval: 10_000 } });
   const trading = useBalance({ address: session.account?.address, chainId, query: { enabled: !!session.account, refetchInterval: 10_000 } });
 
-  if (!address) return null;
-  // An embedded wallet IS the trading wallet (spec 7.3): it signs by itself, so there is nothing to turn on, top up or withdraw, and
-  // one address in all. Whatever the session provider says is not looked at.
-  if (kind === "embedded") {
+  if (identity.kind === "none" || !identity.main) return null;
+  // An embedded wallet IS the trading wallet (spec 7.3): it signs by itself, so there is nothing to top up or withdraw, and one
+  // address in all. Whatever the session provider says is not looked at.
+  if (identity.kind === "embedded") {
     return (
       <section aria-label={UI.session.yourWallet} className="flex flex-col gap-2">
-        <WalletRow chain={chain} testId="main-wallet" label={UI.session.yourWallet} address={address} balance={main.data?.value} spending />
-        <FundWallet address={address} balance={main.data?.value} chain={chain} />
+        <WalletRow chain={chain} testId="main-wallet" label={UI.session.yourWallet} address={identity.main} balance={main.data?.value} spending />
+        <FundWallet address={identity.main} balance={main.data?.value} chain={chain} />
       </section>
     );
   }
-  const tradingWith = session.status === "ready" && !!session.account;
 
   return (
     <section aria-label={UI.session.tradingWallet} className="flex flex-col gap-2">
-      <WalletRow chain={chain} testId="main-wallet" label={UI.session.mainWallet} address={address} balance={main.data?.value} spending={!tradingWith && session.status === "off"} />
-
-      {session.status === "ready" && session.account && (
+      {identity.status === "ready" && session.account && (
         <WalletRow chain={chain} testId="trading-wallet" label={UI.session.tradingWallet} address={session.account.address} balance={trading.data?.value} spending>
           <div className="flex gap-2">
             <TopUpDialog chain={chain} to={session.account.address} mainBalance={main.data?.value} />
@@ -68,38 +66,9 @@ export function SessionBar({ chain }: { chain: string }) {
         </WalletRow>
       )}
 
-      {session.status === "off" && (
-        <div className="flex flex-col gap-2 border border-border p-3 text-sm">
-          <p className="font-semibold">{UI.session.offTitle}</p>
-          <p className="text-xs text-muted-foreground">{UI.session.offBody}</p>
-          <Button size="sm" onClick={() => void session.enable()}>
-            {UI.session.turnOn}
-          </Button>
-        </div>
-      )}
+      <TradingWalletNotice />
 
-      {session.status === "needs-signature" && (
-        <div role="status" className="flex flex-col gap-2 border border-warning p-3 text-sm">
-          <p className="font-semibold">{UI.session.restoreTitle}</p>
-          <p className="text-xs text-muted-foreground">{UI.session.restoreBody}</p>
-          <Button size="sm" onClick={() => void session.enable()}>
-            {UI.session.restore}
-          </Button>
-        </div>
-      )}
-
-      {session.status === "mismatch" && (
-        <div role="alert" className="flex flex-col gap-2 border border-destructive p-3 text-sm">
-          <p className="font-semibold">{UI.session.mismatchTitle}</p>
-          <p className="text-xs text-muted-foreground">{UI.session.mismatchBody}</p>
-        </div>
-      )}
-
-      {session.status !== "off" && (
-        <Button size="xs" variant="ghost" className="self-start" onClick={session.disable}>
-          {UI.session.turnOff}
-        </Button>
-      )}
+      <WalletRow chain={chain} testId="main-wallet" label={UI.session.mainWallet} address={identity.main} balance={main.data?.value} spending={false} />
     </section>
   );
 }

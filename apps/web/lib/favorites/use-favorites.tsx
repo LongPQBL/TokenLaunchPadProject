@@ -3,7 +3,8 @@
 import { UI } from "@vezta/shared";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
-import { useAccount } from "wagmi";
+import { useSession } from "../session/use-session";
+import { useIdentity } from "../wallet/use-identity";
 import { ApiError } from "../api";
 import { useSiwe } from "../auth/use-siwe";
 import { requestLogin } from "../wallet/login-trigger";
@@ -35,7 +36,8 @@ function explain(error: unknown): string {
  * when nobody is signed in gets them in first: a connected wallet signs in, and with no wallet the header's own login opens.
  */
 export function FavoritesProvider({ chain, children, onChange }: { chain: string; children: ReactNode; /** Told after the server accepted a change: which token, and whether it is now starred. */ onChange?: (token: string, starred: boolean) => void }) {
-  const { address } = useAccount();
+  const { address, main } = useIdentity();
+  const session = useSession();
   const { isSignedIn, signIn } = useSiwe();
   const queryClient = useQueryClient();
   const api = useMemo(getFavoritesApi, []);
@@ -56,7 +58,10 @@ export function FavoritesProvider({ chain, children, onChange }: { chain: string
       try {
         if (!isSignedIn) {
           if (!address) {
-            requestLogin();
+            // A wallet is connected but its trading wallet is not open (it needs one signature): open it, and the star can be pressed
+            // again. With no wallet at all, the header's login.
+            if (main) void session.enable();
+            else requestLogin();
             return;
           }
           try {
@@ -88,7 +93,7 @@ export function FavoritesProvider({ chain, children, onChange }: { chain: string
         working.current.delete(token);
       }
     },
-    [isSignedIn, address, signIn, queryClient, key, fetchList, api, chain, onChange],
+    [isSignedIn, address, main, session, signIn, queryClient, key, fetchList, api, chain, onChange],
   );
 
   const value = useMemo(() => ({ starred, toggle, error }), [starred, toggle, error]);

@@ -137,7 +137,11 @@ wait_for "the bot" 60 grep -q "watching" "$LOGS/bot.log"
 # The admin's wallet, for the moderation tests: random like the bot's, never a well-known key. The API is told its address; the
 # tests are given the key, so a test can act as the admin.
 ADMIN_KEY="$(cast wallet new | awk '/Private key/ {print $3}')"
-ADMIN_ADDR="$(cast wallet address --private-key "$ADMIN_KEY")"
+# The admin is who the app signs in: the wallet's TRADING wallet, derived from its signature of a fixed message (see lib/session/derive.ts),
+# so that is the address the API is told. (A wallet signs deterministically, so the test's wallet derives the very same one.)
+SESSION_MESSAGE="Vezta Launchpad — trading session v1"
+ADMIN_SIGNATURE="$(cast wallet sign --private-key "$ADMIN_KEY" "$SESSION_MESSAGE")"
+ADMIN_ADDR="$(cast wallet address --private-key "$(cast keccak "$ADMIN_SIGNATURE")")"
 
 # --- 5. the API ----------------------------------------------------------------------------------------------------------
 log "Starting the API on :$API_PORT"

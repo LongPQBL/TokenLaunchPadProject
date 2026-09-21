@@ -2,21 +2,21 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
-import { useAccount, useSignMessage } from "wagmi";
 import { isUserRejection } from "../wallet/self-custody";
+import { useIdentity } from "../wallet/use-identity";
 import { TradeError } from "../wallet/types";
 import { getAuthApi } from "./client";
 
 const ME = ["siwe", "me"] as const;
 
 /**
- * Whether the connected wallet has a session with the API, and how to get one. The session is a cookie the browser
- * keeps and this code never sees. Being signed in means the session belongs to the wallet that is connected NOW: a
- * session for another address (the person switched accounts) counts as signed out.
+ * Whether the person has a session with the API, and how to get one. The session is a cookie the browser keeps and this code
+ * never sees. Being signed in means the session belongs to the person's wallet NOW (the trading wallet): a session for another
+ * address (the person switched accounts, or it was for the main wallet) counts as signed out.
  */
 export function useSiwe() {
-  const { address } = useAccount();
-  const { signMessageAsync } = useSignMessage();
+  // Who signs in is the person's trading wallet (see useIdentity): its own key signs, so for an external wallet there is no prompt.
+  const { address, signMessage } = useIdentity();
   const queryClient = useQueryClient();
   const api = useMemo(getAuthApi, []);
 
@@ -29,11 +29,11 @@ export function useSiwe() {
 
   /** True once signed in, false if the person declined to sign. Any other failure is thrown for the caller to explain. */
   async function signIn(): Promise<boolean> {
-    if (!address) throw new TradeError("not_connected", "Connect a wallet first.");
+    if (!address || !signMessage) throw new TradeError("not_connected", "Connect a wallet first.");
     const { message } = await api.nonce(address);
     let signature: `0x${string}`;
     try {
-      signature = await signMessageAsync({ message });
+      signature = await signMessage(message);
     } catch (e) {
       if (isUserRejection(e)) return false;
       throw e;

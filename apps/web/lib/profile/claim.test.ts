@@ -25,6 +25,15 @@ function deps(over: Partial<ClaimDeps> = {}) {
   return { d, writeContract, waitForTransactionReceipt };
 }
 
+describe("claimCreatorFees from a wallet that signs in the browser", () => {
+  it("hands the wallet client the account itself, not just its address: an address alone would ask a node to sign", async () => {
+    const local = { address: ME, type: "local", signMessage: vi.fn() } as never;
+    const { d, writeContract } = deps({ localAccount: local });
+    await claimCreatorFees(d, ME);
+    expect(writeContract).toHaveBeenCalledWith(expect.objectContaining({ account: local }));
+  });
+});
+
 describe("claimCreatorFees", () => {
   it("claims for the creator, in the deployment's quote token, and waits for it", async () => {
     const { d, writeContract, waitForTransactionReceipt } = deps();

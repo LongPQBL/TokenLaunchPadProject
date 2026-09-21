@@ -12,8 +12,8 @@ import { useTrade } from "./use-trade";
 import { privateKeyToAccount } from "viem/accounts";
 
 // Which signer the person has chosen is the session provider's business; here it is simply set.
-const session = vi.hoisted(() => ({ value: { status: "off", account: undefined } as { status: string; account?: unknown } }));
-vi.mock("../session/use-session", () => ({ useSession: () => ({ ...session.value, enable: async () => false, disable: () => {} }) }));
+const session = vi.hoisted(() => ({ value: { status: "none", account: undefined } as { status: string; account?: unknown } }));
+vi.mock("../session/use-session", () => ({ useSession: () => ({ ...session.value, enable: async () => false }) }));
 
 const USER = "0x00000000000000000000000000000000000000a1" as const;
 const TOKEN = "0x00000000000000000000000000000000000000b2" as const;
@@ -42,9 +42,11 @@ function harness() {
   return { config, connector, wrapper };
 }
 
+const TRADING = privateKeyToAccount(`0x${"11".repeat(32)}`);
 beforeEach(() => {
   vi.stubEnv("NEXT_PUBLIC_DEPLOYMENT", DEPLOYMENT);
-  session.value = { status: "off", account: undefined };
+  // An external wallet trades from its trading wallet, which is open unless a test says otherwise.
+  session.value = { status: "ready", account: TRADING };
 });
 afterEach(() => vi.unstubAllEnvs());
 
@@ -59,42 +61,24 @@ describe("useTrade", () => {
     });
   });
 
-  it("with a wallet on the right chain: exposes the address and the chain", async () => {
+  it("with an external wallet and its trading wallet open: exposes the TRADING wallet's address and the app's chain, and trades without a prompt", async () => {
     const { config, connector, wrapper } = harness();
     const { result } = renderHook(() => useTrade(), { wrapper });
     await act(() => connect(config, { connector, chainId: sepolia.id }));
-    await waitFor(() => expect(result.current.capabilities.address?.toLowerCase()).toBe(USER)); // wagmi hands back the checksummed form
-    expect(result.current.capabilities.chainId).toBe(sepolia.id);
+    await waitFor(() => expect(result.current.capabilities.address).toBe(TRADING.address));
+    expect(result.current.capabilities).toMatchObject({ kind: "session", chainId: sepolia.id, isZeroPrompt: true, canBatch: false });
+    expect(result.current.capabilities.address?.toLowerCase()).not.toBe(USER); // never the main wallet
   });
 
-  it("with a wallet on the wrong chain: rejects wrong_chain without opening the wallet", async () => {
+  it("does not care which chain the main wallet is on: the trading wallet signs in the browser, for the app's chain", async () => {
     const { config, connector, wrapper } = harness();
     const { result } = renderHook(() => useTrade(), { wrapper });
     await act(() => connect(config, { connector, chainId: mainnet.id }));
-    await waitFor(() => expect(result.current.capabilities.chainId).toBe(mainnet.id));
-    await expect(result.current.buyWithEth({ token: TOKEN, amount: 1n, maxQuoteCost: 2n })).rejects.toMatchObject({ code: "wrong_chain" });
-  });
-
-  it("a wallet that cannot report its capabilities is not assumed to batch: the two-step path is the safe default", async () => {
-    const { config, connector, wrapper } = harness();
-    const { result } = renderHook(() => useTrade(), { wrapper });
-    await act(() => connect(config, { connector, chainId: sepolia.id }));
-    await waitFor(() => expect(result.current.capabilities.address).toBeDefined());
-    await act(() => new Promise((r) => setTimeout(r, 50)));
-    expect(result.current.capabilities.canBatch).toBe(false);
-  });
-
-  it("with the session wallet ready, trades as the session wallet and says so", async () => {
-    const account = privateKeyToAccount(`0x${"11".repeat(32)}`);
-    session.value = { status: "ready", account };
-    const { config, connector, wrapper } = harness();
-    const { result } = renderHook(() => useTrade(), { wrapper });
-    await act(() => connect(config, { connector, chainId: sepolia.id }));
     await waitFor(() => expect(result.current.capabilities.kind).toBe("session"));
-    expect(result.current.capabilities).toMatchObject({ address: account.address, isZeroPrompt: true });
+    expect(result.current.capabilities.chainId).toBe(sepolia.id);
   });
 
-  it("with the session wallet turned on but not available, refuses to trade rather than falling back to the main wallet", async () => {
+  it("with the trading wallet not open, refuses to trade rather than falling back to the main wallet", async () => {
     for (const status of ["restoring", "needs-signature", "mismatch"]) {
       session.value = { status, account: undefined };
       const { config, connector, wrapper } = harness();
@@ -198,7 +182,7 @@ describe("useTrade with an embedded wallet", () => {
     const { config, connector, wrapper } = embeddedHarness("io.privy.wallet.evil");
     const { result } = renderHook(() => useTrade(), { wrapper });
     await act(() => connect(config, { connector, chainId: sepolia.id }));
-    await waitFor(() => expect(result.current.capabilities.address?.toLowerCase()).toBe(USER));
-    expect(result.current.capabilities.kind).toBe("self-custody");
+    await waitFor(() => expect(result.current.capabilities.address).toBe(TRADING.address));
+    expect(result.current.capabilities.kind).toBe("session"); // an external wallet: it trades from its trading wallet
   });
 });

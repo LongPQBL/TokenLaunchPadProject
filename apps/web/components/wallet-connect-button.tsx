@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useAccount, useConnect, useConnectors, useDisconnect, type CreateConnectorFn } from "wagmi";
 import { shortAddress } from "@/lib/format";
 import { LOGIN_TRIGGER } from "@/lib/wallet/login-trigger";
+import { useIdentity } from "@/lib/wallet/use-identity";
 import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "./ui/dialog";
 
@@ -22,7 +23,9 @@ export interface FallbackWallet {
 }
 
 export function WalletConnectButton({ fallback = [] }: { fallback?: FallbackWallet[] } = {}) {
-  const { address, isConnected } = useAccount();
+  const { address: connected, isConnected } = useAccount();
+  // The header shows who the person is: the trading wallet once it is open, and the connected wallet until then.
+  const address = useIdentity().address ?? connected;
   const { disconnect } = useDisconnect();
   const connectors = useConnectors();
   const { connect } = useConnect();

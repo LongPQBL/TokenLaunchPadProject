@@ -100,7 +100,7 @@ test("a username set on the profile appears beside their comments, and the addre
   await postComment(authorPage, `named ${marker}`);
   await expect(commentsWith(authorPage, marker)).toHaveCount(1);
 
-  await authorPage.goto(`/sepolia/profile/${author.address}`);
+  await authorPage.goto(`/sepolia/profile/${author.tradingAddress}`);
   await ensureConnected(authorPage);
   await authorPage.getByRole("button", { name: "Edit profile" }).click();
   await authorPage.getByRole("textbox", { name: "Username" }).fill(name);
@@ -111,5 +111,5 @@ test("a username set on the profile appears beside their comments, and the addre
   await authorPage.getByRole("tab", { name: "Comments" }).click();
   const item = authorPage.getByTestId("comment-item").filter({ hasText: marker });
   await expect(item.getByTestId("comment-author")).toHaveText(name);
-  await expect(item.getByRole("link", { name })).toHaveAttribute("href", `/sepolia/profile/${author.address.toLowerCase()}`);
+  await expect(item.getByRole("link", { name })).toHaveAttribute("href", `/sepolia/profile/${author.tradingAddress.toLowerCase()}`);
 });

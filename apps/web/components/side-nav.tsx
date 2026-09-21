@@ -4,7 +4,8 @@ import { UI } from "@vezta/shared";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
-import { useAccount } from "wagmi";
+import { useSession } from "@/lib/session/use-session";
+import { useIdentity } from "@/lib/wallet/use-identity";
 import { useSiwe } from "@/lib/auth/use-siwe";
 import { cn } from "@/lib/utils";
 import { requestLogin } from "@/lib/wallet/login-trigger";
@@ -74,7 +75,8 @@ const ICONS: Record<Page, ReactNode> = {
  */
 export function SideNav({ chain }: { chain: string }) {
   const pathname = usePathname();
-  const { address } = useAccount();
+  const { address, main } = useIdentity();
+  const session = useSession();
   const { isAdmin } = useSiwe();
   const open = pageOf(pathname, chain);
 
@@ -133,7 +135,8 @@ export function SideNav({ chain }: { chain: string }) {
                   {content}
                 </Link>
               ) : (
-                <button type="button" onClick={() => requestLogin()} className={cn(className, "w-full")}>
+                // A wallet is connected but its trading wallet is not open (it needs its one signature): open it. With no wallet, ask to log in.
+                <button type="button" onClick={() => (main ? void session.enable() : requestLogin())} className={cn(className, "w-full")}>
                   {content}
                 </button>
               )}

@@ -132,7 +132,7 @@ test("an admin sees hide beside each comment, and hiding one removes it for ever
 
 test("banning an address takes away its comments and its right to post, and deletes nothing", async ({ browser }) => {
   await adminSignedIn();
-  await adminPage.getByRole("textbox", { name: "Address" }).fill(creator.address);
+  await adminPage.getByRole("textbox", { name: "Address" }).fill(creator.tradingAddress);
   await adminPage.getByRole("button", { name: "Ban address", exact: true }).click();
   await adminPage.getByRole("dialog").getByRole("button", { name: "Ban" }).click();
   await expect(adminPage.getByText("Banned.")).toBeVisible();
@@ -147,7 +147,7 @@ test("banning an address takes away its comments and its right to post, and dele
   await openCommentsSignedIn(creatorPage);
   await postComment(creatorPage, `after the ban ${tag()}`);
   await expect(main(creatorPage).getByRole("alert")).toContainText("You cannot post here.");
-  const [row] = await sql`select count(*)::int as n from app.comment where author = ${creator.address.toLowerCase()}`;
+  const [row] = await sql`select count(*)::int as n from app.comment where author = ${creator.tradingAddress.toLowerCase()}`;
   expect(row?.n).toBe(2); // both are still in the table
 });
 
@@ -179,7 +179,7 @@ test("hiding a token removes it from the grid, from search and from its own URL,
 test("the hidden token is gone from its creator's profile too, and an address that never used the launchpad shows an empty state", async ({
   browser,
 }) => {
-  await creatorPage.goto(`/sepolia/profile/${creator.address}`);
+  await creatorPage.goto(`/sepolia/profile/${creator.tradingAddress}`);
   await expect(creatorPage.getByText("Nothing created yet.")).toBeVisible();
 
   const unused = `0x${"0123456789abcdef".repeat(3).slice(0, 40)}`;

@@ -11,6 +11,12 @@ export const embeddedId = (address: string) => `io.privy.wallet.${address}`;
 
 export const TEST_USER = "0x00000000000000000000000000000000000000a1" as const;
 
+/** A wallet that announces itself as Privy's embedded wallet for `address`: the kind that signs by itself. */
+export function embeddedConnector(address: `0x${string}`): CreateConnectorFn {
+  const base = mock({ accounts: [address] });
+  return (config) => ({ ...base(config), id: embeddedId(address) });
+}
+
 export const TEST_DEPLOYMENT = JSON.stringify({
   chainId: sepolia.id,
   launchpad: "0x00000000000000000000000000000000000000c3",
@@ -19,7 +25,14 @@ export const TEST_DEPLOYMENT = JSON.stringify({
 });
 
 /** A real wagmi config with a mock wallet, on two chains so a test can put the wallet on the wrong one. */
-export function testWallet(connectors: CreateConnectorFn[] = [mock({ accounts: [TEST_USER] })], transport?: Transport) {
+/**
+ * A plain external wallet, such as MetaMask: it does NOT sign by itself, so in the app its trading wallet is who the person is. Tests
+ * of that pass it explicitly (with a session around them). The default below is a wallet that signs by itself, whose address IS who the
+ * person is, so a test that only needs "somebody, connected" gets TEST_USER.
+ */
+export const externalConnector = (address: `0x${string}` = TEST_USER): CreateConnectorFn => mock({ accounts: [address] });
+
+export function testWallet(connectors: CreateConnectorFn[] = [embeddedConnector(TEST_USER)], transport?: Transport) {
   const nowhere = http("http://127.0.0.1:1"); // nothing listens: a test that reaches for the network fails loudly
   const config = createConfig({
     chains: [sepolia, mainnet],

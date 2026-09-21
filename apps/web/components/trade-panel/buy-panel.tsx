@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { centsToText, chainBySlug, formatCompactTokens, formatQuote, formatUsd, maxCostWithSlippage, parseUsd, quoteToUsdCents, UI, usdToQuote } from "@vezta/shared";
 import { useState } from "react";
 import type { Address } from "viem";
-import { useAccount, useBalance, useGasPrice } from "wagmi";
+import { useBalance, useGasPrice } from "wagmi";
 import { ChainGuard } from "@/components/chain-guard";
 import { FundWallet } from "@/components/fund-wallet";
 import { ConnectButton } from "@/components/connect-button";
@@ -20,7 +20,9 @@ import { getDeployment } from "@/lib/deployment";
 import { parseAmount } from "@/lib/format";
 import { useTxRun } from "@/lib/tx/use-tx-run";
 import { useSlippage } from "@/lib/use-slippage";
+import { useIdentity } from "@/lib/wallet/use-identity";
 import { useTrade } from "@/lib/wallet/use-trade";
+import { TradingWalletNotice } from "@/components/trading-wallet-notice";
 import { AmountInput } from "./amount-input";
 import { CostBreakdown } from "./cost-breakdown";
 import { Graduating, useRefreshCurveWhen } from "./curve-state";
@@ -37,10 +39,11 @@ export function BuyPanel({ chain, token, ticker }: { chain: string; token: Addre
 
   const trade = useTrade();
   const queryClient = useQueryClient();
-  const { address, isConnected } = useAccount();
+  const identity = useIdentity();
+  const isConnected = identity.kind !== "none";
   const deployment = getDeployment();
-  // The wallet that PAYS: the trading wallet when one is in use. Its balance, not the main wallet's, is what has to cover the buy.
-  const payer = trade.capabilities.address ?? address;
+  // The wallet that PAYS: the trading wallet. Its balance, not the main wallet's, is what has to cover the buy.
+  const payer = identity.address;
   const balance = useBalance({ address: payer, chainId: deployment?.chainId, query: { enabled: !!payer } });
   const gasPrice = useGasPrice({ chainId: deployment?.chainId });
   const { bps: slippageBps, setBps: setSlippage } = useSlippage();
@@ -64,7 +67,7 @@ export function BuyPanel({ chain, token, ticker }: { chain: string; token: Addre
   // A wallet with nothing in it is a different situation from one that is a little short: it is told to add ETH, and how.
   const empty = isConnected && balance.data?.value === 0n;
   const blocker = empty ? UI.fund.addFirst : wantsToBuy && !canAfford ? UI.trade.insufficientEth : undefined;
-  const canBuy = wantsToBuy && canAfford && !quote.isLoading && !quote.curveCompleted && state.status !== "pending";
+  const canBuy = !!payer && wantsToBuy && canAfford && !quote.isLoading && !quote.curveCompleted && state.status !== "pending";
 
   // The curve completing is a state, not a mistake: whether the preview noticed or the transaction reverted with it.
   const graduating = quote.curveCompleted || (state.status === "error" && state.code === "CurveCompleted");
@@ -170,6 +173,7 @@ export function BuyPanel({ chain, token, ticker }: { chain: string; token: Addre
       {quote.isStale && <p className="text-xs text-muted-foreground">{UI.trade.stale}</p>}
 
       {isConnected && payer && <FundWallet address={payer} balance={balance.data?.value} chain={chain} />}
+      <TradingWalletNotice />
 
       <ChainGuard chainName={config?.name ?? chain}>
         {isConnected ? (

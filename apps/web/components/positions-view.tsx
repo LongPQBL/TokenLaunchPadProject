@@ -4,12 +4,13 @@ import { UI } from "@vezta/shared";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { useAccount } from "wagmi";
+import { useIdentity } from "@/lib/wallet/use-identity";
 import { getApi } from "@/lib/api";
 import { requestLogin } from "@/lib/wallet/login-trigger";
 import { cn } from "@/lib/utils";
 import { OrdersTable } from "./orders-table";
 import { PositionsTable } from "./positions-table";
+import { TradingWalletNotice } from "./trading-wallet-notice";
 import { Button } from "./ui/button";
 
 export type PositionsTab = "positions" | "orders";
@@ -26,12 +27,12 @@ const Notice = ({ children, role = "status" }: { children: React.ReactNode; role
 );
 
 /**
- * The connected wallet's positions and order history. Both are what the chain shows anyone, so no session is needed: they are asked
- * for by the wallet's own address, and only for the view that is showing. Before a wallet is connected it says so, with a button that
+ * The person's positions and order history: those of their trading wallet, which is where the tokens are. Both are what the chain shows
+ * anyone, so no session is needed: they are asked for by that address, and only for the view that is showing. Before a wallet is connected it says so, with a button that
  * opens the header's login. Both are asked for again every so often while the page is open: positions follow the market, and an order shows once the indexer has it.
  */
 export function PositionsView({ chain, tab }: { chain: string; tab: PositionsTab }) {
-  const { address } = useAccount();
+  const { address, kind } = useIdentity();
   const holder = address?.toLowerCase();
   const api = useMemo(getApi, []);
   const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
@@ -74,7 +75,9 @@ export function PositionsView({ chain, tab }: { chain: string; tab: PositionsTab
         ))}
       </nav>
 
-      {!holder ? (
+      {!holder && kind !== "none" ? (
+        <TradingWalletNotice />
+      ) : !holder ? (
         <div className="flex flex-col items-center gap-4 py-16 text-center">
           <p className="text-muted-foreground">{UI.positions.connect}</p>
           <Button variant="outline" onClick={() => requestLogin()}>

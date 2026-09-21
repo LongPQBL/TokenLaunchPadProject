@@ -314,17 +314,14 @@ export const UI = {
     tradingWallet: "Trading wallet",
     tradingWithThis: "Trading from this wallet",
     balance: "Balance",
-    offTitle: "Trade without confirmations",
-    offBody:
-      "Turn on a trading wallet and buys and sells need no wallet pop-up. It signs one message with your main wallet to create the trading wallet, which lives in this browser and can be recovered on any device by signing the same message again. Only keep small amounts in it.",
-    turnOn: "Turn on trading wallet",
-    turnOff: "Use main wallet",
-    restoreTitle: "Your trading wallet needs one signature",
-    restoreBody: "This browser no longer has your trading wallet's key. Sign once with your main wallet to bring back the same wallet and its funds.",
-    restore: "Restore trading wallet",
+    openingTitle: "Opening your trading wallet…",
+    needsTitle: "Open your trading wallet",
+    needsBody:
+      "Your trades are made from a trading wallet, so buying and selling needs no wallet pop-up. Sign one message with your main wallet to open it. It costs nothing, it lives in this browser, and signing the same message on any device opens the same wallet. Only keep small amounts in it.",
+    open: "Open trading wallet",
     mismatchTitle: "Your wallet signed differently than before",
     mismatchBody:
-      "Your main wallet did not produce the same signature it did when the trading wallet was created, so the trading wallet cannot be recovered here. Nothing has been created or changed, and no funds are lost. Use the main wallet to trade, and contact support before putting more funds in a trading wallet.",
+      "Your main wallet did not produce the same signature it did when the trading wallet was created, so the trading wallet cannot be recovered here. Nothing has been created or changed, and no funds are lost. Contact support before putting more funds in a trading wallet.",
     topUp: "Top up",
     topUpTitle: "Move ETH to your trading wallet",
     topUpWhy: "A key kept in a browser should not hold your whole balance. 0.1 to 0.3 ETH is plenty for many trades.",
@@ -354,7 +351,7 @@ export const UI = {
     seam: {
       wrong_chain: "Switch your wallet to the right network.",
       not_connected: "Connect a wallet first.",
-      no_session: "Turn on your trading wallet first.",
+      no_session: "Your trading wallet is not open yet. Open it, then try again.",
       not_configured: "Trading is not configured for this deployment.",
       reverted: "The transaction failed on chain.",
       bad_amount: "Enter an amount.",

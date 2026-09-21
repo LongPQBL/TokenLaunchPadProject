@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { useAccount, useDisconnect } from "wagmi";
 import { useSiwe } from "@/lib/auth/use-siwe";
 import { shortAddress } from "@/lib/format";
-import { useAutoSiwe } from "@/lib/auth/use-auto-siwe";
+import { useIdentity } from "@/lib/wallet/use-identity";
 import { ExportKeyButton } from "./export-key-button";
 import { LOGIN_TRIGGER } from "@/lib/wallet/login-trigger";
 import { Button } from "./ui/button";
@@ -26,11 +26,12 @@ export const PRIVY_PATIENCE_MS = 8_000;
  */
 export function LoginButton() {
   const { ready, authenticated, login, logout } = usePrivy();
-  const { address } = useAccount();
+  const { address: connected } = useAccount();
+  // Who the person is: the trading wallet once it is open, the connected wallet until then.
+  const address = useIdentity().address ?? connected;
   const { disconnect } = useDisconnect();
   const { signOut } = useSiwe();
   const leaving = useRef(false);
-  useAutoSiwe();
   // A Privy that never becomes ready (blocked, offline) must not take every way of getting in with it: after a few seconds the plain
   // wallet list is offered, and Log in returns the moment Privy does become ready.
   const [gaveUp, setGaveUp] = useState(false);

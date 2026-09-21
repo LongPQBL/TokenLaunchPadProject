@@ -1,5 +1,5 @@
 import { launchpadAbi } from "@vezta/abi";
-import type { Address, Hash, PublicClient, WalletClient } from "viem";
+import type { Address, Hash, LocalAccount, PublicClient, WalletClient } from "viem";
 import { TradeError } from "./types";
 
 export interface LaunchpadCallDeps {
@@ -8,6 +8,8 @@ export interface LaunchpadCallDeps {
   expectedChainId: number;
   chainId: number | undefined;
   account: Address | undefined;
+  /** The account itself, for a wallet that signs in the browser: given only an address the client would ask a node to sign. */
+  localAccount?: LocalAccount;
   walletClient: Pick<WalletClient, "writeContract"> | undefined;
   publicClient: Pick<PublicClient, "waitForTransactionReceipt">;
 }
@@ -29,7 +31,7 @@ export async function callLaunchpad(
     abi: launchpadAbi,
     functionName,
     args: args as never,
-    account: deps.account,
+    account: deps.localAccount ?? deps.account,
     chain: null,
   });
   const receipt = await deps.publicClient.waitForTransactionReceipt({ hash });

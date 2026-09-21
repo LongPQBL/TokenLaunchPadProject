@@ -2,21 +2,21 @@
 
 import { chainBySlug, neutraliseBidi, UI } from "@vezta/shared";
 import Link from "next/link";
-import { useAccount, usePublicClient, useWalletClient } from "wagmi";
+import { usePublicClient } from "wagmi";
 import { migrateToken } from "@/lib/admin/migrate";
 import { getDeployment } from "@/lib/deployment";
 import { formatRelativeTime, shortAddress } from "@/lib/format";
 import type { Health } from "@/lib/types";
 import { useTxRun } from "@/lib/tx/use-tx-run";
+import { useSigner } from "@/lib/wallet/use-signer";
 import { ChainGuard } from "../chain-guard";
 import { Button } from "../ui/button";
 
 type Stuck = Health["stuckTokens"][number];
 
-/** Finishes one curve from the admin's own wallet. `migrate` is permissionless, so no special right is needed, only gas. */
+/** Finishes one curve from the admin's own (trading) wallet. `migrate` is permissionless, so no special right is needed, only gas. */
 function MigrateButton({ token }: { token: string }) {
-  const { address, chainId } = useAccount();
-  const { data: walletClient } = useWalletClient();
+  const signer = useSigner();
   const publicClient = usePublicClient();
   const { state, run } = useTxRun();
   const deployment = getDeployment();
@@ -35,9 +35,10 @@ function MigrateButton({ token }: { token: string }) {
                 {
                   launchpad: deployment.launchpad,
                   expectedChainId: deployment.chainId,
-                  chainId,
-                  account: address,
-                  walletClient,
+                  chainId: signer.chainId,
+                  account: signer.account,
+                  localAccount: signer.localAccount,
+                  walletClient: signer.walletClient,
                   publicClient,
                 },
                 token as `0x${string}`,

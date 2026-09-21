@@ -8,7 +8,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { computeBuyQuote } from "@/lib/chain/buy-quote";
 import { TradeError } from "@/lib/wallet/types";
 import { fakeChain, freshCurve } from "@/test/fake-chain";
-import { renderWithWallet, TEST_DEPLOYMENT, TEST_USER } from "@/test/wallet";
+import { externalConnector, renderWithWallet, TEST_DEPLOYMENT, TEST_USER } from "@/test/wallet";
+import { privateKeyToAccount } from "viem/accounts";
+import { SessionContext, type SessionValue } from "@/lib/session/use-session";
 import { BuyPanel } from "./buy-panel";
 
 const TOKEN = "0x00000000000000000000000000000000000000b2" as const;
@@ -214,34 +216,53 @@ describe("BuyPanel: what disables the button", () => {
     expect(screen.queryByText("Not enough ETH for this purchase and network fees.")).not.toBeInTheDocument();
   });
 
-  // With a trading wallet the ETH that pays is the TRADING wallet's, not the main wallet's.
-  it("checks the balance of the wallet that will actually pay: the trading wallet when one is in use", async () => {
-    const SESSION = "0x00000000000000000000000000000000000000c5";
-    trade.capabilities.address = SESSION as never;
-    try {
-      const q = computeBuyQuote(freshCurve(), 100n, 0n, parseEther("0.01"));
-      const enough = maxCostWithSlippage(q.total, 100n) + 10n ** 16n;
-      // the main wallet is nearly empty, the trading wallet is full
-      const { user } = await setup({ balances: { [TEST_USER.toLowerCase()]: 1n, [SESSION]: enough } });
-      await user.type(budgetInput(), "0.01");
-      await waitFor(() => expect(buyButton()).toBeEnabled());
-      expect(screen.queryByText("Not enough ETH for this purchase and network fees.")).not.toBeInTheDocument();
-    } finally {
-      trade.capabilities.address = undefined as never;
-    }
+  // An external wallet pays from its trading wallet: the ETH that pays is the TRADING wallet's, not the main wallet's.
+  const TRADING = privateKeyToAccount(`0x${"33".repeat(32)}`);
+  async function setupTrading(initial: Record<string, unknown>) {
+    const chain = fakeChain(initial);
+    const value: SessionValue = { status: "ready", account: TRADING, main: TEST_USER, enable: async () => true };
+    const view = renderWithWallet(
+      <SessionContext.Provider value={value}>
+        <BuyPanel chain="sepolia" token={TOKEN} ticker="DEMO" />
+      </SessionContext.Provider>,
+      [externalConnector()],
+      chain.transport,
+    );
+    await act(() => connect(view.config, { connector: view.config.connectors[0]!, chainId: sepolia.id }));
+    return { chain, ...view, user: userEvent.setup() };
+  }
+
+  it("checks the balance of the wallet that will actually pay: the trading wallet", async () => {
+    const q = computeBuyQuote(freshCurve(), 100n, 0n, parseEther("0.01"));
+    const enough = maxCostWithSlippage(q.total, 100n) + 10n ** 16n;
+    // the main wallet is nearly empty, the trading wallet is full
+    const { user } = await setupTrading({ balances: { [TEST_USER.toLowerCase()]: 1n, [TRADING.address.toLowerCase()]: enough } });
+    await user.type(budgetInput(), "0.01");
+    await waitFor(() => expect(buyButton()).toBeEnabled());
+    expect(screen.queryByText("Not enough ETH for this purchase and network fees.")).not.toBeInTheDocument();
   });
 
   it("and says the trading wallet is short when IT cannot pay, whatever the main wallet holds", async () => {
-    const SESSION = "0x00000000000000000000000000000000000000c5";
-    trade.capabilities.address = SESSION as never;
-    try {
-      const { user } = await setup({ balances: { [TEST_USER.toLowerCase()]: parseEther("50"), [SESSION]: 1n } });
-      await user.type(budgetInput(), "0.01");
-      expect(await screen.findByText("Not enough ETH for this purchase and network fees.")).toBeInTheDocument();
-      expect(buyButton()).toBeDisabled();
-    } finally {
-      trade.capabilities.address = undefined as never;
-    }
+    const { user } = await setupTrading({ balances: { [TEST_USER.toLowerCase()]: parseEther("50"), [TRADING.address.toLowerCase()]: 1n } });
+    await user.type(budgetInput(), "0.01");
+    expect(await screen.findByText("Not enough ETH for this purchase and network fees.")).toBeInTheDocument();
+    expect(buyButton()).toBeDisabled();
+  });
+
+  it("will not offer a buy while the trading wallet is not open: it says how to open it, and never pays from the main wallet", async () => {
+    const chain = fakeChain({ balances: { [TEST_USER.toLowerCase()]: parseEther("50") } });
+    const value: SessionValue = { status: "needs-signature", account: undefined, main: TEST_USER, enable: async () => true };
+    const view = renderWithWallet(
+      <SessionContext.Provider value={value}>
+        <BuyPanel chain="sepolia" token={TOKEN} ticker="DEMO" />
+      </SessionContext.Provider>,
+      [externalConnector()],
+      chain.transport,
+    );
+    await act(() => connect(view.config, { connector: view.config.connectors[0]!, chainId: sepolia.id }));
+    await userEvent.setup().type(budgetInput(), "0.01");
+    expect(buyButton()).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Open trading wallet" })).toBeInTheDocument();
   });
 
   it("asks to connect a wallet instead of offering a buy that cannot happen", async () => {

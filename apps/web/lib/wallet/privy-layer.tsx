@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { http } from "wagmi";
 import { sepolia } from "wagmi/chains";
+import { AutoSignIn } from "@/components/auto-sign-in";
 import { getDeployment } from "../deployment";
 import { SessionProvider } from "../session/use-session";
 import { privyConfig } from "./privy";
@@ -27,6 +28,7 @@ export default function WithPrivy({ appId, children }: { appId: string; children
       <QueryClientProvider client={state.queryClient}>
         <PrivyWagmiProvider config={state.config} reconnectOnMount>
           <SessionProvider>
+            <AutoSignIn />
             <PrivyActiveProvider value>{children}</PrivyActiveProvider>
           </SessionProvider>
         </PrivyWagmiProvider>

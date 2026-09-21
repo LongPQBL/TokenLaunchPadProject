@@ -1,67 +1,69 @@
-import { act, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
+import type { ReactNode } from "react";
+import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { connect } from "wagmi/actions";
 import { sepolia } from "wagmi/chains";
-import { mock } from "wagmi/connectors";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { embeddedId, renderWithWallet, TEST_USER } from "../../test/wallet";
+import { beforeEach, describe, expect, it } from "vitest";
+import { SessionContext, type SessionValue } from "@/lib/session/use-session";
+import { embeddedConnector, externalConnector, testWallet, TEST_USER } from "../../test/wallet";
 import { ProfileAddresses } from "./profile-addresses";
 
-const session = vi.hoisted(() => ({ account: undefined as { address: string } | undefined }));
-vi.mock("@/lib/session/use-session", () => ({
-  useSession: () => ({ status: session.account ? "ready" : "off", account: session.account }),
-}));
-
-const SESSION = "0x00000000000000000000000000000000000000d5";
+const TRADING = privateKeyToAccount(generatePrivateKey());
 const OTHER = "0x00000000000000000000000000000000000000ff";
+const ready: SessionValue = { status: "ready", account: TRADING, main: TEST_USER, enable: async () => true };
 
-beforeEach(() => {
-  localStorage.clear();
-  session.account = undefined;
-});
+beforeEach(() => localStorage.clear());
 
-async function show(address: string, connected = true) {
-  const wallet = renderWithWallet(<ProfileAddresses chain="sepolia" address={address} />);
-  if (connected) await act(() => connect(wallet.config, { connector: wallet.config.connectors[0]!, chainId: sepolia.id }));
-  return wallet;
+async function show(address: string, o: { connector?: "external" | "embedded" | "none"; session?: SessionValue } = {}) {
+  const connector = o.connector ?? "external";
+  const wallet = testWallet([connector === "embedded" ? embeddedConnector(TEST_USER) : externalConnector()]);
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <wallet.wrapper>
+      <SessionContext.Provider value={o.session ?? ready}>{children}</SessionContext.Provider>
+    </wallet.wrapper>
+  );
+  render(<ProfileAddresses chain="sepolia" address={address} />, { wrapper });
+  if (connector !== "none") await act(() => connect(wallet.config, { connector: wallet.config.connectors[0]!, chainId: sepolia.id }));
 }
 
 describe("ProfileAddresses", () => {
   it("shows the address the profile is about, in full, whoever is looking", async () => {
-    await show(OTHER, false);
+    await show(OTHER, { connector: "none" });
     expect(screen.getByText(OTHER)).toBeInTheDocument();
   });
 
-  it("lists both the main and the trading address to their owner when a session wallet exists (spec 7.4)", async () => {
-    session.account = { address: SESSION };
-    await show(TEST_USER);
-    expect(await screen.findByText("Main wallet")).toBeInTheDocument();
-    expect(screen.getByText("Trading wallet")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: SESSION })).toHaveAttribute("href", `/sepolia/profile/${SESSION}`);
+  it("names the main wallet behind the trading wallet to the owner of the profile: the profile is the TRADING wallet's", async () => {
+    await show(TRADING.address);
+    expect(await screen.findByText("Trading wallet")).toBeInTheDocument();
+    expect(screen.getByText(TRADING.address)).toBeInTheDocument();
+    expect(screen.getByText("Main wallet")).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(`^${TEST_USER}$`, "i"))).toBeInTheDocument();
   });
 
-  it("lists only the main address when there is no session wallet", async () => {
+  it("does not name the main wallet on the main wallet's own address: that is not who the person is here", async () => {
     await show(TEST_USER);
+    await act(() => new Promise((r) => setTimeout(r, 30)));
+    expect(screen.queryByText("Main wallet")).toBeNull();
     expect(screen.queryByText("Trading wallet")).toBeNull();
   });
 
-  it("never shows a viewer's trading address on someone else's profile", async () => {
-    session.account = { address: SESSION };
+  it("never names anyone's main wallet on someone else's profile", async () => {
     await show(OTHER);
-    expect(screen.queryByText(SESSION)).toBeNull();
-    expect(screen.queryByText("Trading wallet")).toBeNull();
+    expect(screen.queryByText("Main wallet")).toBeNull();
+    expect(screen.queryByText(new RegExp(TEST_USER, "i"))).toBeNull();
+  });
+
+  it("shows one plain address while the trading wallet is not open: there is no owner yet", async () => {
+    await show(TRADING.address, { session: { status: "needs-signature", account: undefined, main: TEST_USER, enable: async () => true } });
+    expect(screen.queryByText("Main wallet")).toBeNull();
   });
 });
 
-describe("ProfileAddresses for an embedded wallet", () => {
-  it("shows one address and no trading wallet, even if a session object exists (spec 7.4: an embedded user has one address)", async () => {
-    session.account = { address: SESSION };
-    const base = mock({ accounts: [TEST_USER] });
-    const embedded = [(cfg: Parameters<typeof base>[0]) => ({ ...base(cfg), id: embeddedId(TEST_USER) })];
-    const wallet = renderWithWallet(<ProfileAddresses chain="sepolia" address={TEST_USER} />, embedded);
-    await act(() => connect(wallet.config, { connector: wallet.config.connectors[0]!, chainId: sepolia.id }));
+describe("ProfileAddresses for a wallet that signs by itself", () => {
+  it("shows one address, and no main wallet: it has only the one", async () => {
+    await show(TEST_USER, { connector: "embedded", session: { status: "none", account: undefined, main: undefined, enable: async () => false } });
     expect(screen.getByText(TEST_USER)).toBeInTheDocument();
+    expect(screen.queryByText("Main wallet")).toBeNull();
     expect(screen.queryByText("Trading wallet")).toBeNull();
-    expect(screen.queryByText(SESSION)).toBeNull();
   });
 });
-

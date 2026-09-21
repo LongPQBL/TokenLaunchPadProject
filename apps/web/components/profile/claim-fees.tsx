@@ -1,11 +1,13 @@
 "use client";
 
 import { chainBySlug, formatQuote, UI } from "@vezta/shared";
-import { useAccount, usePublicClient, useWalletClient } from "wagmi";
+import { usePublicClient } from "wagmi";
 import { useCreatorFees } from "@/lib/chain/use-creator-fees";
 import { getDeployment } from "@/lib/deployment";
 import { claimCreatorFees } from "@/lib/profile/claim";
 import { useTxRun } from "@/lib/tx/use-tx-run";
+import { useIdentity } from "@/lib/wallet/use-identity";
+import { useSigner } from "@/lib/wallet/use-signer";
 import { ChainGuard } from "../chain-guard";
 import { Button } from "../ui/button";
 
@@ -15,8 +17,8 @@ import { Button } from "../ui/button";
  * transaction and the creator would still be the one paid; showing the button to others would only suggest otherwise.)
  */
 export function ClaimFees({ chain, address }: { chain: string; address: string }) {
-  const { address: viewer, chainId } = useAccount();
-  const { data: walletClient } = useWalletClient();
+  const { address: viewer } = useIdentity();
+  const signer = useSigner();
   const publicClient = usePublicClient();
   const { fees, refetch } = useCreatorFees(address as `0x${string}`);
   const { state, run } = useTxRun();
@@ -41,9 +43,10 @@ export function ClaimFees({ chain, address }: { chain: string; address: string }
                     launchpad: deployment.launchpad,
                     quote: deployment.weth,
                     expectedChainId: deployment.chainId,
-                    chainId,
-                    account: viewer,
-                    walletClient,
+                    chainId: signer.chainId,
+                    account: signer.account,
+                    localAccount: signer.localAccount,
+                    walletClient: signer.walletClient,
                     publicClient,
                   },
                   address as `0x${string}`,

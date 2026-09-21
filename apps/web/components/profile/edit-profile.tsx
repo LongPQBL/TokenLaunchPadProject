@@ -3,7 +3,7 @@
 import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_BYTES, UI } from "@vezta/shared";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
-import { useAccount } from "wagmi";
+import { useIdentity } from "@/lib/wallet/use-identity";
 import { ApiError } from "@/lib/api";
 import { useSiwe } from "@/lib/auth/use-siwe";
 import { getProfileApi } from "@/lib/profile/client";
@@ -43,7 +43,7 @@ function explain(error: unknown): string {
  * from the API is explained in words and leaves what was typed where it is.
  */
 export function EditProfile({ address, current }: { address: string; current: { username?: string; avatarUrl?: string } }) {
-  const { address: viewer } = useAccount();
+  const { address: viewer } = useIdentity();
   const { isSignedIn } = useSiwe();
   const router = useRouter();
   const [open, setOpen] = useState(false);

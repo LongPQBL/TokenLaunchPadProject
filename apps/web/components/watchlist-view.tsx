@@ -2,13 +2,14 @@
 
 import { UI } from "@vezta/shared";
 import { useQuery } from "@tanstack/react-query";
-import { useAccount } from "wagmi";
+import { useIdentity } from "@/lib/wallet/use-identity";
 import { useSiwe } from "@/lib/auth/use-siwe";
 import { getFavoritesApi } from "@/lib/favorites/client";
 import type { TokenSort } from "@/lib/types";
 import type { LiveClient } from "@/lib/ws/client";
 import { requestLogin } from "@/lib/wallet/login-trigger";
 import { LiveTokenGrid } from "./live-discover";
+import { TradingWalletNotice } from "./trading-wallet-notice";
 import { Button } from "./ui/button";
 
 /**
@@ -17,7 +18,7 @@ import { Button } from "./ui/button";
  * person only, and follows the socket like discover does (a trade moves a row); a token whose star is taken off leaves at once.
  */
 export function WatchlistView({ chain, sort, client }: { chain: string; sort: TokenSort; client?: LiveClient }) {
-  const { address } = useAccount();
+  const { address, kind } = useIdentity();
   const { isSignedIn, isLoading, signIn } = useSiwe();
   const list = useQuery({
     queryKey: ["watchlist", chain, address?.toLowerCase()],
@@ -26,6 +27,8 @@ export function WatchlistView({ chain, sort, client }: { chain: string; sort: To
     retry: false,
   });
 
+  // A wallet is connected but its trading wallet is not open yet (the one signature that opens it, or a mismatch): say so, and how.
+  if (kind !== "none" && !address) return <TradingWalletNotice />;
   if (!isSignedIn) {
     // Whether there is a session is not known yet: not "log in" for someone who is.
     if (address && isLoading) return <p role="status" className="py-16 text-center text-muted-foreground">{UI.watchlist.loading}</p>;

@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { lazy, Suspense, useState, type ReactNode } from "react";
 import { WagmiProvider, type Config } from "wagmi";
 import { sepolia } from "wagmi/chains";
+import { AutoSignIn } from "@/components/auto-sign-in";
 import { getDeployment } from "../deployment";
 import { SessionProvider } from "../session/use-session";
 import { createWagmiConfig } from "./config";
@@ -30,7 +31,10 @@ function Plain({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={state.queryClient}>
       <WagmiProvider config={state.config} reconnectOnMount>
-        <SessionProvider>{children}</SessionProvider>
+        <SessionProvider>
+          <AutoSignIn />
+          {children}
+        </SessionProvider>
       </WagmiProvider>
     </QueryClientProvider>
   );

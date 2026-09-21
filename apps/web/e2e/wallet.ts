@@ -2,6 +2,7 @@ import type { Page } from "@playwright/test";
 import { createWalletClient, hexToBigInt, http, isHex, toHex, type Hex } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { sepolia } from "viem/chains";
+import { deriveSessionAccount, SESSION_MESSAGE } from "../lib/session/derive";
 
 /**
  * A wallet for the browser, driven from the test. The page gets a real EIP-1193 provider (announced over EIP-6963, the
@@ -17,7 +18,7 @@ import { sepolia } from "viem/chains";
  */
 const walletError = (code: number, message: string) => new Error(`[code:${code}] ${message}`);
 
-export async function installWallet(page: Page, rpcUrl: string, options: { balanceEth?: number; privateKey?: Hex } = {}) {
+export async function installWallet(page: Page, rpcUrl: string, options: { balanceEth?: number; tradingEth?: number; privateKey?: Hex } = {}) {
   const account = privateKeyToAccount(options.privateKey ?? generatePrivateKey());
   const client = createWalletClient({ account, chain: sepolia, transport: http(rpcUrl) });
 
@@ -29,6 +30,10 @@ export async function installWallet(page: Page, rpcUrl: string, options: { balan
   };
 
   await rpc("anvil_setBalance", [account.address, toHex(BigInt(Math.round((options.balanceEth ?? 10) * 1e18)))]);
+  // The app opens the wallet's TRADING wallet by itself when it connects (one signature of a fixed message), and everything is done from
+  // it. It is derived from that signature, and the wallet signs deterministically, so the address is known here and can be funded too.
+  const trading = deriveSessionAccount(await account.signMessage({ message: SESSION_MESSAGE }));
+  await rpc("anvil_setBalance", [trading.address, toHex(BigInt(Math.round((options.tradingEth ?? 10) * 1e18)))]);
 
   // Like a real wallet, it reveals its account only after the person has agreed to connect: eth_accounts is empty until
   // eth_requestAccounts, or the app would find it already connected before anyone clicked anything.
@@ -105,6 +110,8 @@ export async function installWallet(page: Page, rpcUrl: string, options: { balan
 
   return {
     address: account.address,
+    /** Who the person is in the app: the trading wallet opened from this wallet. */
+    tradingAddress: trading.address,
     /** Makes the next signing or sending request fail the way a person clicking "Reject" does. */
     rejectNext() {
       state.rejectNext = true;

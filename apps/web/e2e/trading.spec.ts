@@ -44,8 +44,9 @@ test.describe("with a wallet", () => {
     await expect(panel(page).getByText(new RegExp(`You bought .* ${symbol} for `))).toBeVisible({ timeout: 45_000 });
   });
 
-  test("declining to sign stops quietly, and trying again works", async ({ page }) => {
+  test("declining the one signature that opens the trading wallet stops quietly, and opening it afterwards works", async ({ page }) => {
     const wallet = await installWallet(page, RPC_URL);
+    wallet.rejectNext(); // the message that opens the trading wallet, asked for as soon as the wallet connects
     await page.goto("/sepolia/create");
     await connect(page);
     const symbol = ticker();
@@ -53,14 +54,17 @@ test.describe("with a wallet", () => {
     await page.getByLabel(/^Ticker/).fill(symbol);
     await page.getByLabel(/^Logo/).setInputFiles({ name: "logo.png", mimeType: "image/png", buffer: LOGO });
 
-    wallet.rejectNext(); // the sign-in message
-    await page.getByRole("button", { name: "Create token" }).click();
-    await expect.poll(() => wallet.requests.filter((m) => m === "personal_sign").length).toBe(1);
-    await expect(page.getByRole("button", { name: "Create token" })).toBeEnabled();
+    // It said no: nothing can be created, it says how to open the trading wallet, and it does not ask again by itself.
+    await expect(page.getByRole("button", { name: "Open trading wallet" }).first()).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("button", { name: "Create token" })).toBeDisabled();
     // (Next itself keeps an empty alert region for route announcements, so look inside the form.)
     await expect(page.locator("form").getByRole("alert")).toHaveCount(0);
+    await page.waitForTimeout(500);
+    expect(wallet.requests.filter((m) => m === "personal_sign").length).toBe(1);
     expect(wallet.requests).not.toContain("eth_sendTransaction");
 
+    await page.getByRole("button", { name: "Open trading wallet" }).first().click();
+    await expect(page.getByRole("button", { name: "Create token" })).toBeEnabled({ timeout: 20_000 });
     await page.getByRole("button", { name: "Create token" }).click();
     await expect(page).toHaveURL(/\/sepolia\/token\/0x[0-9a-f]{40}/, { timeout: 60_000 });
   });

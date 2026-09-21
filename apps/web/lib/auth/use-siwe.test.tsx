@@ -5,7 +5,10 @@ import { sepolia } from "wagmi/chains";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { API } from "../../test/msw/handlers";
 import { server } from "../../test/msw/server";
-import { testWallet, TEST_DEPLOYMENT, TEST_USER } from "../../test/wallet";
+import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
+import type { ReactNode } from "react";
+import { SessionContext, type SessionValue } from "../session/use-session";
+import { embeddedConnector, externalConnector, testWallet, TEST_DEPLOYMENT, TEST_USER } from "../../test/wallet";
 import { useSiwe } from "./use-siwe";
 
 beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
@@ -51,8 +54,10 @@ function fakeApi(opts: { sessionFor?: string; admin?: boolean } = {}) {
   return state;
 }
 
+// Everything below is for a wallet that signs by itself (the person IS that address); the external wallet, whose trading wallet is who
+// signs in, is at the end.
 async function setup(connected = true) {
-  const wallet = testWallet();
+  const wallet = testWallet([embeddedConnector(TEST_USER)]);
   const hook = renderHook(() => useSiwe(), { wrapper: wallet.wrapper });
   if (connected) await act(() => connect(wallet.config, { connector: wallet.config.connectors[0]!, chainId: sepolia.id }));
   return { ...hook, ...wallet };
@@ -163,5 +168,58 @@ describe("useSiwe", () => {
     const { result } = await setup();
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     await expect(result.current.signIn()).rejects.toMatchObject({ code: "invalid_signin" });
+  });
+});
+
+describe("useSiwe: an external wallet signs in AS its trading wallet", () => {
+  const trading = privateKeyToAccount(generatePrivateKey());
+  const ready: SessionValue = { status: "ready", account: trading, main: TEST_USER, enable: async () => true };
+
+  async function external(value: SessionValue) {
+    const wallet = testWallet([externalConnector()]);
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <wallet.wrapper>
+        <SessionContext.Provider value={value}>{children}</SessionContext.Provider>
+      </wallet.wrapper>
+    );
+    const hook = renderHook(() => useSiwe(), { wrapper });
+    await act(() => connect(wallet.config, { connector: wallet.config.connectors[0]!, chainId: sepolia.id }));
+    return hook;
+  }
+
+  it("asks for the challenge for the TRADING wallet's address, signs it with that wallet's own key, and never asks the main wallet", async () => {
+    const api = fakeApi();
+    const { result } = await external(ready);
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    let outcome: boolean | undefined;
+    await act(async () => {
+      outcome = await result.current.signIn();
+    });
+    expect(outcome).toBe(true);
+    expect(api.calls.find((c) => c.startsWith("nonce"))?.toLowerCase()).toBe(`nonce:${trading.address.toLowerCase()}`);
+    expect(signer.signMessageAsync).not.toHaveBeenCalled();
+    const { recoverMessageAddress } = await import("viem");
+    const sent = api.verified as { message: string; signature: `0x${string}` };
+    expect(await recoverMessageAddress({ message: sent.message, signature: sent.signature })).toBe(trading.address);
+  });
+
+  it("is signed in when the session belongs to the trading wallet, and NOT when it belongs to the main wallet", async () => {
+    fakeApi({ sessionFor: trading.address });
+    const yes = await external(ready);
+    await waitFor(() => expect(yes.result.current.isSignedIn).toBe(true));
+    yes.unmount();
+    fakeApi({ sessionFor: TEST_USER });
+    const no = await external(ready);
+    await waitFor(() => expect(no.result.current.isLoading).toBe(false));
+    expect(no.result.current.isSignedIn).toBe(false);
+  });
+
+  it("does not ask the API who is signed in, and cannot sign in, until the trading wallet is open", async () => {
+    const api = fakeApi();
+    const { result } = await external({ status: "needs-signature", account: undefined, main: TEST_USER, enable: async () => false });
+    await act(() => new Promise((r) => setTimeout(r, 50)));
+    expect(api.calls).not.toContain("me");
+    expect(result.current.isSignedIn).toBe(false);
+    await expect(result.current.signIn()).rejects.toMatchObject({ code: "not_connected" });
   });
 });

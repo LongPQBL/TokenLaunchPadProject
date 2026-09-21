@@ -5,7 +5,9 @@ import { connect } from "wagmi/actions";
 import { sepolia } from "wagmi/chains";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeChain, freshCurve } from "@/test/fake-chain";
-import { renderWithWallet, TEST_DEPLOYMENT, TEST_USER } from "@/test/wallet";
+import { externalConnector, renderWithWallet, TEST_DEPLOYMENT, TEST_USER } from "@/test/wallet";
+import { privateKeyToAccount } from "viem/accounts";
+import { SessionContext, type SessionValue } from "@/lib/session/use-session";
 import { SellPanel } from "./sell-panel";
 
 const TOKEN = "0x00000000000000000000000000000000000000b2" as const;
@@ -128,17 +130,25 @@ describe("SellPanel: allowance", () => {
 });
 
 describe("SellPanel: whose tokens", () => {
-  const SESSION = "0x00000000000000000000000000000000000000c5";
+  const TRADING = privateKeyToAccount(`0x${"33".repeat(32)}`);
+  const SESSION = TRADING.address.toLowerCase();
   const withSession = async (over: { main?: bigint; session?: bigint; sessionAllowance?: bigint; mainAllowance?: bigint }) => {
-    trade.capabilities.address = SESSION as never;
-    return setup({
+    const chain = fakeChain({
+      curve,
       tokenBalances: { [TEST_USER.toLowerCase()]: over.main ?? 0n, [SESSION]: over.session ?? 0n },
       allowances: { [TEST_USER.toLowerCase()]: over.mainAllowance ?? 0n, [SESSION]: over.sessionAllowance ?? 0n },
     });
+    const value: SessionValue = { status: "ready", account: TRADING, main: TEST_USER, enable: async () => true };
+    const view = renderWithWallet(
+      <SessionContext.Provider value={value}>
+        <SellPanel chain="sepolia" token={TOKEN} ticker="DEMO" />
+      </SessionContext.Provider>,
+      [externalConnector()],
+      chain.transport,
+    );
+    await act(() => connect(view.config, { connector: view.config.connectors[0]!, chainId: sepolia.id }));
+    return { chain, ...view, user: userEvent.setup() };
   };
-  afterEach(() => {
-    trade.capabilities.address = undefined as never;
-  });
 
   it("sells from the trading wallet's balance, not the main wallet's, when a trading wallet is in use", async () => {
     // the main wallet holds nothing, the trading wallet holds 5M tokens

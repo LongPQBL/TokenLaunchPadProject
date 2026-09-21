@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import { connect, disconnect } from "wagmi/actions";
 import { sepolia } from "wagmi/chains";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { testWallet } from "../../test/wallet";
+import { embeddedConnector, externalConnector, testWallet, TEST_USER } from "../../test/wallet";
 import { deriveSessionAccount, SESSION_MESSAGE } from "./derive";
 import { SessionProvider, useSession } from "./use-session";
 
@@ -21,7 +21,7 @@ beforeEach(() => {
 });
 
 async function setup(connected = true) {
-  const wallet = testWallet();
+  const wallet = testWallet([externalConnector()]);
   const wrapper = ({ children }: { children: ReactNode }) => (
     <wallet.wrapper>
       <SessionProvider>{children}</SessionProvider>
@@ -33,25 +33,30 @@ async function setup(connected = true) {
 }
 
 describe("useSession", () => {
-  it("is off until the person turns it on: trading is with their own wallet", async () => {
-    const { result } = await setup();
-    await waitFor(() => expect(result.current.status).toBe("off"));
+  it("has no session, and asks for nothing, while no wallet is connected", async () => {
+    const { result } = await setup(false);
+    await act(() => new Promise((r) => setTimeout(r, 50)));
+    expect(result.current.status).toBe("none");
     expect(result.current.account).toBeUndefined();
     expect(signer.signMessageAsync).not.toHaveBeenCalled();
   });
 
-  it("turning it on asks the main wallet for ONE signature over the fixed message, and gives the derived wallet", async () => {
+  it("opens the trading wallet by itself when a wallet connects: ONE signature over the fixed message, and the derived wallet", async () => {
     const { result } = await setup();
-    await act(async () => void (await result.current.enable()));
+    await waitFor(() => expect(result.current.status).toBe("ready"));
     expect(signer.signMessageAsync).toHaveBeenCalledOnce();
     expect(signer.signMessageAsync).toHaveBeenCalledWith({ message: SESSION_MESSAGE });
-    await waitFor(() => expect(result.current.status).toBe("ready"));
     expect(result.current.account?.address).toBe(deriveSessionAccount(SIG_A).address);
+  });
+
+  it("says which wallet it belongs to and funds it from: the connected one", async () => {
+    const { result } = await setup();
+    await waitFor(() => expect(result.current.status).toBe("ready"));
+    expect(result.current.main?.toLowerCase()).toBe(TEST_USER);
   });
 
   it("comes back ready after a reload with NO signature: the wallet is restored from storage", async () => {
     const first = await setup();
-    await act(async () => void (await first.result.current.enable()));
     await waitFor(() => expect(first.result.current.status).toBe("ready"));
     const address = first.result.current.account?.address;
     first.unmount();
@@ -63,89 +68,108 @@ describe("useSession", () => {
     expect(signer.signMessageAsync).not.toHaveBeenCalled();
   });
 
-  it("asks for a signature again, rather than falling back to the main wallet, when it was on but its stored key is gone", async () => {
+  it("asks for one signature again when the browser has lost the stored key, and that brings back the very same wallet", async () => {
     const first = await setup();
-    await act(async () => void (await first.result.current.enable()));
     await waitFor(() => expect(first.result.current.status).toBe("ready"));
     first.unmount();
     globalThis.indexedDB = new IDBFactory(); // the browser dropped its site data
+    signer.signMessageAsync.mockClear();
 
     const second = await setup();
-    await waitFor(() => expect(second.result.current.status).toBe("needs-signature"));
-    expect(second.result.current.account).toBeUndefined();
-    // and one signature brings back the very same wallet
-    await act(async () => void (await second.result.current.enable()));
     await waitFor(() => expect(second.result.current.status).toBe("ready"));
+    expect(signer.signMessageAsync).toHaveBeenCalledOnce();
     expect(second.result.current.account?.address).toBe(deriveSessionAccount(SIG_A).address);
   });
 
-  it("stays off, and says no, when the person declines to sign", async () => {
+  it("waits for the person, and says so, when they decline to sign: it does not ask again by itself, and never trades from the main wallet instead", async () => {
     signer.signMessageAsync.mockRejectedValue(Object.assign(new Error("User rejected the request."), { code: 4001 }));
     const { result } = await setup();
+    await waitFor(() => expect(result.current.status).toBe("needs-signature"));
+    await act(() => new Promise((r) => setTimeout(r, 100)));
+    expect(signer.signMessageAsync).toHaveBeenCalledOnce(); // not a loop
+    expect(result.current.account).toBeUndefined();
+    expect(Object.keys(localStorage).filter((k) => k.startsWith("vezta.session"))).toEqual([]); // (wagmi keeps its own keys)
+  });
+
+  it("does not ask a wallet that declined again when it reconnects during the same visit", async () => {
+    signer.signMessageAsync.mockRejectedValue(Object.assign(new Error("User rejected the request."), { code: 4001 }));
+    const { result, config } = await setup();
+    await waitFor(() => expect(result.current.status).toBe("needs-signature"));
+    await act(() => disconnect(config));
+    await waitFor(() => expect(result.current.status).toBe("none"));
+    await act(() => connect(config, { connector: config.connectors[0]!, chainId: sepolia.id }));
+    await waitFor(() => expect(result.current.status).toBe("needs-signature"));
+    await act(() => new Promise((r) => setTimeout(r, 80)));
+    expect(signer.signMessageAsync).toHaveBeenCalledOnce();
+  });
+
+  it("opens it when the person asks after declining, with the same one signature", async () => {
+    signer.signMessageAsync.mockRejectedValueOnce(Object.assign(new Error("User rejected the request."), { code: 4001 }));
+    const { result } = await setup();
+    await waitFor(() => expect(result.current.status).toBe("needs-signature"));
     let outcome: boolean | undefined;
     await act(async () => {
       outcome = await result.current.enable();
     });
-    expect(outcome).toBe(false);
-    expect(result.current.status).toBe("off");
-    expect(Object.keys(localStorage).filter((k) => k.startsWith("vezta.session"))).toEqual([]); // (wagmi keeps its own keys)
+    expect(outcome).toBe(true);
+    await waitFor(() => expect(result.current.status).toBe("ready"));
+    expect(result.current.account?.address).toBe(deriveSessionAccount(SIG_A).address);
   });
 
   it("reports a mismatch, and does not make a second wallet, when the main wallet signs differently than before", async () => {
     const first = await setup();
-    await act(async () => void (await first.result.current.enable()));
     await waitFor(() => expect(first.result.current.status).toBe("ready"));
     first.unmount();
     globalThis.indexedDB = new IDBFactory();
     signer.signMessageAsync.mockResolvedValue(SIG_B);
 
     const second = await setup();
-    await waitFor(() => expect(second.result.current.status).toBe("needs-signature"));
-    await act(async () => void (await second.result.current.enable()));
     await waitFor(() => expect(second.result.current.status).toBe("mismatch"));
     expect(second.result.current.account).toBeUndefined();
   });
 
-  it("turning it off goes back to the main wallet and keeps the session wallet, with whatever it holds", async () => {
-    const { result } = await setup();
-    await act(async () => void (await result.current.enable()));
+  it("does not ask the main wallet for a signature again once it has asked, for the same wallet, during one visit", async () => {
+    const { result, config } = await setup();
     await waitFor(() => expect(result.current.status).toBe("ready"));
-    act(() => result.current.disable());
-    await waitFor(() => expect(result.current.status).toBe("off"));
-    // turning it back on needs no new signature
+    await act(() => disconnect(config));
+    await waitFor(() => expect(result.current.status).toBe("none"));
     signer.signMessageAsync.mockClear();
-    await act(async () => void (await result.current.enable()));
-    await waitFor(() => expect(result.current.status).toBe("ready"));
+    await act(() => connect(config, { connector: config.connectors[0]!, chainId: sepolia.id }));
+    await waitFor(() => expect(result.current.status).toBe("ready")); // restored from storage
     expect(signer.signMessageAsync).not.toHaveBeenCalled();
-  });
-
-  it("stays off across a reload once it was turned off", async () => {
-    const first = await setup();
-    await act(async () => void (await first.result.current.enable()));
-    await waitFor(() => expect(first.result.current.status).toBe("ready"));
-    act(() => first.result.current.disable());
-    first.unmount();
-    const second = await setup();
-    await act(() => new Promise((r) => setTimeout(r, 50)));
-    expect(second.result.current.status).toBe("off");
   });
 
   it("belongs to the connected main wallet: with none connected there is no session", async () => {
     const { result, config } = await setup();
-    await act(async () => void (await result.current.enable()));
     await waitFor(() => expect(result.current.status).toBe("ready"));
     await act(() => disconnect(config));
-    await waitFor(() => expect(result.current.status).toBe("off"));
+    await waitFor(() => expect(result.current.status).toBe("none"));
     expect(result.current.account).toBeUndefined();
   });
 
-  it("does nothing, and says no, when enable is called with no wallet connected", async () => {
+  it("does nothing, and says no, when asked to open with no wallet connected", async () => {
     const { result } = await setup(false);
     let outcome: boolean | undefined;
     await act(async () => {
       outcome = await result.current.enable();
     });
     expect(outcome).toBe(false);
+    expect(signer.signMessageAsync).not.toHaveBeenCalled();
+  });
+});
+
+describe("useSession with a wallet that signs by itself", () => {
+  it("has no session at all: an embedded wallet IS the trading wallet, and is never asked to sign for one", async () => {
+    const wallet = testWallet([embeddedConnector(TEST_USER)]);
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <wallet.wrapper>
+        <SessionProvider>{children}</SessionProvider>
+      </wallet.wrapper>
+    );
+    const { result } = renderHook(() => useSession(), { wrapper });
+    await act(() => connect(wallet.config, { connector: wallet.config.connectors[0]!, chainId: sepolia.id }));
+    await act(() => new Promise((r) => setTimeout(r, 80)));
+    expect(result.current.status).toBe("none");
     expect(signer.signMessageAsync).not.toHaveBeenCalled();
   });
 });

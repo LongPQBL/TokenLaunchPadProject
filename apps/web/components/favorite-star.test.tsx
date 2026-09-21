@@ -6,7 +6,8 @@ import { sepolia } from "wagmi/chains";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { API } from "../test/msw/handlers";
 import { server } from "../test/msw/server";
-import { renderWithWallet, TEST_DEPLOYMENT, TEST_USER } from "../test/wallet";
+import { externalConnector, renderWithWallet, TEST_DEPLOYMENT, TEST_USER } from "../test/wallet";
+import { SessionContext, type SessionValue } from "@/lib/session/use-session";
 import { FavoriteStar } from "./favorite-star";
 import { FavoritesNotice, FavoritesProvider } from "@/lib/favorites/use-favorites";
 
@@ -209,6 +210,32 @@ describe("a star after logging out", () => {
     api.session = false;
     await act(() => wallet.queryClient.invalidateQueries({ queryKey: ["siwe", "me"] }));
     await waitFor(() => expect(star("Alpha")).toHaveAttribute("aria-pressed", "false"));
+  });
+});
+
+describe("a star pressed while the trading wallet is not open", () => {
+  it("opens the trading wallet (its one signature), not the header's login and not the main wallet's stars, and stars nothing yet", async () => {
+    const api = fakeApi({ session: false });
+    const enable = vi.fn(async () => true);
+    const loginSpy = vi.fn();
+    const value: SessionValue = { status: "needs-signature", account: undefined, main: TEST_USER, enable };
+    const wallet = renderWithWallet(
+      <SessionContext.Provider value={value}>
+        <FavoritesProvider chain="sepolia">
+          <button data-login-trigger onClick={loginSpy}>
+            Log in
+          </button>
+          <FavoriteStar token={A} label="Alpha" />
+        </FavoritesProvider>
+      </SessionContext.Provider>,
+      [externalConnector()],
+    );
+    await act(() => connect(wallet.config, { connector: wallet.config.connectors[0]!, chainId: sepolia.id }));
+    await userEvent.setup().click(star("Alpha"));
+    expect(enable).toHaveBeenCalledOnce();
+    expect(loginSpy).not.toHaveBeenCalled();
+    expect(api.puts).toEqual([]);
+    expect(api.lists).toBe(0);
   });
 });
 

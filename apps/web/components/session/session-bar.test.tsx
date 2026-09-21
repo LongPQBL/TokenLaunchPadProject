@@ -7,27 +7,25 @@ import { sepolia } from "wagmi/chains";
 import { mock } from "wagmi/connectors";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeChain } from "@/test/fake-chain";
-import { embeddedId, renderWithWallet, TEST_DEPLOYMENT, TEST_USER } from "@/test/wallet";
+import { embeddedId, externalConnector, renderWithWallet, TEST_DEPLOYMENT, TEST_USER } from "@/test/wallet";
 import { SessionBar } from "./session-bar";
 
 const SESSION = privateKeyToAccount(`0x${"22".repeat(32)}`);
 const HASH = `0x${"ab".repeat(32)}` as const;
 
 const session = vi.hoisted(() => ({
-  value: { status: "off", account: undefined } as { status: string; account?: { address: string } },
+  value: { status: "ready", account: undefined } as { status: string; account?: { address: string } },
   enable: vi.fn(),
-  disable: vi.fn(),
 }));
-vi.mock("@/lib/session/use-session", () => ({ useSession: () => ({ ...session.value, enable: session.enable, disable: session.disable }) }));
+vi.mock("@/lib/session/use-session", () => ({ useSession: () => ({ ...session.value, enable: session.enable }) }));
 
 const send = vi.hoisted(() => ({ sendTransactionAsync: vi.fn() }));
 vi.mock("wagmi", async (importOriginal) => ({ ...(await importOriginal<typeof import("wagmi")>()), useSendTransaction: () => send }));
 
 beforeEach(() => {
   vi.stubEnv("NEXT_PUBLIC_DEPLOYMENT", TEST_DEPLOYMENT);
-  session.value = { status: "off", account: undefined };
+  session.value = { status: "ready", account: SESSION };
   session.enable.mockReset().mockResolvedValue(true);
-  session.disable.mockReset();
   send.sendTransactionAsync.mockReset().mockResolvedValue(HASH);
 });
 afterEach(() => vi.unstubAllEnvs());
@@ -40,7 +38,7 @@ async function setup(balances: { main?: bigint; session?: bigint } = {}, extra: 
       [SESSION.address.toLowerCase()]: balances.session ?? parseEther("0.25"),
     },
   });
-  const view = renderWithWallet(<SessionBar chain="sepolia" />, undefined, chain.transport);
+  const view = renderWithWallet(<SessionBar chain="sepolia" />, [externalConnector()], chain.transport);
   await act(() => connect(view.config, { connector: view.config.connectors[0]!, chainId: sepolia.id }));
   return { chain, user: userEvent.setup(), ...view };
 }
@@ -55,20 +53,27 @@ describe("SessionBar: balances in dollars", () => {
   });
 });
 
-describe("SessionBar: off", () => {
-  it("shows the main wallet and its balance, and offers a trading wallet, saying what the signature does", async () => {
+describe("SessionBar: not open yet", () => {
+  it("says the trading wallet is opening, and shows the main wallet it will be funded from", async () => {
+    session.value = { status: "restoring", account: undefined };
     await setup();
+    expect(await screen.findByText("Opening your trading wallet…")).toBeInTheDocument();
     await waitFor(() => expect(within(row("main-wallet")).getByText("1.5 ETH")).toBeInTheDocument());
-    expect(within(row("main-wallet")).getByText("Main wallet")).toBeInTheDocument();
     expect(screen.queryByTestId("trading-wallet")).not.toBeInTheDocument();
-    expect(screen.getByText(/signs one message with your main wallet/)).toBeInTheDocument();
-    expect(screen.getByText(/Only keep small amounts in it/)).toBeInTheDocument();
   });
 
-  it("turns it on with a click", async () => {
+  it("offers the one signature that opens it, saying what it is, and opens it with a click", async () => {
+    session.value = { status: "needs-signature", account: undefined };
     const { user } = await setup();
-    await user.click(screen.getByRole("button", { name: "Turn on trading wallet" }));
+    expect(screen.getByText(/Sign one message with your main wallet/)).toBeInTheDocument();
+    expect(screen.getByText(/Only keep small amounts in it/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Open trading wallet" }));
     expect(session.enable).toHaveBeenCalledOnce();
+  });
+
+  it("has no switch to turn the trading wallet on or off: it is not optional", async () => {
+    await setup();
+    expect(screen.queryByRole("button", { name: /Turn on trading wallet|Use main wallet|Turn off/ })).toBeNull();
   });
 
   it("shows nothing at all with no wallet connected", () => {
@@ -104,12 +109,6 @@ describe("SessionBar: on", () => {
     await setup();
     expect(within(row("trading-wallet")).getByRole("button", { name: "Withdraw all" })).toBeInTheDocument();
     expect(within(row("main-wallet")).queryByRole("button", { name: "Withdraw all" })).not.toBeInTheDocument();
-  });
-
-  it("goes back to the main wallet", async () => {
-    const { user } = await setup();
-    await user.click(screen.getByRole("button", { name: "Use main wallet" }));
-    expect(session.disable).toHaveBeenCalledOnce();
   });
 });
 
@@ -178,24 +177,13 @@ describe("SessionBar: top up", () => {
 });
 
 describe("SessionBar: the trading wallet cannot be used", () => {
-  it("offers one signature to bring it back, and does not pretend to trade from the main wallet", async () => {
-    session.value = { status: "needs-signature", account: undefined };
-    const { user } = await setup();
-    expect(screen.getByText("Your trading wallet needs one signature")).toBeInTheDocument();
-    expect(screen.queryByTestId("trading-wallet")).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Restore trading wallet" }));
-    expect(session.enable).toHaveBeenCalledOnce();
-    expect(screen.getByRole("button", { name: "Use main wallet" })).toBeInTheDocument(); // and a way out
-  });
-
   it("says plainly that nothing is lost when the wallet signed differently, and offers no way to make another", async () => {
     session.value = { status: "mismatch", account: undefined };
     await setup();
     expect(screen.getByText("Your wallet signed differently than before")).toBeInTheDocument();
     expect(screen.getByText(/no funds are lost/)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Restore trading wallet" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Turn on trading wallet" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Use main wallet" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Open trading wallet|Restore|Turn on/ })).not.toBeInTheDocument();
+    expect(screen.queryByTestId("trading-wallet")).not.toBeInTheDocument();
   });
 });
 
@@ -254,9 +242,10 @@ describe("SessionBar: an embedded wallet", () => {
   });
 
   // Review Focus 2: only Privy's own embedded wallet gets this. An external wallet, even one that logged in through Privy, keeps its trading wallet.
-  it("treats a wallet with a look-alike id as an ordinary one, which is offered a trading wallet", async () => {
+  it("treats a wallet with a look-alike id as an ordinary one, whose trading wallet is its own and is shown as such", async () => {
     await setupEmbedded("io.privy.wallet.evil");
-    expect(await screen.findByRole("button", { name: /turn on trading wallet/i })).toBeInTheDocument();
+    expect(await screen.findByTestId("trading-wallet")).toBeInTheDocument();
+    expect(screen.getByTestId("main-wallet")).toHaveTextContent("Main wallet");
     expect(screen.queryByText("Your wallet")).toBeNull();
   });
 });

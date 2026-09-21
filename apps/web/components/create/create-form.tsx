@@ -3,7 +3,7 @@
 import { chainBySlug, formatQuote, tokenFormSchema, UI, type TokenForm } from "@vezta/shared";
 import { useRouter } from "next/navigation";
 import { useId, useRef, useState } from "react";
-import { useAccount, useBalance } from "wagmi";
+import { useBalance } from "wagmi";
 import { ChainGuard } from "@/components/chain-guard";
 import { ConnectButton } from "@/components/connect-button";
 import { FundWallet } from "@/components/fund-wallet";
@@ -14,7 +14,9 @@ import { checkImage, getUploader } from "@/lib/create/upload";
 import { useCreateEstimate } from "@/lib/create/use-create-estimate";
 import { getDeployment } from "@/lib/deployment";
 import { friendlyError } from "@/lib/tx/errors";
+import { useIdentity } from "@/lib/wallet/use-identity";
 import { useTrade } from "@/lib/wallet/use-trade";
+import { TradingWalletNotice } from "@/components/trading-wallet-notice";
 import { CreateSteps, type CreateStep } from "./create-steps";
 import { WindowPicker } from "./window-picker";
 
@@ -45,9 +47,10 @@ export function CreateForm({ chain }: { chain: string }) {
   const router = useRouter();
   const trade = useTrade();
   const siwe = useSiwe();
-  const { address, isConnected } = useAccount();
-  // The wallet that pays for the launch (the trading wallet when one is in use).
-  const payer = trade.capabilities.address ?? address;
+  const identity = useIdentity();
+  const isConnected = identity.kind !== "none";
+  // The wallet that pays for the launch: the trading wallet (which is who the person is), never the main wallet.
+  const payer = identity.address;
   const balance = useBalance({ address: payer, chainId: getDeployment()?.chainId, query: { enabled: !!payer } });
   const ids = useId();
 
@@ -194,10 +197,11 @@ export function CreateForm({ chain }: { chain: string }) {
       <CreateSteps current={step} />
 
       {isConnected && payer && <FundWallet address={payer} balance={balance.data?.value} chain={chain} />}
+      <TradingWalletNotice />
 
       <ChainGuard chainName={config?.name ?? chain}>
         {isConnected ? (
-          <Button type="submit" size="lg" disabled={working}>
+          <Button type="submit" size="lg" disabled={working || !identity.address}>
             {UI.create.submit}
           </Button>
         ) : (

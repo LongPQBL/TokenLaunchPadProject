@@ -3,7 +3,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { chainBySlug, UI } from "@vezta/shared";
 import { useEffect, useState, type ReactNode } from "react";
-import { useAccount } from "wagmi";
+import { useIdentity } from "@/lib/wallet/use-identity";
 import { useSiwe } from "@/lib/auth/use-siwe";
 import { getModerationApi } from "@/lib/moderation/client";
 import { Button } from "../ui/button";
@@ -33,7 +33,7 @@ const Failed = () => (
  * cannot be loaded says so without taking the others down.
  */
 export function AdminPanel({ chain }: { chain: string }) {
-  const { address } = useAccount();
+  const { address } = useIdentity();
   const { isAdmin, isSignedIn, isLoading, signIn } = useSiwe();
   const queryClient = useQueryClient();
   const config = chainBySlug(chain);

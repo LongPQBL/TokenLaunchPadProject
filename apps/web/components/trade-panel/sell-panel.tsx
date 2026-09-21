@@ -4,7 +4,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { centsToText, chainBySlug, formatCompactTokens, formatQuote, formatUsd, minPayoutWithSlippage, parseUsd, quoteToUsdCents, UI, usdToQuote } from "@vezta/shared";
 import { useState } from "react";
 import { formatUnits, type Address } from "viem";
-import { useAccount } from "wagmi";
 import { ChainGuard } from "@/components/chain-guard";
 import { ConnectButton } from "@/components/connect-button";
 import { TxToast } from "@/components/tx-toast";
@@ -16,7 +15,9 @@ import { useUsdRate } from "@/lib/chain/use-usd-rate";
 import { parseAmount } from "@/lib/format";
 import { useTxRun } from "@/lib/tx/use-tx-run";
 import { useSlippage } from "@/lib/use-slippage";
+import { useIdentity } from "@/lib/wallet/use-identity";
 import { useTrade } from "@/lib/wallet/use-trade";
+import { TradingWalletNotice } from "@/components/trading-wallet-notice";
 import { AmountInput } from "./amount-input";
 import { Graduating, useRefreshCurveWhen } from "./curve-state";
 import { useLastTrade } from "./last-trade";
@@ -31,9 +32,10 @@ export function SellPanel({ chain, token, ticker }: { chain: string; token: Addr
 
   const trade = useTrade();
   const queryClient = useQueryClient();
-  const { isConnected } = useAccount();
+  const identity = useIdentity();
+  const isConnected = identity.kind !== "none";
   // The wallet that HOLDS the tokens: the trading wallet when one is in use, with its own balance and its own approval.
-  const { balance, allowance } = useTokenAccount(token, trade.capabilities.address);
+  const { balance, allowance } = useTokenAccount(token, identity.address);
   const { bps: slippageBps, setBps: setSlippage } = useSlippage();
   const { state, run } = useTxRun();
   const { setLast } = useLastTrade();
@@ -64,7 +66,7 @@ export function SellPanel({ chain, token, ticker }: { chain: string; token: Addr
   // Two prompts only when the wallet cannot batch: with EIP-5792 the seam sends approve + sell as one.
   const needsApproval = allowance !== undefined && amount > allowance && !trade.capabilities.canBatch;
   // A bound of zero would accept any price at all, so a sale too small to pay anything is not offered.
-  const canSell = amount > 0n && !tooMuch && minQuoteOutput > 0n && allowance !== undefined && state.status !== "pending";
+  const canSell = !!identity.address && amount > 0n && !tooMuch && minQuoteOutput > 0n && allowance !== undefined && state.status !== "pending";
 
   const graduating = state.status === "error" && state.code === "CurveCompleted";
   useRefreshCurveWhen(graduating);
@@ -184,6 +186,7 @@ export function SellPanel({ chain, token, ticker }: { chain: string; token: Addr
         </div>
       )}
 
+      <TradingWalletNotice />
       <ChainGuard chainName={config?.name ?? chain}>
         {isConnected ? (
           <Button className="w-full bg-sell text-white hover:bg-sell/90" disabled={!canSell} onClick={sell}>

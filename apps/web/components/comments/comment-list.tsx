@@ -2,7 +2,7 @@
 
 import { UI } from "@vezta/shared";
 import { useCallback, useEffect, useState } from "react";
-import { useAccount } from "wagmi";
+import { useIdentity } from "@/lib/wallet/use-identity";
 import { useSiwe } from "@/lib/auth/use-siwe";
 import { api } from "@/lib/api";
 import { getCommentsApi } from "@/lib/comments/client";
@@ -88,7 +88,7 @@ export function CommentList({
     },
   });
 
-  const { address } = useAccount();
+  const { address } = useIdentity();
   const siwe = useSiwe();
   const state: CommentAuthState = !address ? "disconnected" : siwe.isSignedIn ? "signed-in" : "signed-out";
 

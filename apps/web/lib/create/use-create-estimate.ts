@@ -2,7 +2,8 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { launchpadAbi, tokenFactoryAbi } from "@vezta/abi";
-import { useAccount, useGasPrice, usePublicClient, useReadContract } from "wagmi";
+import { useGasPrice, usePublicClient, useReadContract } from "wagmi";
+import { useIdentity } from "../wallet/use-identity";
 import { getDeployment } from "../deployment";
 import type { AntiSniperWindow } from "../wallet/types";
 
@@ -16,7 +17,7 @@ const PLACEHOLDER_URI = `ipfs://${"a".repeat(59)}`;
  */
 export function useCreateEstimate({ name, ticker, antiSniperWindow }: { name: string; ticker: string; antiSniperWindow: AntiSniperWindow }) {
   const deployment = getDeployment();
-  const { address } = useAccount();
+  const { address } = useIdentity();
   const publicClient = usePublicClient({ chainId: deployment?.chainId });
 
   const fee = useReadContract({

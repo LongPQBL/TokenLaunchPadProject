@@ -6,8 +6,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api";
 import { TradeError } from "@/lib/wallet/types";
 import { fakeChain } from "@/test/fake-chain";
-import { renderWithWallet, TEST_DEPLOYMENT, TEST_USER } from "@/test/wallet";
-import { CreateForm } from "./create-form";
+import { externalConnector, renderWithWallet, TEST_DEPLOYMENT, TEST_USER } from "@/test/wallet";
+import { SessionContext, type SessionValue } from "@/lib/session/use-session";import { CreateForm } from "./create-form";
 
 const WETH = "0x00000000000000000000000000000000000000e5";
 const NEW_TOKEN = "0x00000000000000000000000000000000000000AB";
@@ -66,6 +66,23 @@ describe("CreateForm: a wallet with no ETH", () => {
     await setup();
     await screen.findByRole("button", { name: "Create token" });
     expect(screen.queryByText(/holds no ETH/i)).toBeNull();
+  });
+});
+
+describe("CreateForm: an external wallet whose trading wallet is not open", () => {
+  it("will not create a token, and says how to open the trading wallet: the launch is paid for from it, never from the main wallet", async () => {
+    const value: SessionValue = { status: "needs-signature", account: undefined, main: TEST_USER, enable: async () => true };
+    const chain = fakeChain();
+    const view = renderWithWallet(
+      <SessionContext.Provider value={value}>
+        <CreateForm chain="sepolia" />
+      </SessionContext.Provider>,
+      [externalConnector()],
+      chain.transport,
+    );
+    await act(() => connect(view.config, { connector: view.config.connectors[0]!, chainId: sepolia.id }));
+    expect(submit()).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Open trading wallet" })).toBeInTheDocument();
   });
 });
 

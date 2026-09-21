@@ -2,7 +2,8 @@
 
 import { tokenAbi } from "@vezta/abi";
 import type { Address } from "viem";
-import { useAccount, useReadContract } from "wagmi";
+import { useReadContract } from "wagmi";
+import { useIdentity } from "../wallet/use-identity";
 import { getDeployment } from "../deployment";
 
 /**
@@ -12,7 +13,7 @@ import { getDeployment } from "../deployment";
  */
 export function useTokenAccount(token: Address | undefined, owner?: Address) {
   const deployment = getDeployment();
-  const connected = useAccount().address;
+  const connected = useIdentity().address;
   const address = owner ?? connected;
   const enabled = !!deployment && !!token && !!address;
   const common = { address: token, abi: tokenAbi, chainId: deployment?.chainId } as const;

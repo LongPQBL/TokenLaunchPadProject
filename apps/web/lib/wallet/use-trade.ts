@@ -23,7 +23,7 @@ const UNCONFIGURED: UseTrade = {
   createToken: async () => notConfigured(),
 };
 
-/** The session wallet is on but cannot be used yet (still opening, lost from this browser, or mismatched): nothing is sent from anywhere. */
+/** The trading wallet is not open yet (still opening, waiting for a signature, or mismatched): nothing is sent from anywhere. */
 const NO_SESSION: UseTrade = {
   capabilities: { kind: "session", address: undefined, chainId: undefined, canBatch: false, isZeroPrompt: true },
   buyWithEth: async () => noSession(),
@@ -45,12 +45,14 @@ const embeddedOpening = (address: `0x${string}` | undefined, chainId: number | u
   };
 };
 const noSession = (): never => {
-  throw new TradeError("no_session", "Turn on your trading wallet first.");
+  throw new TradeError("no_session", "Your trading wallet is not open yet. Open it, then try again.");
 };
 
 /**
- * The one way the panels trade. Today it is the person's own wallet; the session wallet and the embedded wallet
- * (later groups) slot in behind this same return type, so the panels never learn who signs.
+ * The one way the panels trade, and it is always the trading wallet: a wallet that signs by itself (Google, email) is its own, and
+ * for an external wallet (MetaMask, Phantom) it is the wallet opened from it. Both sign in the browser, so nothing is confirmed
+ * per trade. The external wallet itself never trades: if the trading wallet is not open, the trade is REFUSED rather than sent
+ * from an account the person did not choose. Only with no wallet at all is the seam the plain one, which says to connect.
  */
 export function useTrade(): UseTrade {
   const deployment = getDeployment();
@@ -104,17 +106,19 @@ export function useTrade(): UseTrade {
         publicClient,
       });
     }
-    // Trading from the session wallet needs no prompt. If it is turned on but not usable, the trade is REFUSED: quietly
+    // An external wallet trades from its trading wallet, which needs no prompt. If it is not open, the trade is REFUSED: quietly
     // falling back to the main wallet would spend from an account the person did not choose for this.
-    if (session.status === "ready" && session.account) {
-      return createSessionTrade({
-        account: session.account,
-        deployment,
-        publicClient,
-        onTokenHeld: (token) => address && rememberToken(address, token),
-      });
+    if (address) {
+      if (session.status === "ready" && session.account) {
+        return createSessionTrade({
+          account: session.account,
+          deployment,
+          publicClient,
+          onTokenHeld: (token) => rememberToken(address, token),
+        });
+      }
+      return NO_SESSION;
     }
-    if (session.status !== "off") return NO_SESSION;
     return createSelfCustody({
       deployment,
       expectedChainId: deployment.chainId,

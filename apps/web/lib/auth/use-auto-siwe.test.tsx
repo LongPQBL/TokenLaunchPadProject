@@ -3,6 +3,9 @@ import { connect, disconnect } from "wagmi/actions";
 import { sepolia } from "wagmi/chains";
 import { mock } from "wagmi/connectors";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
+import type { ReactNode } from "react";
+import { SessionContext, type SessionValue } from "../session/use-session";
 import { embeddedId, TEST_USER, testWallet } from "../../test/wallet";
 import { useAutoSiwe } from "./use-auto-siwe";
 
@@ -32,7 +35,7 @@ async function setup(id: string, account: `0x${string}` = TEST_USER) {
 }
 
 describe("useAutoSiwe", () => {
-  it("signs an embedded wallet in to the API, once: it signs without asking, so this costs the person nothing", async () => {
+  it("signs a wallet that signs by itself in to the API, once: it signs without asking, so this costs the person nothing", async () => {
     await setup(embeddedId(TEST_USER));
     await waitFor(() => expect(siwe.signIn).toHaveBeenCalledTimes(1));
   });
@@ -51,14 +54,27 @@ describe("useAutoSiwe", () => {
     expect(siwe.signIn).not.toHaveBeenCalled();
   });
 
-  // An external wallet would put a signature request in front of the person: that is asked for by an action, never by a login.
-  it("never signs an external wallet in by itself, and not a look-alike of the embedded one", async () => {
+  it("waits, for an external wallet, until its trading wallet is open: until then there is nobody to sign in", async () => {
     for (const id of ["io.metamask", "injected", "io.privy.wallet.evil"]) {
       const { unmount } = await setup(id);
       await act(() => new Promise((r) => setTimeout(r, 60)));
       expect(siwe.signIn, id).not.toHaveBeenCalled();
       unmount();
     }
+  });
+
+  it("signs an external wallet's trading wallet in, once it is open: that is a local key, so it costs the person nothing either", async () => {
+    const trading = privateKeyToAccount(generatePrivateKey());
+    const value: SessionValue = { status: "ready", account: trading, main: TEST_USER, enable: async () => true };
+    const wallet = testWallet([named("io.metamask")]);
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <wallet.wrapper>
+        <SessionContext.Provider value={value}>{children}</SessionContext.Provider>
+      </wallet.wrapper>
+    );
+    renderHook(() => useAutoSiwe(), { wrapper });
+    await act(() => connect(wallet.config, { connector: wallet.config.connectors[0]!, chainId: sepolia.id }));
+    await waitFor(() => expect(siwe.signIn).toHaveBeenCalledTimes(1));
   });
 
   it("tries once per address: a failure is not retried in a loop, and is handled rather than left as an unhandled rejection", async () => {

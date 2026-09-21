@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
-import { expect, RPC_URL, test } from "./fixtures";
-import { createToken, ensureConnected, panel, spendEth } from "./helpers";
+import { expect, FILLED, RPC_URL, test } from "./fixtures";
+import { connect, createToken, ensureConnected, panel, spendEth } from "./helpers";
 import { installWallet } from "./wallet";
 
 test.setTimeout(180_000);
@@ -11,11 +11,6 @@ const prompts = (requests: string[]) => requests.filter((m) => PROMPTS.includes(
 const count = (requests: string[], method: string) => requests.filter((m) => m === method).length;
 
 const bar = (page: Page) => page.getByTestId("trading-wallet");
-
-async function enableSession(page: Page) {
-  await page.getByRole("button", { name: "Turn on trading wallet" }).click();
-  await expect(bar(page)).toBeVisible({ timeout: 20_000 });
-}
 
 async function topUp(page: Page, amount: "0.1" | "0.2" | "0.3") {
   await bar(page).getByRole("button", { name: "Top up" }).click();
@@ -36,16 +31,17 @@ async function buy(page: Page, eth: string, symbol: string) {
   await expect(panel(page).getByText(new RegExp(`You bought .* ${symbol} for `))).toBeVisible({ timeout: 60_000 });
 }
 
-test("buy and sell with no wallet prompt after the trading wallet is set up", async ({ page }) => {
+/** The trading wallet opens by itself when a wallet connects, so on a page it is simply there. */
+const opened = (page: Page) => expect(bar(page)).toBeVisible({ timeout: 30_000 });
+const ethBalance = async (page: Page) => (await bar(page).locator('[title$=" ETH"]').first().getAttribute("title"))!;
+
+test("the trading wallet opens by itself with ONE signature, and creating, buying and selling never reach the main wallet", async ({ page }) => {
   const wallet = await installWallet(page, RPC_URL);
   const symbol = await createToken(page, { window: "No protection" });
+  await opened(page);
+  expect((await sessionAddress(page)).toLowerCase()).toBe(wallet.tradingAddress.toLowerCase());
 
-  await enableSession(page);
-  await topUp(page, "0.2");
-  const asked = prompts(wallet.requests);
-  const signatures = count(wallet.requests, "personal_sign");
-
-  // Trade, twice over: a purchase, then a sale that has to approve first. Not one of these may reach the main wallet.
+  // Trade, twice over: a purchase, then a sale that has to approve first.
   await buy(page, "0.01", symbol);
   await panel(page).getByRole("tab", { name: "Sell" }).click();
   await expect(panel(page).getByRole("button", { name: "Max" })).toBeEnabled({ timeout: 30_000 });
@@ -53,22 +49,32 @@ test("buy and sell with no wallet prompt after the trading wallet is set up", as
   await panel(page).getByRole("button", { name: "Step 1 of 2: approve selling" }).click();
   await expect(panel(page).getByText(new RegExp(`You sold .* ${symbol} and received `))).toBeVisible({ timeout: 90_000 });
 
-  expect(prompts(wallet.requests)).toBe(asked);
-  expect(count(wallet.requests, "personal_sign")).toBe(signatures);
-  // ...and before that, exactly what was asked for: sign in + sign the session message, create the token + the top-up.
-  expect(count(wallet.requests, "personal_sign")).toBe(2);
-  expect(count(wallet.requests, "eth_sendTransaction")).toBe(2);
+  // The main wallet was asked for exactly one thing, in all: the message that opens the trading wallet. Signing in to the API is done
+  // by the trading wallet's own key, and the token was created, bought and sold from it.
+  expect(count(wallet.requests, "personal_sign")).toBe(1);
+  expect(count(wallet.requests, "eth_sendTransaction")).toBe(0);
+  expect(prompts(wallet.requests)).toBe(1);
+});
+
+test("top up moves ETH from the main wallet into the trading wallet, in one confirmation", async ({ page }) => {
+  const wallet = await installWallet(page, RPC_URL, { tradingEth: 0 });
+  await page.goto(`/sepolia/token/${FILLED}`);
+  await connect(page);
+  await opened(page);
+  expect(await ethBalance(page)).toBe("0 ETH");
+  await topUp(page, "0.2");
+  expect(count(wallet.requests, "eth_sendTransaction")).toBe(1);
+  await expect.poll(() => ethBalance(page), { timeout: 30_000 }).toBe("0.2 ETH");
 });
 
 test("clearing all storage and signing again recovers the same trading wallet and its balance", async ({ page }) => {
-  const wallet = await installWallet(page, RPC_URL);
-  await createToken(page, { window: "No protection" });
-  await enableSession(page);
+  const wallet = await installWallet(page, RPC_URL, { tradingEth: 0 });
+  await page.goto(`/sepolia/token/${FILLED}`);
+  await connect(page);
+  await opened(page);
   await topUp(page, "0.2");
   const before = await sessionAddress(page);
-  // The balance is drawn in dollars; the ETH it is (to the wei that matters here) is in its tooltip.
-  const balanceBefore = await bar(page).locator('[title$=" ETH"]').first().getAttribute("title");
-  expect(balanceBefore).toBe("0.2 ETH");
+  await expect.poll(() => ethBalance(page), { timeout: 30_000 }).toBe("0.2 ETH");
 
   // Everything a browser keeps: what a new browser, a new machine or "clear site data" amounts to.
   await page.context().clearCookies();
@@ -80,22 +86,21 @@ test("clearing all storage and signing again recovers the same trading wallet an
       request.onsuccess = request.onerror = request.onblocked = () => resolve(null);
     });
   });
+  const signed = count(wallet.requests, "personal_sign");
   await page.reload();
   await ensureConnected(page); // (the wallet still trusts the site, so it may reconnect on its own)
 
-  // The wallet has to be asked once more, and it gives back the very same one.
-  const signed = count(wallet.requests, "personal_sign");
-  await enableSession(page);
+  // The wallet is asked once more, by itself, and it gives back the very same trading wallet, with its funds.
+  await opened(page);
   expect(count(wallet.requests, "personal_sign")).toBe(signed + 1);
   expect(await sessionAddress(page)).toBe(before);
-  await expect(bar(page).locator('[title="0.2 ETH"]').first()).toBeVisible({ timeout: 30_000 });
+  await expect.poll(() => ethBalance(page), { timeout: 30_000 }).toBe("0.2 ETH");
 });
 
 test("withdraw all empties the trading wallet of ETH and tokens", async ({ page }) => {
   const wallet = await installWallet(page, RPC_URL);
   const symbol = await createToken(page, { window: "No protection" });
-  await enableSession(page);
-  await topUp(page, "0.2");
+  await opened(page);
   await buy(page, "0.01", symbol);
   const session = await sessionAddress(page);
   const token = tokenOf(page);
