@@ -292,7 +292,6 @@ export const UI = {
     sell: "Sell",
     amountToSpend: (symbol: string) => `Amount to spend (${symbol})`,
     enterIn: (unit: string) => `Enter in ${unit}`,
-    youReceive: (amount: string, ticker: string) => `You receive ≈ ${amount} ${ticker}`,
     balanceLabel: "Balance",
     balanceLine: (amount: string) => `Balance ${amount}`,
     amountToSell: (ticker: string) => `Amount to sell (${ticker})`,

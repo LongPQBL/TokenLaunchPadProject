@@ -54,11 +54,12 @@ describe("BuyPanel in dollars", () => {
     expect(screen.getByTestId("equivalent")).toHaveTextContent(`≈ ${formatQuote(usdToQuote(200n, RATE), 18, 6)} ETH`);
   });
 
-  it("quotes the tokens that many dollars buy, and says what you receive", async () => {
+  it("quotes the tokens that many dollars buy, in the breakdown only, with no separate \"You receive\" line above it", async () => {
     const { user } = await setup();
     await user.type(await dollars(), "2");
     const q = computeBuyQuote(freshCurve(), 100n, 0n, usdToQuote(200n, RATE));
-    await waitFor(() => expect(screen.getByTestId("receive")).toHaveTextContent(`You receive ≈ ${formatCompactTokens(q.amount)} DEMO`));
+    await waitFor(() => expect(screen.getByTestId("cost-breakdown")).toHaveTextContent(`You receive (est.)≈ ${formatCompactTokens(q.amount)} DEMO`));
+    expect(screen.queryByTestId("receive")).toBeNull();
   });
 
   it("buys exactly what the dollars quoted", async () => {
@@ -77,7 +78,7 @@ describe("BuyPanel in dollars", () => {
     for (const bad of ["1.234", "abc", "-5"]) {
       await user.clear(box);
       await user.type(box, bad);
-      expect(screen.queryByTestId("receive"), bad).toBeNull();
+      expect(screen.queryByTestId("cost-breakdown"), bad).toBeNull();
       expect(buyButton(), bad).toBeDisabled();
     }
   });

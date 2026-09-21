@@ -36,7 +36,7 @@ test.describe("with a wallet", () => {
     await expect(dollars).toBeVisible({ timeout: 30_000 });
     await dollars.fill("1");
     await expect(panel(page).getByTestId("equivalent")).toHaveText(/^≈ 0\.000\d+ ETH$/);
-    await expect(panel(page).getByTestId("receive")).toContainText(`You receive ≈`);
+    await expect(panel(page).getByTestId("cost-breakdown")).toContainText("You receive (est.)");
     await expect(panel(page).getByTestId("balance")).toContainText(/^Balance \$[\d,]+\.\d\d$/); // the wallet's balance, in dollars
     const buy = panel(page).getByRole("button", { name: "Buy" });
     await expect(buy).toBeEnabled();

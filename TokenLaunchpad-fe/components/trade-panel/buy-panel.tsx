@@ -153,12 +153,6 @@ export function BuyPanel({ chain, token, ticker }: { chain: string; token: Addre
       )}
 
       {wantsToBuy && (
-        <p data-testid="receive" className="text-sm text-muted-foreground">
-          {UI.trade.youReceive(formatCompactTokens(quote.amount), ticker)}
-        </p>
-      )}
-
-      {wantsToBuy && (
         <CostBreakdown
           quoteCost={quote.quoteCost}
           baseFee={quote.baseFee}
