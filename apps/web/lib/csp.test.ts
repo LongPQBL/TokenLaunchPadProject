@@ -81,10 +81,53 @@ describe("buildCsp", () => {
 describe("cspSources", () => {
   it("reads the origins from the build's environment, dropping what is not a URL", () => {
     const s = cspSources({ NEXT_PUBLIC_API_URL: "https://api.example/x", NEXT_PUBLIC_RPC_URL: "not a url", NEXT_PUBLIC_IMAGE_ORIGINS: "https://ipfs.io, nope ,https://cdn.example/path", NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: "abc" });
-    expect(s).toEqual({ apiUrl: "https://api.example/x", rpcUrl: undefined, imageOrigins: ["https://ipfs.io", "https://cdn.example"], walletConnect: true });
+    expect(s).toEqual({ apiUrl: "https://api.example/x", rpcUrl: undefined, imageOrigins: ["https://ipfs.io", "https://cdn.example"], walletConnect: true, privy: false });
   });
 
   it("has sensible local defaults", () => {
-    expect(cspSources({})).toEqual({ apiUrl: "http://localhost:3001", rpcUrl: undefined, imageOrigins: [], walletConnect: false });
+    expect(cspSources({})).toEqual({ apiUrl: "http://localhost:3001", rpcUrl: undefined, imageOrigins: [], walletConnect: false, privy: false });
+  });
+});
+
+describe("Privy", () => {
+  it("adds Privy's frames and connections only when Privy is on", () => {
+    const off = buildCsp(base);
+    const on = buildCsp({ ...base, privy: true });
+    expect(directive(off, "frame-src")).toBeUndefined();
+    expect(directive(off, "connect-src")).not.toContain("privy");
+    const frames = directive(on, "frame-src")!;
+    for (const origin of ["https://auth.privy.io", "https://verify.walletconnect.com", "https://verify.walletconnect.org", "https://challenges.cloudflare.com"]) {
+      expect(frames).toContain(origin);
+    }
+    const connect = directive(on, "connect-src")!;
+    for (const origin of ["https://auth.privy.io", "https://*.rpc.privy.systems", "wss://relay.walletconnect.com", "wss://relay.walletconnect.org", "wss://www.walletlink.org", "https://explorer-api.walletconnect.com"]) {
+      expect(connect).toContain(origin);
+    }
+    expect(directive(on, "child-src")).toContain("https://auth.privy.io");
+  });
+
+  it("does not loosen scripts for Privy: still nonce + strict-dynamic, no eval, no wildcard, no unsafe-inline", () => {
+    const script = directive(buildCsp({ ...base, privy: true }), "script-src")!;
+    expect(script).toBe("script-src 'self' 'nonce-abc123' 'strict-dynamic'");
+  });
+
+  it("keeps everything else it had: framing, form posts, objects, the base URI", () => {
+    const csp = buildCsp({ ...base, privy: true });
+    expect(directive(csp, "frame-ancestors")).toBe("frame-ancestors 'none'");
+    expect(directive(csp, "form-action")).toBe("form-action 'self'");
+    expect(directive(csp, "object-src")).toBe("object-src 'none'");
+    expect(directive(csp, "base-uri")).toBe("base-uri 'self'");
+    expect(directive(csp, "default-src")).toBe("default-src 'self'");
+  });
+
+  it("does not open frames to any other origin: frame-src names exactly Privy's, WalletConnect's verifier and Cloudflare's", () => {
+    const frames = directive(buildCsp({ ...base, privy: true }), "frame-src")!.split(" ").slice(1);
+    expect(frames.sort()).toEqual(["https://auth.privy.io", "https://challenges.cloudflare.com", "https://verify.walletconnect.com", "https://verify.walletconnect.org"]);
+  });
+
+  it("is on when the build has an App ID, and off for none or a blank one", () => {
+    expect(cspSources({ NEXT_PUBLIC_PRIVY_APP_ID: "cmuap9z3s01wc0cl9aqwaf2ei" }).privy).toBe(true);
+    expect(cspSources({ NEXT_PUBLIC_PRIVY_APP_ID: "  " }).privy).toBe(false);
+    expect(cspSources({}).privy).toBe(false);
   });
 });

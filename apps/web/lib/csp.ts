@@ -10,7 +10,20 @@ export interface CspInput {
   /** Hosts token images may load from: the configured IPFS gateway, never "any https host". */
   imageOrigins: string[];
   walletConnect: boolean;
+  /** Privy is part of this build: its login frames and API connections are let through, and nothing else about the policy changes. */
+  privy?: boolean;
 }
+
+/** What Privy's own documentation lists as required, and no more. Scripts are NOT here: the nonce and strict-dynamic already cover what Privy loads. */
+const PRIVY_FRAMES = ["https://auth.privy.io", "https://verify.walletconnect.com", "https://verify.walletconnect.org", "https://challenges.cloudflare.com"];
+const PRIVY_CONNECT = [
+  "https://auth.privy.io",
+  "https://*.rpc.privy.systems",
+  "wss://relay.walletconnect.com",
+  "wss://relay.walletconnect.org",
+  "wss://www.walletlink.org",
+  "https://explorer-api.walletconnect.com",
+];
 
 /** An origin (scheme, host, port) from a URL, or undefined: only http(s) and only what parses. A path or a key is dropped. */
 function origin(value: string | undefined): string | undefined {
@@ -29,7 +42,7 @@ function origin(value: string | undefined): string | undefined {
  * did), nothing may be framed or posted elsewhere, and the page may talk only to itself, the API and the RPC. It is the
  * second line of defence: the first is that no hostile string is ever rendered as markup (spec §11).
  */
-export function buildCsp({ nonce, isDev, apiUrl, rpcUrl, imageOrigins, walletConnect }: CspInput): string {
+export function buildCsp({ nonce, isDev, apiUrl, rpcUrl, imageOrigins, walletConnect, privy = false }: CspInput): string {
   if (!/^[A-Za-z0-9+/=_-]+$/.test(nonce)) throw new Error("the CSP nonce must be base64");
 
   // A websocket is a different scheme from the page that opens it, and not every browser counts wss: as a match for https:, so
@@ -41,6 +54,7 @@ export function buildCsp({ nonce, isDev, apiUrl, rpcUrl, imageOrigins, walletCon
     socketOf(origin(apiUrl)),
     origin(rpcUrl ?? sepolia.rpcUrls.default.http[0]),
     ...(walletConnect ? ["wss://relay.walletconnect.org", "https://rpc.walletconnect.org"] : []),
+    ...(privy ? PRIVY_CONNECT : []),
   ].filter((x): x is string => !!x);
   const images = ["'self'", "data:", "blob:", ...imageOrigins.map(origin).filter((x): x is string => !!x)];
 
@@ -55,6 +69,7 @@ export function buildCsp({ nonce, isDev, apiUrl, rpcUrl, imageOrigins, walletCon
     `img-src ${images.join(" ")}`,
     "font-src 'self'",
     `connect-src ${[...new Set(connect)].join(" ")}`,
+    ...(privy ? [`frame-src ${PRIVY_FRAMES.join(" ")}`, `child-src ${PRIVY_FRAMES.slice(0, 3).join(" ")}`] : []),
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
@@ -73,5 +88,6 @@ export function cspSources(env: Record<string, string | undefined>) {
       .map(origin)
       .filter((x): x is string => !!x),
     walletConnect: !!env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID,
+    privy: !!env.NEXT_PUBLIC_PRIVY_APP_ID?.trim(),
   };
 }
