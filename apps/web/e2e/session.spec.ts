@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 import { expect, RPC_URL, test } from "./fixtures";
-import { createToken, ensureConnected, panel } from "./helpers";
+import { createToken, ensureConnected, panel, spendEth } from "./helpers";
 import { installWallet } from "./wallet";
 
 test.setTimeout(180_000);
@@ -30,7 +30,7 @@ const sessionAddress = async (page: Page) => (await bar(page).locator("[title]")
 const tokenOf = (page: Page) => /\/token\/(0x[0-9a-f]{40})/.exec(page.url())![1]!;
 
 async function buy(page: Page, eth: string, symbol: string) {
-  await panel(page).getByLabel("Amount to spend (ETH)").fill(eth);
+  await spendEth(page, eth);
   await expect(panel(page).getByRole("button", { name: "Buy" })).toBeEnabled({ timeout: 30_000 });
   await panel(page).getByRole("button", { name: "Buy" }).click();
   await expect(panel(page).getByText(new RegExp(`You bought .* ${symbol} for `))).toBeVisible({ timeout: 60_000 });
@@ -123,7 +123,7 @@ test("a curve that fills is migrated by the bot without anyone pressing anything
   await installWallet(page, RPC_URL);
   await createToken(page, { window: "No protection" });
 
-  await panel(page).getByLabel("Amount to spend (ETH)").fill("0.2"); // far more than the curve needs
+  await spendEth(page, "0.2"); // far more than the curve needs
   await expect(panel(page).getByRole("button", { name: "Buy" })).toBeEnabled();
   await panel(page).getByRole("button", { name: "Buy" }).click();
 

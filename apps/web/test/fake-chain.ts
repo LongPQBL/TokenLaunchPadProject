@@ -1,9 +1,15 @@
 import { launchpadAbi, tokenAbi } from "@vezta/abi";
 import { previewBuyLocal, previewSellLocal, type Curve } from "@vezta/shared";
-import { custom, decodeFunctionData, encodeErrorResult, encodeFunctionResult, toHex, type Address, type Hex } from "viem";
+import { custom, decodeFunctionData, encodeErrorResult, encodeFunctionResult, parseAbi, toHex, type Address, type Hex } from "viem";
 
 const SUPPLY = 10n ** 27n;
 const ADDR = "0x0000000000000000000000000000000000000001" as const;
+/** The Chainlink ETH/USD feed on Sepolia, which the chain config names. */
+export const USD_FEED = "0x694AA1769357215DE4FAC081bf1f309aDC325306" as const;
+const feedAbi = parseAbi([
+  "function latestRoundData() view returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)",
+  "function decimals() view returns (uint8)",
+]);
 
 /** A curve at the start of its life: 1B tokens, a 0.05 ETH graduation, nothing sold. */
 export const freshCurve = (over: Partial<Curve> = {}): Curve => ({
@@ -44,6 +50,8 @@ export interface FakeChainState {
   previewBuyOverride?: (amount: bigint) => readonly [bigint, bigint, bigint];
   /** Makes previewBuy revert with a contract error, as it does once the curve has completed. */
   previewBuyRevert?: "CurveCompleted";
+  /** What the ETH/USD feed says. Absent: the feed does not answer (a chain without one, or a node that cannot reach it). */
+  usd?: { answer: bigint; decimals?: number; updatedAt?: bigint };
 }
 
 /**
@@ -65,6 +73,14 @@ export function fakeChain(initial: Partial<FakeChainState> = {}) {
   const calls: string[] = [];
 
   function ethCall(to: Address, data: Hex): Hex {
+    if (to.toLowerCase() === USD_FEED.toLowerCase()) {
+      if (!state.usd) throw new Error("fakeChain: the price feed does not answer");
+      const { functionName } = decodeFunctionData({ abi: feedAbi, data });
+      calls.push(`feed:${functionName}`);
+      if (functionName === "decimals") return encodeFunctionResult({ abi: feedAbi, functionName, result: state.usd.decimals ?? 8 });
+      const updatedAt = state.usd.updatedAt ?? BigInt(Math.floor(Date.now() / 1000));
+      return encodeFunctionResult({ abi: feedAbi, functionName, result: [1n, state.usd.answer, updatedAt, updatedAt, 1n] });
+    }
     const isToken = to.toLowerCase() !== "0x00000000000000000000000000000000000000c3";
     if (isToken) {
       const { functionName, args } = decodeFunctionData({ abi: tokenAbi, data });

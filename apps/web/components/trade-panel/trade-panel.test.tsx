@@ -36,6 +36,19 @@ describe("TradePanel", () => {
     expect(screen.getByLabelText("Amount to sell (DEMO)")).toBeInTheDocument();
   });
 
+  it("colours the Buy tab green and the Sell tab red when each is the one open, whatever the colour scheme", async () => {
+    const chain = fakeChain();
+    renderWithWallet(<TradePanel chain="sepolia" token={TOKEN} ticker="DEMO" />, undefined, chain.transport);
+    await screen.findByLabelText("Amount to spend (ETH)");
+    const buy = screen.getByRole("tab", { name: "Buy" });
+    const sell = screen.getByRole("tab", { name: "Sell" });
+    for (const cls of ["data-[state=active]:bg-buy", "dark:data-[state=active]:bg-buy"]) expect(buy.className).toContain(cls);
+    for (const cls of ["data-[state=active]:bg-sell", "dark:data-[state=active]:bg-sell"]) expect(sell.className).toContain(cls);
+    // and not each other's
+    expect(buy.className).not.toContain("bg-sell");
+    expect(sell.className).not.toContain("bg-buy");
+  });
+
   it("is replaced as a whole by GRADUATING… when the curve is complete", async () => {
     const chain = fakeChain({ curve: freshCurve({ complete: true }) });
     renderWithWallet(<TradePanel chain="sepolia" token={TOKEN} ticker="DEMO" />, undefined, chain.transport);

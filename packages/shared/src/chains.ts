@@ -8,6 +8,8 @@ export interface ChainConfig {
   isTestnet: boolean;
   /** How Uniswap's own URLs name this chain (app.uniswap.org/swap?chain=<this>). */
   uniswapSlug: string;
+  /** A Chainlink ETH/USD price feed on this chain, read on chain so no outside service is trusted. Absent: no dollar amounts. */
+  usdFeed?: `0x${string}`;
 }
 
 /** Adding a chain is adding an entry here plus a deployments/<slug>.json. Nothing else. */
@@ -21,6 +23,8 @@ export const CHAINS: Record<string, ChainConfig> = {
     quoteDecimals: 18,
     isTestnet: true,
     uniswapSlug: "sepolia",
+    // Chainlink ETH / USD on Sepolia.
+    usdFeed: "0x694AA1769357215DE4FAC081bf1f309aDC325306",
   },
 };
 

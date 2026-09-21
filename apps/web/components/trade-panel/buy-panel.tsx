@@ -1,7 +1,7 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { chainBySlug, formatCompactTokens, formatQuote, maxCostWithSlippage, UI } from "@vezta/shared";
+import { centsToText, chainBySlug, formatCompactTokens, formatQuote, formatUsd, maxCostWithSlippage, parseUsd, quoteToUsdCents, UI, usdToQuote } from "@vezta/shared";
 import { useState } from "react";
 import type { Address } from "viem";
 import { useAccount, useBalance, useGasPrice } from "wagmi";
@@ -14,11 +14,13 @@ import { TxToast } from "@/components/tx-toast";
 import { Button } from "@/components/ui/button";
 import { useBuyQuote } from "@/lib/chain/use-buy-quote";
 import { useLaunchTax } from "@/lib/chain/use-launch-tax";
+import { useUsdRate } from "@/lib/chain/use-usd-rate";
 import { getDeployment } from "@/lib/deployment";
 import { parseAmount } from "@/lib/format";
 import { useTxRun } from "@/lib/tx/use-tx-run";
 import { useSlippage } from "@/lib/use-slippage";
 import { useTrade } from "@/lib/wallet/use-trade";
+import { AmountInput } from "./amount-input";
 import { CostBreakdown } from "./cost-breakdown";
 import { Graduating, useRefreshCurveWhen } from "./curve-state";
 import { useLastTrade } from "./last-trade";
@@ -44,8 +46,12 @@ export function BuyPanel({ chain, token, ticker }: { chain: string; token: Addre
   const { state, run } = useTxRun();
   const { setLast } = useLastTrade();
 
+  // What the person types is dollars when there is a price to turn them into ETH, and ETH when there is not (or when they choose it).
+  const rate = useUsdRate(chain);
+  const [chosen, setChosen] = useState<"usd" | "eth">("usd");
+  const mode = rate ? chosen : "eth";
   const [text, setText] = useState("");
-  const budget = parseAmount(text, decimals) ?? 0n;
+  const budget = mode === "usd" ? (rate ? usdToQuote(parseUsd(text) ?? 0n, rate, decimals) : 0n) : (parseAmount(text, decimals) ?? 0n);
   const quote = useBuyQuote({ token, budget });
   const { secondsLeft } = useLaunchTax(token);
 
@@ -62,6 +68,23 @@ export function BuyPanel({ chain, token, ticker }: { chain: string; token: Addre
   // The curve completing is a state, not a mistake: whether the preview noticed or the transaction reverted with it.
   const graduating = quote.curveCompleted || (state.status === "error" && state.code === "CurveCompleted");
   useRefreshCurveWhen(graduating);
+
+  /** The same amount in the other unit, so switching does not change what is about to be bought. */
+  function switchMode() {
+    if (!rate) return;
+    if (mode === "usd") setText(budget > 0n ? formatQuote(budget, decimals) : "");
+    else setText(budget > 0n ? centsToText(quoteToUsdCents(budget, rate, decimals)) : "");
+    setChosen(mode === "usd" ? "eth" : "usd");
+  }
+
+  /** The most that can be spent: what is held, less the network fee, less the room slippage may need on top of the price. */
+  function useMax() {
+    const held = balance.data?.value;
+    if (held === undefined) return;
+    const spendable = held > gasReserve ? ((held - gasReserve) * 10_000n) / (10_000n + slippageBps) : 0n;
+    if (spendable === 0n) return;
+    setText(mode === "usd" && rate ? centsToText(quoteToUsdCents(spendable, rate, decimals)) : formatQuote(spendable, decimals));
+  }
 
   function buy() {
     void run(
@@ -87,20 +110,47 @@ export function BuyPanel({ chain, token, ticker }: { chain: string; token: Addre
       <LaunchTaxBanner taxBps={quote.taxBps} multiplier={quote.taxMultiplier} secondsLeft={secondsLeft} />
 
       <div className="flex items-center justify-between gap-2">
-        <label htmlFor="buy-amount" className="text-sm text-muted-foreground">
-          {UI.trade.amountToSpend(symbol)}
-        </label>
+        {rate ? (
+          <Button type="button" variant="ghost" size="xs" onClick={switchMode}>
+            {UI.trade.enterIn(mode === "usd" ? symbol : "USD")}
+          </Button>
+        ) : (
+          <span />
+        )}
         <SlippagePopover bps={slippageBps} onChange={setSlippage} />
       </div>
-      <input
+      <AmountInput
         id="buy-amount"
-        inputMode="decimal"
-        autoComplete="off"
-        placeholder="0.0"
+        label={UI.trade.amountToSpend(mode === "usd" ? "USD" : symbol)}
+        prefix={mode === "usd" ? "$" : ""}
         value={text}
-        onChange={(e) => setText(e.target.value)}
-        className="border border-border bg-background px-3 py-2 font-mono text-lg"
+        onChange={setText}
+        className={mode === "usd" ? undefined : "text-3xl"}
       />
+      {rate && (
+        <p data-testid="equivalent" className="-mt-2 text-center text-sm text-muted-foreground">
+          {mode === "usd" ? `≈ ${formatQuote(budget, decimals, 6)} ${symbol}` : `≈ ${formatUsd(quoteToUsdCents(budget, rate, decimals))}`}
+        </p>
+      )}
+
+      {isConnected && (
+        <div className="flex items-center justify-between gap-2 text-sm">
+          <span data-testid="balance" className="font-mono text-muted-foreground">
+            {balance.data
+              ? UI.trade.balanceLine(`${formatQuote(balance.data.value, decimals, 4)} ${symbol}${rate ? ` ≈ ${formatUsd(quoteToUsdCents(balance.data.value, rate, decimals))}` : ""}`)
+              : ""}
+          </span>
+          <Button type="button" variant="ghost" size="xs" disabled={balance.data === undefined || balance.data.value === 0n} onClick={useMax}>
+            {UI.trade.max}
+          </Button>
+        </div>
+      )}
+
+      {wantsToBuy && (
+        <p data-testid="receive" className="text-sm text-muted-foreground">
+          {UI.trade.youReceive(formatCompactTokens(quote.amount), ticker)}
+        </p>
+      )}
 
       {wantsToBuy && (
         <CostBreakdown
@@ -121,7 +171,7 @@ export function BuyPanel({ chain, token, ticker }: { chain: string; token: Addre
       <ChainGuard chainName={config?.name ?? chain}>
         {isConnected ? (
           <LaunchTaxGuard taxBps={quote.taxBps ?? 0n} multiplier={quote.taxMultiplier}>
-            <Button className="w-full" disabled={!canBuy} onClick={buy}>
+            <Button className="w-full bg-buy text-black hover:bg-buy/90" disabled={!canBuy} onClick={buy}>
               {UI.trade.buy}
             </Button>
           </LaunchTaxGuard>

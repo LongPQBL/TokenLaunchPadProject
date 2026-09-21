@@ -1,5 +1,5 @@
 import { expect, FILLED, RPC_URL, test } from "./fixtures";
-import { connect, createToken, LOGO, panel, ticker } from "./helpers";
+import { connect, createToken, LOGO, panel, spendEth, ticker } from "./helpers";
 import { installWallet } from "./wallet";
 
 test.setTimeout(150_000);
@@ -11,7 +11,7 @@ test.describe("with a wallet", () => {
     await expect(page.getByRole("heading", { name: `Token ${symbol}` })).toBeVisible();
 
     // Buy
-    await panel(page).getByLabel("Amount to spend (ETH)").fill("0.001");
+    await spendEth(page, "0.001");
     await expect(panel(page).getByTestId("cost-breakdown")).toBeVisible();
     await expect(panel(page).getByRole("button", { name: "Buy" })).toBeEnabled();
     await panel(page).getByRole("button", { name: "Buy" }).click();
@@ -25,6 +25,23 @@ test.describe("with a wallet", () => {
     await expect(sell).toBeEnabled();
     await sell.click();
     await expect(panel(page).getByText(new RegExp(`You sold .* ${symbol} and received `))).toBeVisible({ timeout: 60_000 });
+  });
+
+  test("buys with dollars: the box takes dollars, says what that is in ETH, and the buy goes through", async ({ page }) => {
+    await installWallet(page, RPC_URL);
+    const symbol = await createToken(page, { window: "No protection" });
+
+    // The price of ETH comes from the chain's own feed a moment after the page loads: until then the box is in ETH.
+    const dollars = panel(page).getByRole("textbox", { name: "Amount to spend (USD)" });
+    await expect(dollars).toBeVisible({ timeout: 30_000 });
+    await dollars.fill("1");
+    await expect(panel(page).getByTestId("equivalent")).toHaveText(/^≈ 0\.000\d+ ETH$/);
+    await expect(panel(page).getByTestId("receive")).toContainText(`You receive ≈`);
+    await expect(panel(page).getByTestId("balance")).toContainText("≈ $"); // the wallet's balance, in dollars too
+    const buy = panel(page).getByRole("button", { name: "Buy" });
+    await expect(buy).toBeEnabled();
+    await buy.click();
+    await expect(panel(page).getByText(new RegExp(`You bought .* ${symbol} for `))).toBeVisible({ timeout: 45_000 });
   });
 
   test("declining to sign stops quietly, and trying again works", async ({ page }) => {
@@ -52,7 +69,7 @@ test.describe("with a wallet", () => {
     const wallet = await installWallet(page, RPC_URL);
     await createToken(page, { window: "98 minutes" });
 
-    await panel(page).getByLabel("Amount to spend (ETH)").fill("0.001");
+    await spendEth(page, "0.001");
     await expect(panel(page).getByRole("status").first()).toContainText("Launch protection is on");
     await expect(panel(page).getByRole("button", { name: "Buy" })).toBeEnabled();
     const sentBefore = wallet.requests.filter((m) => m === "eth_sendTransaction").length;
@@ -71,7 +88,7 @@ test.describe("with a wallet", () => {
     const symbol = await createToken(page, { window: "No protection" });
 
     // Far more than the 0.05 ETH the curve needs: the purchase is clipped to what is left.
-    await panel(page).getByLabel("Amount to spend (ETH)").fill("0.2");
+    await spendEth(page, "0.2");
     await expect(panel(page).getByRole("button", { name: "Buy" })).toBeEnabled();
     await panel(page).getByRole("button", { name: "Buy" }).click();
 

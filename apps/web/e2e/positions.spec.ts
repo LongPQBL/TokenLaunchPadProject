@@ -1,5 +1,5 @@
 import { expect, RPC_URL, sql, test } from "./fixtures";
-import { createToken, panel } from "./helpers";
+import { createToken, panel, spendEth } from "./helpers";
 import { installWallet } from "./wallet";
 
 // (the database connection is shared by every spec of a worker: the spec that runs last closes it, and closing it here would break the ones after)
@@ -18,7 +18,7 @@ test("a buy shows up as a position with its cost and value, and in the order his
   await installWallet(page, RPC_URL);
   const symbol = await createToken(page, { window: "No protection" });
 
-  await panel(page).getByLabel("Amount to spend (ETH)").fill("0.001");
+  await spendEth(page, "0.001");
   await expect(panel(page).getByRole("button", { name: "Buy" })).toBeEnabled();
   await panel(page).getByRole("button", { name: "Buy" }).click();
   await expect(panel(page).getByText(new RegExp(`You bought .* ${symbol} for `))).toBeVisible({ timeout: 45_000 });
