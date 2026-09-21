@@ -3,9 +3,10 @@
 import { chainBySlug, formatQuote, tokenFormSchema, UI, type TokenForm } from "@vezta/shared";
 import { useRouter } from "next/navigation";
 import { useId, useRef, useState } from "react";
-import { useAccount } from "wagmi";
+import { useAccount, useBalance } from "wagmi";
 import { ChainGuard } from "@/components/chain-guard";
 import { ConnectButton } from "@/components/connect-button";
+import { FundWallet } from "@/components/fund-wallet";
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api";
 import { useSiwe } from "@/lib/auth/use-siwe";
@@ -44,7 +45,10 @@ export function CreateForm({ chain }: { chain: string }) {
   const router = useRouter();
   const trade = useTrade();
   const siwe = useSiwe();
-  const { isConnected } = useAccount();
+  const { address, isConnected } = useAccount();
+  // The wallet that pays for the launch (the trading wallet when one is in use).
+  const payer = trade.capabilities.address ?? address;
+  const balance = useBalance({ address: payer, chainId: getDeployment()?.chainId, query: { enabled: !!payer } });
   const ids = useId();
 
   const [values, setValues] = useState<Values>(EMPTY);
@@ -188,6 +192,8 @@ export function CreateForm({ chain }: { chain: string }) {
       <p className="text-xs text-muted-foreground">{UI.create.cost.note}</p>
 
       <CreateSteps current={step} />
+
+      {isConnected && payer && <FundWallet address={payer} balance={balance.data?.value} chain={chain} />}
 
       <ChainGuard chainName={config?.name ?? chain}>
         {isConnected ? (

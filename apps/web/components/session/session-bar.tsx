@@ -3,6 +3,7 @@
 import { formatQuote, UI } from "@vezta/shared";
 import type { ReactNode } from "react";
 import { useAccount, useBalance } from "wagmi";
+import { FundWallet } from "@/components/fund-wallet";
 import { Button } from "@/components/ui/button";
 import { getDeployment } from "@/lib/deployment";
 import { shortAddress } from "@/lib/format";
@@ -47,6 +48,7 @@ export function SessionBar({ chain }: { chain: string }) {
     return (
       <section aria-label={UI.session.yourWallet} className="flex flex-col gap-2">
         <WalletRow testId="main-wallet" label={UI.session.yourWallet} address={address} balance={main.data?.value} spending />
+        <FundWallet address={address} balance={main.data?.value} chain={chain} />
       </section>
     );
   }

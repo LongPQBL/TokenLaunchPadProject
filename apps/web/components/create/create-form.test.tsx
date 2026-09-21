@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api";
 import { TradeError } from "@/lib/wallet/types";
 import { fakeChain } from "@/test/fake-chain";
-import { renderWithWallet, TEST_DEPLOYMENT } from "@/test/wallet";
+import { renderWithWallet, TEST_DEPLOYMENT, TEST_USER } from "@/test/wallet";
 import { CreateForm } from "./create-form";
 
 const WETH = "0x00000000000000000000000000000000000000e5";
@@ -54,6 +54,20 @@ async function fill(user: ReturnType<typeof userEvent.setup>, o: { name?: string
 }
 
 const submit = () => screen.getByRole("button", { name: "Create token" });
+
+describe("CreateForm: a wallet with no ETH", () => {
+  it("says how to add ETH, with the address, before the button", async () => {
+    await setup({ chain: fakeChain({ ethBalance: 0n }) });
+    expect(await screen.findByText(/holds no ETH/i)).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(TEST_USER, "i"))).toBeInTheDocument();
+  });
+
+  it("says nothing of funding to a wallet that has ETH", async () => {
+    await setup();
+    await screen.findByRole("button", { name: "Create token" });
+    expect(screen.queryByText(/holds no ETH/i)).toBeNull();
+  });
+});
 
 describe("CreateForm: the form", () => {
   it("offers the four launch-protection windows and defaults to 60 seconds", async () => {

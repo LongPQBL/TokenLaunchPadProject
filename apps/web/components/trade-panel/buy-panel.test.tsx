@@ -64,6 +64,34 @@ describe("BuyPanel: the quote", () => {
   });
 });
 
+describe("BuyPanel: a wallet with no ETH", () => {
+  const empty = { [TEST_USER.toLowerCase()]: 0n };
+
+  it("says how to add ETH, with the address, above a Buy button that is off, and gives a reason in words", async () => {
+    const { user } = await setup({ balances: empty });
+    await user.type(budgetInput(), "0.01");
+    expect(await screen.findByText(/holds no ETH/i)).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(TEST_USER, "i"))).toBeInTheDocument();
+    expect(buyButton()).toBeDisabled();
+    expect(screen.getByText("Add ETH first")).toBeInTheDocument();
+    expect(screen.queryByText("Not enough ETH for this purchase and network fees.")).toBeNull(); // not the vague one
+  });
+
+  it("says nothing of funding to someone who has ETH", async () => {
+    await setup();
+    await screen.findByLabelText("Amount to spend (ETH)");
+    expect(screen.queryByText(/holds no ETH/i)).toBeNull();
+    expect(screen.queryByText("Add ETH first")).toBeNull();
+  });
+
+  it("still tells someone with a little ETH that it is not enough, in the old words", async () => {
+    const { user } = await setup({ balances: { [TEST_USER.toLowerCase()]: parseEther("0.0001") } });
+    await user.type(budgetInput(), "0.05");
+    expect(await screen.findByText("Not enough ETH for this purchase and network fees.")).toBeInTheDocument();
+    expect(screen.queryByText(/holds no ETH/i)).toBeNull();
+  });
+});
+
 describe("BuyPanel: buying", () => {
   it("sends maxQuoteCost = total x (1 + slippage) + 1 wei, for exactly the tokens quoted", async () => {
     trade.buyWithEth.mockResolvedValue({ hash: HASH, tokenAmount: 1n, quoteAmount: 1n, fee: 0n, launchTax: 0n });

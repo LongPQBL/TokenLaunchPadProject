@@ -215,6 +215,16 @@ describe("SessionBar: an embedded wallet", () => {
     expect(screen.queryByTestId("trading-wallet")).toBeNull();
   });
 
+  it("tells a new embedded user with no ETH how to add some, right where their wallet is shown", async () => {
+    const chain = fakeChain({ balances: { [TEST_USER.toLowerCase()]: 0n } });
+    const base = mock({ accounts: [TEST_USER] });
+    const connectors = [(cfg: Parameters<typeof base>[0]) => ({ ...base(cfg), id: "io.privy.wallet" })];
+    const view = renderWithWallet(<SessionBar chain="sepolia" />, connectors, chain.transport);
+    await act(() => connect(view.config, { connector: view.config.connectors[0]!, chainId: sepolia.id }));
+    expect(await screen.findByText(/holds no ETH/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy address" })).toBeInTheDocument();
+  });
+
   it("never offers a trading wallet, a top-up or a withdrawal, and never asks for the signature that would make one", async () => {
     for (const status of ["off", "needs-signature", "mismatch", "restoring"]) {
       session.value = { status, account: undefined };

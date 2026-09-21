@@ -6,6 +6,7 @@ import { useState } from "react";
 import type { Address } from "viem";
 import { useAccount, useBalance, useGasPrice } from "wagmi";
 import { ChainGuard } from "@/components/chain-guard";
+import { FundWallet } from "@/components/fund-wallet";
 import { ConnectButton } from "@/components/connect-button";
 import { LaunchTaxBanner } from "@/components/launch-tax-banner";
 import { LaunchTaxGuard } from "@/components/launch-tax-dialog";
@@ -53,7 +54,9 @@ export function BuyPanel({ chain, token, ticker }: { chain: string; token: Addre
   const canAfford = balance.data === undefined || balance.data.value >= maxQuoteCost + gasReserve;
   const wantsToBuy = quote.amount > 0n;
   // Nothing is said about an empty or zero budget: an unfinished form is not an error.
-  const blocker = wantsToBuy && !canAfford ? UI.trade.insufficientEth : undefined;
+  // A wallet with nothing in it is a different situation from one that is a little short: it is told to add ETH, and how.
+  const empty = isConnected && balance.data?.value === 0n;
+  const blocker = empty ? UI.fund.addFirst : wantsToBuy && !canAfford ? UI.trade.insufficientEth : undefined;
   const canBuy = wantsToBuy && canAfford && !quote.isLoading && !quote.curveCompleted && state.status !== "pending";
 
   // The curve completing is a state, not a mistake: whether the preview noticed or the transaction reverted with it.
@@ -112,6 +115,8 @@ export function BuyPanel({ chain, token, ticker }: { chain: string; token: Addre
         />
       )}
       {quote.isStale && <p className="text-xs text-muted-foreground">{UI.trade.stale}</p>}
+
+      {isConnected && payer && <FundWallet address={payer} balance={balance.data?.value} chain={chain} />}
 
       <ChainGuard chainName={config?.name ?? chain}>
         {isConnected ? (

@@ -105,6 +105,14 @@ export const UI = {
       generic: "Could not post your comment. Please try again.",
     },
   },
+  fund: {
+    title: "Add ETH to get started",
+    body: (symbol: string) => `This wallet holds no ${symbol}, and nothing can be bought until it does. Send some to this address:`,
+    copy: "Copy address",
+    copied: "Copied",
+    faucet: "Get free testnet ETH from a faucet",
+    addFirst: "Add ETH first",
+  },
   moderation: {
     hideToken: "Hide token",
     hideComment: "Hide",
