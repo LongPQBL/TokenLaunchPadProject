@@ -7,7 +7,7 @@ export const MIGRATE_GAS = 3_000_000n;
 export const MIN_MIGRATIONS_OF_GAS = 50;
 
 const MAX_ATTEMPTS = 4;
-const LOG_RANGE = 5_000n;
+const DEFAULT_LOG_RANGE = 5_000n;
 const MAX_REMEMBERED = 10_000;
 
 export type MigrationOutcome = "migrated" | "already" | "not-ready";
@@ -37,6 +37,8 @@ export interface MigratorDeps {
   launchpad: Address;
   /** Block to start catching up from: the deployment's own, so history is never scanned from genesis. */
   deployBlock: bigint;
+  /** The most blocks one eth_getLogs may cover (the RPC provider's limit). */
+  logRange?: bigint;
   sleep?: (ms: number) => Promise<void>;
   log?: (message: string) => void;
   warn?: (message: string) => void;
@@ -110,8 +112,9 @@ export function createMigrator(deps: MigratorDeps) {
   async function catchUp(fromBlock: bigint = deps.deployBlock): Promise<Address[]> {
     const head = await publicClient.getBlockNumber();
     const tokens = new Map<string, Address>();
-    for (let from = fromBlock; from <= head; from += LOG_RANGE) {
-      const to = from + LOG_RANGE - 1n < head ? from + LOG_RANGE - 1n : head;
+    const logRange = deps.logRange ?? DEFAULT_LOG_RANGE;
+    for (let from = fromBlock; from <= head; from += logRange) {
+      const to = from + logRange - 1n < head ? from + logRange - 1n : head;
       const logs = await publicClient.getLogs({ address: launchpad, event: completeEvent as never, fromBlock: from, toBlock: to });
       for (const l of logs as unknown as { args: { mint: Address } }[]) tokens.set(l.args.mint.toLowerCase(), l.args.mint);
     }

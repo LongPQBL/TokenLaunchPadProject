@@ -21,7 +21,7 @@ interface CurveState {
   migrated: boolean;
 }
 
-function setup(opts: { curves?: Record<string, CurveState>; logs?: { block: bigint; token: Address }[]; head?: bigint; balance?: bigint; gasPrice?: bigint } = {}) {
+function setup(opts: { curves?: Record<string, CurveState>; logs?: { block: bigint; token: Address }[]; head?: bigint; balance?: bigint; gasPrice?: bigint; logRange?: bigint } = {}) {
   const curves = new Map(Object.entries(opts.curves ?? {}).map(([t, c]) => [t.toLowerCase(), { ...c }]));
   const sleeps: number[] = [];
   const warnings: string[] = [];
@@ -50,6 +50,7 @@ function setup(opts: { curves?: Record<string, CurveState>; logs?: { block: bigi
     }),
   };
   const migrator = createMigrator({
+    logRange: opts.logRange,
     publicClient: publicClient as never,
     walletClient: walletClient as never,
     account: BOT,
@@ -227,6 +228,14 @@ describe("catchUp", () => {
     expect(logsAsked.at(-1)!.toBlock).toBe(25_000n);
     // no gap and no overlap between ranges
     for (let i = 1; i < logsAsked.length; i++) expect(logsAsked[i]!.fromBlock).toBe(logsAsked[i - 1]!.toBlock + 1n);
+  });
+
+  it("reads no more blocks at a time than it is told the RPC allows", async () => {
+    const { migrator, logsAsked } = setup({ head: 95n, logs: [], logRange: 10n });
+    await migrator.catchUp(10n);
+    expect(logsAsked.length).toBe(9);
+    for (const r of logsAsked) expect(r.toBlock - r.fromBlock).toBeLessThan(10n); // at most 10 blocks, both ends counted
+    expect(logsAsked.at(-1)!.toBlock).toBe(95n);
   });
 
   it("carries on with the others when one token fails, and still reports what it did", async () => {

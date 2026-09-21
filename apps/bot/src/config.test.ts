@@ -48,6 +48,9 @@ describe("loadBotConfig", () => {
     const c = loadBotConfig({ ...base, POLL_MS: "1000", CATCH_UP_MINUTES: "5", REDIS_URL: "redis://localhost:6390" });
     expect(c).toMatchObject({ pollMs: 1_000, catchUpMinutes: 5, redisUrl: "redis://localhost:6390" });
     expect(() => loadBotConfig({ ...base, POLL_MS: "0" })).toThrow(/POLL_MS/);
+    expect(loadBotConfig(base).logRange).toBeUndefined(); // not set: each part keeps its own default
+    expect(loadBotConfig({ ...base, LOG_RANGE_BLOCKS: "10" }).logRange).toBe(10n);
+    for (const bad of ["0", "-5", "abc", "1.5"]) expect(() => loadBotConfig({ ...base, LOG_RANGE_BLOCKS: bad }), bad).toThrow(/LOG_RANGE_BLOCKS/);
     expect(() => loadBotConfig({ ...base, CATCH_UP_MINUTES: "-1" })).toThrow(/CATCH_UP_MINUTES/);
     expect(() => loadBotConfig({ ...base, REDIS_URL: "http://x" })).toThrow(/REDIS_URL/);
   });

@@ -3,7 +3,7 @@ import { parseEventLogs, type Address, type Log, type PublicClient } from "viem"
 import type { MigrationOutcome } from "./migrate";
 
 const MAX_REMEMBERED = 10_000;
-const LOG_RANGE = 2_000n;
+const DEFAULT_LOG_RANGE = 2_000n;
 /** Each poll re-reads this many recent blocks: an event in a block that arrived late, or one that failed to publish, gets another chance. */
 const OVERLAP = 5n;
 
@@ -17,6 +17,8 @@ export interface WatcherDeps {
   publish: (channel: string, message: string) => Promise<unknown>;
   /** The migration bot, in this same process: a Complete is handed to it. */
   migrator: { handleComplete: (token: Address) => Promise<MigrationOutcome> };
+  /** The most blocks one eth_getLogs may cover (the RPC provider's limit). */
+  logRange?: bigint;
   onError?: (error: unknown) => void;
 }
 
@@ -54,6 +56,7 @@ export function createWatcher(deps: WatcherDeps) {
   const published = boundedSet(); // events that reached Redis
   const handedToBot = boundedSet(); // Complete events the migration bot has been given
   let cursor: bigint | undefined;
+  const logRange = deps.logRange ?? DEFAULT_LOG_RANGE;
 
   async function send(channels: string[], message: Record<string, unknown>): Promise<boolean> {
     const body = JSON.stringify(message);
@@ -139,8 +142,8 @@ export function createWatcher(deps: WatcherDeps) {
     if (head <= cursor) return;
 
     const from = cursor - OVERLAP + 1n > 0n ? cursor - OVERLAP + 1n : 0n;
-    for (let start = from; start <= head; start += LOG_RANGE) {
-      const end = start + LOG_RANGE - 1n < head ? start + LOG_RANGE - 1n : head;
+    for (let start = from; start <= head; start += logRange) {
+      const end = start + logRange - 1n < head ? start + logRange - 1n : head;
       const logs = await publicClient.getLogs({ address: [deps.launchpad, deps.factory], fromBlock: start, toBlock: end });
       const own = (address: Address) => logs.filter((l) => lower(l.address) === lower(address));
       const decoded = [

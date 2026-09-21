@@ -46,7 +46,7 @@ function createdLog(block: bigint, n: number): RawLog {
   return { ...base(FACTORY, block, n), topics: topics as Hex[], data: encodeAbiParameters([{ type: "string" }, { type: "string" }, { type: "string" }], ["Demo", "DEMO", "ipfs://bafyabcde"]) };
 }
 
-function setup(over: { head?: bigint; logs?: RawLog[]; publish?: (channel: string, message: string) => Promise<unknown> } = {}) {
+function setup(over: { head?: bigint; logs?: RawLog[]; logRange?: bigint; publish?: (channel: string, message: string) => Promise<unknown> } = {}) {
   const state = { head: over.head ?? 100n, logs: over.logs ?? [] };
   const asked: { fromBlock: bigint; toBlock: bigint }[] = [];
   const published: { channel: string; message: Record<string, unknown> }[] = [];
@@ -66,6 +66,7 @@ function setup(over: { head?: bigint; logs?: RawLog[]; publish?: (channel: strin
     chain: "sepolia",
     publish: publishFn,
     migrator,
+    logRange: over.logRange,
     onError: (e) => errors.push(String(e)),
   });
   return { watcher, state, asked, published, migrator, errors };
@@ -189,6 +190,18 @@ describe("watcher: keeping up", () => {
     await s.watcher.poll();
     for (const r of s.asked) expect(r.toBlock - r.fromBlock).toBeLessThanOrEqual(2_000n);
     expect(s.asked.at(-1)!.toBlock).toBe(10_000n);
+  });
+
+  // A provider on a free plan answers eth_getLogs for ten blocks at most, and refuses anything wider outright.
+  it("reads no more blocks at a time than it is told the RPC allows", async () => {
+    const s = setup({ head: 100n, logRange: 10n });
+    await s.watcher.poll();
+    s.state.head = 137n;
+    await s.watcher.poll();
+    expect(s.asked.length).toBeGreaterThan(1);
+    for (const r of s.asked) expect(r.toBlock - r.fromBlock).toBeLessThan(10n); // at most 10 blocks, both ends counted
+    expect(s.asked.at(-1)!.toBlock).toBe(137n);
+    for (let i = 1; i < s.asked.length; i++) expect(s.asked[i]!.fromBlock).toBe(s.asked[i - 1]!.toBlock + 1n);
   });
 
   it("does nothing when there is no new block", async () => {

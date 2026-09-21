@@ -32,6 +32,7 @@ const migrator = createMigrator({
   signer: account,
   launchpad: deployment.launchpad,
   deployBlock: BigInt(deployment.deployBlock),
+  logRange: config.logRange,
 });
 
 const publisher = config.redisUrl ? createRedisPublisher(config.redisUrl) : undefined;
@@ -44,13 +45,19 @@ const watcher = createWatcher({
   chain: chainSlugById(deployment.chainId) ?? String(deployment.chainId),
   publish: (channel, message) => (publisher ? publisher.publish(channel, message) : Promise.resolve()),
   migrator,
+  logRange: config.logRange,
 });
 
 console.log(`bot ${account.address} watching ${deployment.launchpad} on chain ${deployment.chainId}`);
 await migrator.checkBalance();
 // Catch up first: anything that filled while the bot was down is migrated before it starts watching.
-const caught = await migrator.catchUp();
-if (caught.length > 0) console.log(`caught up: migrated ${caught.length} curve(s) that had filled`);
+// An RPC that fails here must not take the whole bot down: the watcher below and the timer at the end try again.
+try {
+  const caught = await migrator.catchUp();
+  if (caught.length > 0) console.log(`caught up: migrated ${caught.length} curve(s) that had filled`);
+} catch (e) {
+  console.error("catch-up failed, it will be retried on the timer:", e instanceof Error ? e.message : e);
+}
 
 watcher.start(config.pollMs);
 // Tells the admin page this process is alive and what its wallet holds. Without Redis there is nowhere to say it.

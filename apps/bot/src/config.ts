@@ -6,6 +6,11 @@ export interface BotConfig {
   pollMs: number;
   /** How often the bot re-scans for curves that completed without it noticing. */
   catchUpMinutes: number;
+  /**
+   * The most blocks one eth_getLogs may cover. Unset: the watcher and the catch-up each keep their own default (thousands). A provider on a
+   * free plan allows far fewer (Alchemy: 10) and refuses a wider request outright, so it is set to what the provider allows.
+   */
+  logRange?: bigint;
   /** Where events are published for the API's websockets. Optional: the bot migrates without it. */
   redisUrl?: string;
 }
@@ -51,6 +56,7 @@ export function loadBotConfig(env: Record<string, string | undefined> = process.
     privateKey: key as `0x${string}`,
     pollMs: positiveInt("POLL_MS", env.POLL_MS, 4_000),
     catchUpMinutes: positiveInt("CATCH_UP_MINUTES", env.CATCH_UP_MINUTES, 10),
+    logRange: env.LOG_RANGE_BLOCKS === undefined ? undefined : BigInt(positiveInt("LOG_RANGE_BLOCKS", env.LOG_RANGE_BLOCKS, 0)),
     redisUrl: env.REDIS_URL || undefined,
   };
 }
