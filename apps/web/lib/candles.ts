@@ -53,7 +53,8 @@ export function fillGaps(series: ChartCandle[], intervalSeconds: number): ChartC
  * exponent: `toLocaleString` writes any size of number out in full, unlike `toFixed`, which switches to one from 1e21.
  */
 export function formatChartPrice(price: number): string {
-  if (!Number.isFinite(price) || price === 0) return "0";
+  // Below the chart's own price step (1e-15) is a bottom edge reaching for zero, not a price: it would print as a wall of noise.
+  if (!Number.isFinite(price) || Math.abs(price) < 1e-15) return "0";
   const magnitude = Math.floor(Math.log10(Math.abs(price)));
   const decimals = Math.min(Math.max(4 - magnitude, 0), 100);
   return price.toLocaleString("en-US", { useGrouping: false, minimumFractionDigits: 0, maximumFractionDigits: decimals });

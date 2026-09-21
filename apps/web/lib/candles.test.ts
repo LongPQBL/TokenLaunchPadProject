@@ -119,6 +119,13 @@ describe("formatChartPrice", () => {
     expect(formatChartPrice(1.2e9)).toBe("1200000000");
   });
 
+  it("shows a price below the smallest step the chart draws (1e-15) as 0: an axis that reaches down to nothing must not print noise", () => {
+    expect(formatChartPrice(1.2925e-27)).toBe("0");
+    expect(formatChartPrice(9.9e-16)).toBe("0");
+    expect(formatChartPrice(-1e-20)).toBe("0");
+    expect(formatChartPrice(1e-15)).toBe("0.000000000000001");
+  });
+
   it("does not throw for a price far smaller than any real one", () => {
     expect(() => formatChartPrice(1e-120)).not.toThrow();
     expect(formatChartPrice(1e-120)).not.toMatch(/e/i);
