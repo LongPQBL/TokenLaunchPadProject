@@ -1,5 +1,7 @@
+import { launchpadAbi } from "@vezta/abi";
 import { loadDeployment } from "@vezta/deployments";
 import postgres from "postgres";
+import { createPublicClient, http } from "viem";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 // Asserts through SQL on the stable `launchpad` views schema — exactly how the API reads the data —
@@ -15,6 +17,7 @@ const need = (name: string) => {
 };
 const FILLED = need("E2E_TOKEN"); // created, filled to completion and migrated by `pnpm flow`
 const SAME_BLOCK = need("E2E_SAME_BLOCK_TOKEN"); // several buys forced into one block
+const FRESH = need("E2E_FRESH_TOKEN"); // created, and never traded
 
 async function waitFor<T>(what: string, probe: () => Promise<T | undefined>, ms = 30_000): Promise<T> {
   const until = Date.now() + ms;
@@ -39,6 +42,7 @@ describe("indexer end to end", () => {
   beforeAll(async () => {
     await waitFor("the filled token to be indexed", async () => (await tokenRow(FILLED)) ?? undefined);
     await waitFor("the same-block token to be indexed", async () => (await tokenRow(SAME_BLOCK)) ?? undefined);
+    await waitFor("the fresh token to be indexed", async () => (await tokenRow(FRESH)) ?? undefined);
   });
   afterAll(() => sql.end());
 
@@ -49,6 +53,22 @@ describe("indexer end to end", () => {
     expect(t.metadata_uri).toBeTruthy();
     expect(BigInt(t.virtual_quote_reserves)).toBeGreaterThan(0n);
     expect(t.trade_count).toBeGreaterThan(0);
+  });
+
+  // The launch price is set by the curve's reserves the moment it is created; no trade has to happen for it to exist.
+  it("indexes a token nobody has bought with the reserves its curve was created with, so it has a price", async () => {
+    const t = (await tokenRow(FRESH))!;
+    const curve = await createPublicClient({ transport: http(process.env.E2E_RPC_URL ?? "http://127.0.0.1:8545") }).readContract({
+      address: d.launchpad,
+      abi: launchpadAbi,
+      functionName: "getCurve",
+      args: [FRESH as `0x${string}`],
+    });
+    expect(t.trade_count).toBe(0);
+    expect(BigInt(t.virtual_quote_reserves)).toBeGreaterThan(0n);
+    expect(BigInt(t.virtual_token_reserves)).toBeGreaterThan(0n);
+    expect(BigInt(t.virtual_quote_reserves)).toBe(curve.virtualQuoteReserves);
+    expect(BigInt(t.virtual_token_reserves)).toBe(curve.virtualTokenReserves);
   });
 
   it("marks a filled curve complete and migrated, with a pair address and 100% progress", async () => {

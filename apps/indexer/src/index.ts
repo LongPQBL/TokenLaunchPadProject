@@ -17,6 +17,14 @@ const NOT_A_HOLDER = new Set([d.launchpad.toLowerCase(), "0x00000000000000000000
 
 // CreatePool is emitted by the launchpad first; TokenCreated follows in the same transaction.
 ponder.on("Launchpad:CreatePool", async ({ event, context }) => {
+  // A curve is created with reserves of its own (they set the launch price), and no event says what they are until the first Trade.
+  // Read them here, or a token nobody has bought yet is stored with reserves of 0 and shows a price and a market cap of 0.
+  const curve = await context.client.readContract({
+    abi: context.contracts.Launchpad.abi,
+    address: context.contracts.Launchpad.address,
+    functionName: "getCurve",
+    args: [event.args.mint],
+  });
   await context.db.insert(token).values({
     chainId: CHAIN_ID,
     address: event.args.mint,
@@ -24,6 +32,8 @@ ponder.on("Launchpad:CreatePool", async ({ event, context }) => {
     quoteToken: event.args.quoteToken,
     antiSniperWindow: event.args.antiSniperWindow,
     createdAt: event.block.timestamp,
+    virtualQuoteReserves: curve.virtualQuoteReserves,
+    virtualTokenReserves: curve.virtualTokenReserves,
   });
 });
 

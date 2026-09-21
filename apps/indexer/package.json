@@ -11,6 +11,7 @@
     "test": "vitest run",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
     "fixture:same-block": "tsx test/fixtures/same-block.ts",
+    "fixture:fresh": "tsx test/fixtures/fresh.ts",
     "typecheck": "DEPLOYMENT=example ponder codegen > /dev/null && tsc --noEmit"
   },
   "dependencies": {

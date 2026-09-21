@@ -104,6 +104,11 @@ case "$E2E_SAME_BLOCK_TOKEN" in 0x*) ;; *) die "the same-block fixture did not p
 echo "same-block token: $E2E_SAME_BLOCK_TOKEN"
 
 # --- 3. a fresh database ------------------------------------------------------------------------------------------------
+log "Creating a token that nobody buys"
+E2E_FRESH_TOKEN="$(cd "$ROOT/apps/indexer" && DEPLOYMENT=local RPC_URL="$RPC" pnpm --silent fixture:fresh | tail -1)"
+case "$E2E_FRESH_TOKEN" in 0x*) ;; *) die "the fresh-token fixture did not print a token address";; esac
+echo "fresh token: $E2E_FRESH_TOKEN"
+
 log "Creating database $DB"
 "$PGBIN/dropdb" --if-exists "$DB" >/dev/null 2>&1
 "$PGBIN/createdb" "$DB"
@@ -116,9 +121,9 @@ log "Starting the indexer"
 PIDS+=($!)
 # The two tokens the tests rely on, by address: other tokens exist too (the quote check makes one, the trading tests make more).
 tokens_indexed() {
-  [ "$("$PGBIN/psql" -d "$DB" -Atc "select count(*) from launchpad.token where address in ('$E2E_TOKEN', '$E2E_SAME_BLOCK_TOKEN')" 2>/dev/null)" = "2" ]
+  [ "$("$PGBIN/psql" -d "$DB" -Atc "select count(*) from launchpad.token where address in ('$E2E_TOKEN', '$E2E_SAME_BLOCK_TOKEN', '$E2E_FRESH_TOKEN')" 2>/dev/null)" = "3" ]
 }
-wait_for "the indexer to find both tokens" 120 tokens_indexed
+wait_for "the indexer to find all three tokens" 120 tokens_indexed
 
 # --- 4b. Redis and the bot: live updates and automatic migration ---------------------------------------------------------
 log "Starting Redis on :$REDIS_PORT and the watcher/migration bot"
@@ -175,7 +180,7 @@ E2E_BASE_URL="http://localhost:$WEB_PORT" E2E_TOKEN="$E2E_TOKEN" E2E_SAME_BLOCK_
 # E2E_HOLD=<seconds> keeps the whole stack up after the tests, for poking at it by hand or with a script.
 if [ -n "${E2E_HOLD:-}" ]; then
   echo "holding the stack for ${E2E_HOLD}s: web http://localhost:$WEB_PORT  api :$API_PORT  chain $RPC  (logs: $LOGS)"
-  echo "E2E_TOKEN=$E2E_TOKEN E2E_SAME_BLOCK_TOKEN=$E2E_SAME_BLOCK_TOKEN E2E_LAUNCHPAD=$LAUNCHPAD E2E_DATABASE_URL=$DB_URL E2E_RPC_URL=$RPC E2E_BASE_URL=http://localhost:$WEB_PORT"
+  echo "E2E_TOKEN=$E2E_TOKEN E2E_SAME_BLOCK_TOKEN=$E2E_SAME_BLOCK_TOKEN E2E_FRESH_TOKEN=$E2E_FRESH_TOKEN E2E_LAUNCHPAD=$LAUNCHPAD E2E_DATABASE_URL=$DB_URL E2E_RPC_URL=$RPC E2E_BASE_URL=http://localhost:$WEB_PORT"
   sleep "$E2E_HOLD"
 fi
 exit "${STATUS:-0}"
