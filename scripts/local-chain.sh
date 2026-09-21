@@ -11,8 +11,8 @@ CONTRACTS="${CONTRACTS_DIR:-$HERE/../EVM-Pumpfun-Smart-Contract}"
 RPC="${SEPOLIA_RPC_URL:-https://ethereum-sepolia-rpc.publicnode.com}"
 PORT="${ANVIL_PORT:-8545}"
 
-# A public RPC drops requests when the fork asks for a lot of state at once: retry generously and slow down instead of failing.
-anvil --fork-url "$RPC" --port "$PORT" --retries 20 --fork-retry-backoff 1000 --timeout 120000 --compute-units-per-second 50 &
+# A public RPC drops requests when the fork asks for a lot of state at once: retry generously (and wait longer for an answer) instead of failing.
+anvil --fork-url "$RPC" --port "$PORT" --retries 20 --fork-retry-backoff 1000 --timeout 120000 &
 ANVIL_PID=$!
 trap 'kill $ANVIL_PID 2>/dev/null || true' EXIT
 
