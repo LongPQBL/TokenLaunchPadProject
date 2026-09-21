@@ -94,7 +94,7 @@ export function TokenTable({
       <div>
         <FavoritesNotice />
         <div className="overflow-x-auto border border-border">
-          <table className="w-full min-w-[60rem] border-collapse text-sm" {...listProps}>
+          <table className="w-full min-w-[60rem] border-collapse whitespace-nowrap text-sm" {...listProps}>
             <thead>
               <tr className="border-b border-border text-left font-mono text-xs text-muted-foreground">
                 <th scope="col" className="px-3 py-2 font-normal">
