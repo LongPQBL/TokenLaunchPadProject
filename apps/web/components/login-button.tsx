@@ -3,7 +3,7 @@
 import { UI } from "@vezta/shared";
 import { usePrivy } from "@privy-io/react-auth";
 import { useEffect, useRef, useState } from "react";
-import { useAccount } from "wagmi";
+import { useAccount, useDisconnect } from "wagmi";
 import { useSiwe } from "@/lib/auth/use-siwe";
 import { shortAddress } from "@/lib/format";
 import { useAutoSiwe } from "@/lib/auth/use-auto-siwe";
@@ -26,6 +26,7 @@ export const PRIVY_PATIENCE_MS = 8_000;
 export function LoginButton() {
   const { ready, authenticated, login, logout } = usePrivy();
   const { address } = useAccount();
+  const { disconnect } = useDisconnect();
   const { signOut } = useSiwe();
   const leaving = useRef(false);
   useAutoSiwe();
@@ -47,7 +48,12 @@ export function LoginButton() {
     try {
       await signOut().catch(() => undefined);
       await logout();
+    } catch {
+      /* Privy could not log out: the page still lets go of the wallet below */
     } finally {
+      // Privy letting go does not make wagmi let go (found by logging out for real): the page went on showing the wallet and its
+      // Sell button. Whatever happened above, nothing here may still think someone is connected.
+      disconnect();
       leaving.current = false;
     }
   }

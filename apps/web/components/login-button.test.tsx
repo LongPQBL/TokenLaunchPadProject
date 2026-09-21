@@ -118,6 +118,24 @@ describe("LoginButton", () => {
     await waitFor(() => expect(order).toEqual(["api-logout", "privy-logout"]));
   });
 
+  // Found by logging out for real: Privy let go, but wagmi still held the wallet, so the page went on showing it (and its Sell button).
+  it("also lets go of the wallet in wagmi, so nothing on the page still thinks someone is connected", async () => {
+    privy.authenticated = true;
+    const wallet = await show(<LoginButton />, true);
+    expect(wallet.config.state.status).toBe("connected");
+    await userEvent.click(await screen.findByRole("button", { name: "Log out" }));
+    await waitFor(() => expect(wallet.config.state.status).toBe("disconnected"));
+  });
+
+  it("lets go of the wallet even when both ends of the log out fail", async () => {
+    privy.authenticated = true;
+    privy.logout.mockRejectedValue(new Error("privy down"));
+    server.use(http.post(`${API}/auth/logout`, () => HttpResponse.error()));
+    const wallet = await show(<LoginButton />, true);
+    await userEvent.click(await screen.findByRole("button", { name: "Log out" }));
+    await waitFor(() => expect(wallet.config.state.status).toBe("disconnected"));
+  });
+
   it("logs out of Privy even when ending our session fails, so a person is never stuck logged in", async () => {
     privy.authenticated = true;
     server.use(http.post(`${API}/auth/logout`, () => HttpResponse.error()));
