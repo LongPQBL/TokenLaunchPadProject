@@ -21,9 +21,9 @@ afterEach(async () => {
   while (cleanup.length) await cleanup.pop()!();
 });
 
-async function startServer(opts: { corsOrigins?: string[] } = {}) {
+async function startServer(opts: { corsOrigins?: string[]; hiddenTokens?: () => ReadonlySet<string> } = {}) {
   const http: HttpServer = createServer();
-  const realtime = attachRealtime(http, { redisUrl: redis.url, corsOrigins: opts.corsOrigins ?? [ORIGIN], chains: ["sepolia"], onError: () => {} });
+  const realtime = attachRealtime(http, { redisUrl: redis.url, corsOrigins: opts.corsOrigins ?? [ORIGIN], chains: ["sepolia"], hiddenTokens: opts.hiddenTokens, onError: () => {} });
   await new Promise<void>((r) => http.listen(0, "127.0.0.1", r));
   const url = `http://127.0.0.1:${(http.address() as AddressInfo).port}`;
   cleanup.push(async () => {
@@ -216,6 +216,74 @@ describe("what it does with what Redis sends", () => {
       await settle(150);
     }
     expect(c.events.length).toBeGreaterThan(0);
+  });
+});
+
+describe("a hidden token is not delivered", () => {
+  it("drops its trades and its creation from the global feeds and from its own room, and delivers every other token's", async () => {
+    const hidden = new Set([`sepolia:${T1}`]);
+    const { url } = await startServer({ hiddenTokens: () => hidden });
+    const c = await client(url);
+    await c.join(["trades", "tokens", `token:sepolia:${T1}`, `token:sepolia:${T2}`]);
+    await settle(100);
+    await publish("trades", trade(T1));
+    await publish("tokens", { type: "created", chain: "sepolia", token: T1 });
+    await publish(`token:sepolia:${T1}`, trade(T1, 2));
+    await publish("trades", trade(T2, 3));
+    await until(() => c.events.length === 1);
+    await settle();
+    expect(c.events).toEqual([trade(T2, 3)]);
+  });
+
+  it("matches the token in any case, and only on its own chain", async () => {
+    const { url } = await startServer({ hiddenTokens: () => new Set([`sepolia:${T1}`]) });
+    const c = await client(url);
+    await c.join("trades");
+    await settle(100);
+    await publish("trades", { ...trade(T1.toUpperCase().replace("0X", "0x")), token: T1.toUpperCase().replace("0X", "0x") });
+    await publish("trades", { ...trade(T1, 2), chain: "mainnet" });
+    await until(() => c.events.length === 1);
+    await settle();
+    expect(c.events).toHaveLength(1);
+    expect((c.events[0] as { chain: string }).chain).toBe("mainnet");
+  });
+
+  it("still delivers the announcement that a token was hidden, which is how open pages learn of it", async () => {
+    const { url } = await startServer({ hiddenTokens: () => new Set([`sepolia:${T1}`]) });
+    const c = await client(url);
+    await c.join(["tokens", "trades"]);
+    await settle(100);
+    await publish("tokens", { type: "token_hidden", chain: "sepolia", token: T1 });
+    await until(() => c.events.length === 1);
+    expect(c.events).toEqual([{ type: "token_hidden", chain: "sepolia", token: T1 }]);
+  });
+
+  it("looks at the list each time, so a token hidden later stops and one unhidden resumes", async () => {
+    let hidden = new Set<string>();
+    const { url } = await startServer({ hiddenTokens: () => hidden });
+    const c = await client(url);
+    await c.join("trades");
+    await settle(100);
+    await publish("trades", trade(T1, 1));
+    await until(() => c.events.length === 1);
+    hidden = new Set([`sepolia:${T1}`]);
+    await publish("trades", trade(T1, 2));
+    await settle();
+    expect(c.events).toHaveLength(1);
+    hidden = new Set();
+    await publish("trades", trade(T1, 3));
+    await until(() => c.events.length === 2);
+    expect(c.events).toHaveLength(2);
+  });
+
+  it("delivers everything when it is given no list", async () => {
+    const { url } = await startServer();
+    const c = await client(url);
+    await c.join("trades");
+    await settle(100);
+    await publish("trades", trade(T1));
+    await until(() => c.events.length === 1);
+    expect(c.events).toHaveLength(1);
   });
 });
 
