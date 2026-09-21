@@ -94,10 +94,10 @@ export function TokenTable({
       <div>
         <FavoritesNotice />
         <div className="overflow-x-auto border border-border">
-          <table className="w-full min-w-[60rem] border-collapse whitespace-nowrap text-sm" {...listProps}>
+          <table className="w-full min-w-[52rem] border-collapse whitespace-nowrap text-sm" {...listProps}>
             <thead>
               <tr className="border-b border-border text-left font-mono text-xs text-muted-foreground">
-                <th scope="col" className="px-3 py-2 font-normal">
+                <th scope="col" className="px-2 py-2 font-normal">
                   Token
                 </th>
                 {COLUMNS.map(({ label, sort: key, align }) => (
@@ -105,7 +105,7 @@ export function TokenTable({
                     key={label}
                     scope="col"
                     aria-sort={key && key === sort ? "descending" : undefined}
-                    className={cn("px-3 py-2 font-normal", align === "right" && "text-right")}
+                    className={cn("px-2 py-2 font-normal", align === "right" && "text-right")}
                   >
                     {key ? (
                       // The arrow is drawn by CSS, so it is not part of the header's name.
@@ -120,7 +120,7 @@ export function TokenTable({
                     )}
                   </th>
                 ))}
-                <th scope="col" className="px-3 py-2 font-normal">
+                <th scope="col" className="px-2 py-2 font-normal">
                   <span className="sr-only">Star</span>
                 </th>
               </tr>
@@ -145,11 +145,11 @@ export function TokenTable({
                       fresh?.has(token.address) && "animate-in fade-in duration-500",
                     )}
                   >
-                    <td className="px-3 py-2">
+                    <td className="px-2 py-2">
                       <div className="flex items-center gap-3">
                         <TokenImage src={token.imageUrl} alt={title} initial={token.ticker ?? title} className="size-9 text-sm" />
                         <div className="min-w-0">
-                          <Link href={`/${chain}/token/${token.address}`} className="block max-w-[14rem] truncate font-semibold hover:underline">
+                          <Link href={`/${chain}/token/${token.address}`} className="block max-w-[10rem] truncate font-semibold hover:underline">
                             {title}
                           </Link>
                           <div className="flex items-baseline gap-2 font-mono text-xs text-muted-foreground">
@@ -159,11 +159,11 @@ export function TokenTable({
                         </div>
                       </div>
                     </td>
-                    <td className="px-3 py-2 text-right font-mono">{known ? quote(stats.marketCap) : DASH}</td>
-                    <td className="px-3 py-2">
+                    <td className="px-2 py-2 text-right font-mono">{known ? quote(stats.marketCap) : DASH}</td>
+                    <td className="px-2 py-2">
                       {known ? (
                         <div className="flex items-center gap-2 font-mono">
-                          <div role="img" aria-label={`${bar}% of its all-time high`} className="h-1.5 w-16 shrink-0 bg-secondary">
+                          <div role="img" aria-label={`${bar}% of its all-time high`} className="h-1.5 w-12 shrink-0 bg-secondary">
                             <div className="h-full bg-primary" style={{ width: `${bar}%` }} />
                           </div>
                           <span>{quote(ath)}</span>
@@ -172,9 +172,9 @@ export function TokenTable({
                         <span className="font-mono">{DASH}</span>
                       )}
                     </td>
-                    <td className="px-3 py-2 text-right font-mono">{formatAge(token.createdAt, now)}</td>
-                    <td className="px-3 py-2 text-right font-mono">{NUMBER.format(token.tradeCount)}</td>
-                    <td className="px-3 py-2 text-right font-mono">
+                    <td className="px-2 py-2 text-right font-mono">{formatAge(token.createdAt, now)}</td>
+                    <td className="px-2 py-2 text-right font-mono">{NUMBER.format(token.tradeCount)}</td>
+                    <td className="px-2 py-2 text-right font-mono">
                       {stats ? (
                         // Keyed by the flash count, so each change is a new element and the animation starts over.
                         <span key={flash} data-tick={flash > 0 ? "up" : undefined} className={flash > 0 ? "tick-flash-primary" : undefined}>
@@ -184,13 +184,13 @@ export function TokenTable({
                         DASH
                       )}
                     </td>
-                    <td className="px-3 py-2 text-right font-mono">{stats ? NUMBER.format(stats.traders24h) : DASH}</td>
+                    <td className="px-2 py-2 text-right font-mono">{stats ? NUMBER.format(stats.traders24h) : DASH}</td>
                     {(["change1hBps", "change6hBps", "change24hBps"] as const).map((k) => (
-                      <td key={k} className="px-3 py-2 text-right">
+                      <td key={k} className="px-2 py-2 text-right">
                         {stats ? <Change bps={stats[k]} /> : <span className="font-mono text-muted-foreground">{DASH}</span>}
                       </td>
                     ))}
-                    <td className="px-3 py-2 text-right">
+                    <td className="px-2 py-2 text-right">
                       <FavoriteStar token={token.address} label={title} />
                     </td>
                   </tr>
