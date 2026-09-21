@@ -40,6 +40,7 @@ ponder.on("Launchpad:Trade", async ({ event, context }) => {
     virtualTokenReserves: a.virtualTokenReserves,
     timestamp: a.timestamp,
     blockNumber: event.block.number,
+    logIndex: event.log.logIndex,
   });
   // Tokens sold so far = initial virtual tokens - current virtual tokens, so progress needs no extra RPC call.
   const sold = INITIAL_VIRTUAL_TOKENS - a.virtualTokenReserves;

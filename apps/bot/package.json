@@ -1,0 +1,24 @@
+{
+  "name": "@vezta/bot",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@vezta/abi": "workspace:*",
+    "@vezta/deployments": "workspace:*",
+    "@vezta/shared": "workspace:*",
+    "ioredis": "^6.0.0",
+    "viem": "^2.47.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.0"
+  }
+}

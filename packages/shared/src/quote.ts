@@ -1,7 +1,30 @@
-import { BPS, type Curve } from "./lib.ts";
+// Exact off-chain replicas of the contract's price maths (CurveMath.sol), so the app can quote on every keystroke
+// without an RPC call and can solve "I want to spend X ETH" (the contract only accepts a token amount).
+//
+// Ported unchanged from examples/evm-flow/src/quote.ts, which was checked against a live deployment to the wei. The
+// integer rounding here is deliberate and mirrors the contract: do not "simplify" it. `pnpm verify:quote` re-checks
+// it against a running deployment.
 
-// Exact off-chain replicas of the contract math (CurveMath.sol), so the UI can quote instantly without an RPC
-// call per keystroke, and can solve "I want to spend X ETH" (the contract only accepts a token amount).
+export const BPS = 10_000n;
+
+/** The contract shape returned by getCurve(token). */
+export interface Curve {
+  quoteToken: `0x${string}`;
+  creator: `0x${string}`;
+  pair: `0x${string}`;
+  virtualTokenReserves: bigint;
+  virtualQuoteReserves: bigint;
+  initialVirtualQuoteReserves: bigint;
+  realTokenReserves: bigint;
+  realQuoteReserves: bigint;
+  tokenTotalSupply: bigint;
+  floor: bigint;
+  creatorFeeBps: bigint;
+  complete: boolean;
+  migrated: boolean;
+  launchTime: bigint;
+  antiSniperWindow: number;
+}
 
 const ceilDiv = (a: bigint, b: bigint) => (a + b - 1n) / b;
 
@@ -41,4 +64,21 @@ export function tokensForBudget(c: Curve, p: BuyParams, budget: bigint): bigint 
     else hi = mid - 1n;
   }
   return lo;
+}
+
+/** Buy: never send less than the quote. Add slippage headroom for other trades landing first. */
+export const maxCostWithSlippage = (total: bigint, slippageBps: bigint) => (total * (BPS + slippageBps)) / BPS + 1n;
+
+/** Sell: the minimum payout you accept. */
+export const minPayoutWithSlippage = (payout: bigint, slippageBps: bigint) => (payout * (BPS - slippageBps)) / BPS;
+
+/** Progress to graduation in basis points: share of the sellable supply (80%) already sold. */
+export function progressBps(c: Curve): bigint {
+  return ((c.tokenTotalSupply - c.realTokenReserves) * BPS) / (c.tokenTotalSupply - c.floor);
+}
+
+/** What the trade panel should offer. */
+export function curveStatus(c: Curve): "trading" | "awaiting-migration" | "migrated" {
+  if (c.migrated) return "migrated";
+  return c.complete ? "awaiting-migration" : "trading";
 }

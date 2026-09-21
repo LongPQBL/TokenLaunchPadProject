@@ -32,7 +32,13 @@ app.get("/tokens/:address", async (c) => {
 app.get("/tokens/:address/trades", async (c) => {
   const address = c.req.param("address").toLowerCase() as `0x${string}`;
   const limit = Math.min(Number(c.req.query("limit") ?? 50), 200);
-  const rows = await db.select().from(schema.trade).where(eq(schema.trade.token, address)).orderBy(desc(schema.trade.blockNumber)).limit(limit);
+  // logIndex breaks the tie: several trades can share a block, and without it their order is arbitrary.
+  const rows = await db
+    .select()
+    .from(schema.trade)
+    .where(eq(schema.trade.token, address))
+    .orderBy(desc(schema.trade.blockNumber), desc(schema.trade.logIndex))
+    .limit(limit);
   return c.json(json(rows));
 });
 
@@ -54,6 +60,10 @@ app.get("/tokens/:address/holders", async (c) => {
  * GET /tokens/:address/candles?interval=60 : OHLC candles for the chart, built from trades.
  * The price of a trade is the SPOT price right after it (virtual quote / virtual token), not the average price
  * paid: one huge buy would otherwise print a misleading average instead of where the price really ended.
+ *
+ * Open and close are picked by (block_number, log_index). Ordering by (timestamp, id) would be wrong: all the
+ * trades in a block share a timestamp, and id is the text "<txHash>-<logIndex>", so it sorts by transaction
+ * hash. With more than one trade in a block the open and close would be chosen at random.
  */
 app.get("/tokens/:address/candles", async (c) => {
   const address = c.req.param("address").toLowerCase();
@@ -62,10 +72,10 @@ app.get("/tokens/:address/candles", async (c) => {
   const result = await db.execute(sql`
     SELECT
       (floor(timestamp::numeric / ${interval}) * ${interval})::bigint AS time,
-      (array_agg(virtual_quote_reserves * 1000000000000000000 / virtual_token_reserves ORDER BY timestamp, id))[1]::text AS open,
+      (array_agg(virtual_quote_reserves * 1000000000000000000 / virtual_token_reserves ORDER BY block_number, log_index))[1]::text AS open,
       max(virtual_quote_reserves * 1000000000000000000 / virtual_token_reserves)::text AS high,
       min(virtual_quote_reserves * 1000000000000000000 / virtual_token_reserves)::text AS low,
-      (array_agg(virtual_quote_reserves * 1000000000000000000 / virtual_token_reserves ORDER BY timestamp DESC, id DESC))[1]::text AS close,
+      (array_agg(virtual_quote_reserves * 1000000000000000000 / virtual_token_reserves ORDER BY block_number DESC, log_index DESC))[1]::text AS close,
       sum(quote_amount)::text AS volume
     FROM trade
     WHERE token = ${address}

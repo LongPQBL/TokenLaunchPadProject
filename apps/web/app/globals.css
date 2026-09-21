@@ -1,0 +1,161 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/*
+ * Design tokens taken from vezta-fe (app/globals.css): a trading-terminal look, not a glossy web3 one.
+ * Black canvas, near-square corners, a single lime accent, and a monospace face for every number.
+ */
+@theme {
+  --breakpoint-3xl: 1920px;
+
+  --color-background: #000000;
+  --color-background-subtle: #0a0a0a;
+  --color-foreground: #ffffff;
+  --color-primary: #d4ff2b;
+  --color-primary-foreground: #000000;
+  --color-primary-tint-20: #d4ff2b33;
+  --color-primary-tint-40: #d4ff2b66;
+  --color-card: #111111;
+  --color-card-elevated: #141414;
+  --color-card-foreground: #ffffff;
+  --color-secondary: #1a1a1a;
+  --color-secondary-foreground: #ffffff;
+  --color-border: #262626;
+  --color-border-hover: #404040;
+  --color-muted: #1a1a1a;
+  --color-muted-foreground: #8c8c8c;
+  --color-success: #22c55e;
+  --color-destructive: #ef4444;
+  --color-destructive-foreground: #ffffff;
+  --color-warning: #f6851b;
+  --color-info: #3b82f6;
+  --color-accent: #1a1a1a;
+  --color-accent-foreground: #ffffff;
+  --color-popover: #111111;
+  --color-popover-foreground: #ffffff;
+  --color-overlay: #00000080;
+  --color-input: #262626;
+  --color-input-focus: #d4ff2b66;
+  --color-ring: #d4ff2b;
+  --color-yes: oklch(0.711 0.144 161.553);
+  --color-no: oklch(0.654 0.211 18.17);
+  --color-yes-foreground: oklch(0.711 0.144 161.553);
+  --color-no-foreground: oklch(0.654 0.211 18.17);
+  --color-subtle: #080808;
+  --color-row-alt: #0a0a0a;
+  --color-input-bg: #0d0d0d;
+  --color-input-border: #333333;
+
+  /* Buying is green and selling is red. Lime stays the primary call to action: if it also meant "buy" it
+     would stop meaning "act here" (spec §8.1). */
+  --color-buy: #22c55e;
+  --color-sell: #ef4444;
+
+  --radius-sm: 0rem;
+  --radius-md: 0rem;
+  --radius-lg: 0.125rem;
+  --radius-xl: 0.25rem;
+
+  --font-sans: var(--font-space-grotesk), "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-space-grotesk), "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), "JetBrains Mono", ui-monospace, monospace;
+
+  --animate-marquee: marquee 60s linear infinite;
+  --animate-row-new: row-new 1.2s ease-out;
+}
+
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+@keyframes row-new {
+  0% { background-color: rgba(212, 255, 43, 0.12); }
+  100% { background-color: transparent; }
+}
+
+@keyframes tick-flash-primary {
+  0% { background-color: rgba(212, 255, 43, 0.4); }
+  70% { background-color: rgba(212, 255, 43, 0.32); }
+  100% { background-color: transparent; }
+}
+@keyframes tick-flash-green {
+  0% { background-color: rgba(34, 192, 92, 0.4); }
+  70% { background-color: rgba(34, 192, 92, 0.32); }
+  100% { background-color: transparent; }
+}
+@keyframes tick-flash-red {
+  0% { background-color: rgba(239, 68, 68, 0.36); }
+  70% { background-color: rgba(239, 68, 68, 0.28); }
+  100% { background-color: transparent; }
+}
+
+html {
+  font-size: 115%;
+}
+
+html,
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+}
+
+* {
+  border-color: var(--color-border);
+}
+
+button,
+a,
+[role="button"] {
+  cursor: pointer;
+}
+
+button:disabled,
+a[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* A changing number flashes: lime for neutral, green up, red down. */
+.tick-flash-primary[data-tick="up"],
+.tick-flash-primary[data-tick="down"] {
+  animation: tick-flash-primary 1400ms ease-out;
+}
+.tick-flash-directional[data-tick="up"] {
+  animation: tick-flash-green 1400ms ease-out;
+}
+.tick-flash-directional[data-tick="down"] {
+  animation: tick-flash-red 1400ms ease-out;
+}
+
+/* Motion is decoration here, never information: anyone who asks for less of it gets none. */
+@media (prefers-reduced-motion: reduce) {
+  .tick-flash-primary,
+  .tick-flash-directional {
+    animation: none !important;
+  }
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border-hover);
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}

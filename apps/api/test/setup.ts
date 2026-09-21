@@ -1,0 +1,13 @@
+import { ensureLaunchpadSchema } from "./launchpad-schema.js";
+
+// API tests write rows and delete them. Pointing them at a development or real database would wipe it,
+// so refuse to run at all unless the database is named as a test database.
+const url = process.env.DATABASE_URL ?? "";
+if (!/\/[^/?]*_test(\?|$)/.test(url)) {
+  throw new Error(
+    `Refusing to run: DATABASE_URL must point at a database whose name ends in _test (got "${url.replace(/\/\/[^@]*@/, "//***@")}").`,
+  );
+}
+
+// Idempotent: the launchpad tables the queries read from (see launchpad-schema.ts).
+await ensureLaunchpadSchema();
