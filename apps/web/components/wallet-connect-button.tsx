@@ -52,8 +52,13 @@ export function WalletConnectButton({ fallback = [], chain }: { fallback?: Fallb
       </DialogTrigger>
       <DialogContent>
         <DialogTitle>{UI.wallet.connectTitle}</DialogTitle>
+        {/* No connectors of its own and a fallback: this list is only here because the login (Google, email) did not load, and it says so. */}
         <DialogDescription>
-          {connectors.length === 0 && fallback.length === 0 ? UI.wallet.noWallet : "Choose the wallet you want to use."}
+          {connectors.length === 0 && fallback.length === 0
+            ? UI.wallet.noWallet
+            : connectors.length === 0
+              ? UI.wallet.privyUnavailable
+              : "Choose the wallet you want to use."}
         </DialogDescription>
         <ul className="mt-4 flex flex-col gap-2">
           {connectors.map((connector) => {
@@ -87,6 +92,11 @@ export function WalletConnectButton({ fallback = [], chain }: { fallback?: Fallb
               </li>
             ))}
         </ul>
+        {connectors.length === 0 && fallback.length > 0 && (
+          <Button variant="outline" size="sm" className="mt-3" onClick={() => window.location.reload()}>
+            {UI.wallet.reload}
+          </Button>
+        )}
       </DialogContent>
     </Dialog>
   );

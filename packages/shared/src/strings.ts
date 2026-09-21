@@ -271,6 +271,8 @@ export const UI = {
   wallet: {
     connect: "Connect wallet",
     connectTitle: "Connect a wallet",
+    privyUnavailable: "Google and email sign-in did not load. You can connect a wallet now, or reload the page to try them again.",
+    reload: "Reload",
     noWallet: "No wallet found. Install a browser wallet such as MetaMask, then reload this page.",
     disconnect: "Disconnect",
     login: "Log in",

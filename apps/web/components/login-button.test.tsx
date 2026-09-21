@@ -185,6 +185,13 @@ describe("LoginButton", () => {
 });
 
 describe("WalletConnectButton's fallback connector", () => {
+  const reload = vi.fn();
+  beforeEach(() => {
+    reload.mockReset();
+    vi.stubGlobal("location", { ...window.location, reload });
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
   // Privy's wagmi config carries no connectors of its own (it strips them and turns wallet discovery off), so when the plain list is
   // the emergency route it must bring its own way to reach the browser's wallet.
   it("lists the fallback wallet when the config has no connectors, and connects it", async () => {
@@ -197,6 +204,17 @@ describe("WalletConnectButton's fallback connector", () => {
     expect(await screen.findByText(/^0x0000…00a1$/i)).toBeInTheDocument();
   });
 
+  it("says why Google and email are missing, and that reloading tries them again, instead of showing a bare list", async () => {
+    const { WalletConnectButton } = await import("./wallet-connect-button");
+    const fallback = [{ name: "Browser wallet", connector: mock({ accounts: [TEST_USER] }) }];
+    renderWithWallet(<WalletConnectButton fallback={fallback} />, []);
+    await userEvent.click(screen.getByRole("button", { name: "Connect wallet" }));
+    expect(screen.getByText(/Google and email sign-in did not load/)).toBeInTheDocument();
+    expect(screen.queryByText("Choose the wallet you want to use.")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Reload" }));
+    expect(reload).toHaveBeenCalledOnce();
+  });
+
   it("does not add the fallback when the config already has wallets to list", async () => {
     const { WalletConnectButton } = await import("./wallet-connect-button");
     const fallback = [{ name: "Browser wallet", connector: mock({ accounts: [TEST_USER] }) }];
@@ -204,6 +222,8 @@ describe("WalletConnectButton's fallback connector", () => {
     await userEvent.click(screen.getByRole("button", { name: "Connect wallet" }));
     expect(screen.queryByRole("button", { name: "Browser wallet" })).toBeNull();
     expect(screen.getByRole("button", { name: /mock/i })).toBeInTheDocument();
+    expect(screen.getByText("Choose the wallet you want to use.")).toBeInTheDocument(); // nothing failed to load, so nothing to explain
+    expect(screen.queryByRole("button", { name: "Reload" })).toBeNull();
   });
 
   it("says there is no wallet when there is neither", async () => {
