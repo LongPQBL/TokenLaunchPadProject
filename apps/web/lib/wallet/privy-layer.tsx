@@ -15,7 +15,10 @@ import { PrivyActiveProvider } from "./privy-context";
 export default function WithPrivy({ appId, children }: { appId: string; children: ReactNode }) {
   const [state] = useState(() => {
     const chainId = getDeployment()?.chainId ?? sepolia.id;
-    const config = createPrivyWagmiConfig({ chains: [sepolia], transports: { [sepolia.id]: http(process.env.NEXT_PUBLIC_RPC_URL) } });
+    const config = createPrivyWagmiConfig({
+      chains: [sepolia],
+      transports: { [sepolia.id]: http(process.env.NEXT_PUBLIC_RPC_URL) },
+    });
     return { chainId, config, queryClient: new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } } }) };
   });
 

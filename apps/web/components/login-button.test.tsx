@@ -2,11 +2,12 @@ import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { connect } from "wagmi/actions";
+import { mock } from "wagmi/connectors";
 import { sepolia } from "wagmi/chains";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { API } from "../test/msw/handlers";
 import { server } from "../test/msw/server";
-import { renderWithWallet, TEST_DEPLOYMENT } from "../test/wallet";
+import { renderWithWallet, TEST_DEPLOYMENT, TEST_USER } from "../test/wallet";
 import { PrivyActiveProvider } from "@/lib/wallet/privy-context";
 import { ConnectButton } from "./connect-button";
 import { LoginButton, PRIVY_PATIENCE_MS } from "./login-button";
@@ -136,6 +137,50 @@ describe("LoginButton", () => {
     });
     await waitFor(() => expect(privy.logout).toHaveBeenCalled());
     expect(privy.logout).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("WalletConnectButton's fallback connector", () => {
+  // Privy's wagmi config carries no connectors of its own (it strips them and turns wallet discovery off), so when the plain list is
+  // the emergency route it must bring its own way to reach the browser's wallet.
+  it("lists the fallback wallet when the config has no connectors, and connects it", async () => {
+    const { WalletConnectButton } = await import("./wallet-connect-button");
+    const fallback = [{ name: "Browser wallet", connector: mock({ accounts: [TEST_USER] }) }];
+    renderWithWallet(<WalletConnectButton fallback={fallback} />, []);
+    await userEvent.click(screen.getByRole("button", { name: "Connect wallet" }));
+    expect(screen.queryByText(/No wallet found/)).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Browser wallet" }));
+    expect(await screen.findByText(/^0x0000…00a1$/i)).toBeInTheDocument();
+  });
+
+  it("does not add the fallback when the config already has wallets to list", async () => {
+    const { WalletConnectButton } = await import("./wallet-connect-button");
+    const fallback = [{ name: "Browser wallet", connector: mock({ accounts: [TEST_USER] }) }];
+    renderWithWallet(<WalletConnectButton fallback={fallback} />);
+    await userEvent.click(screen.getByRole("button", { name: "Connect wallet" }));
+    expect(screen.queryByRole("button", { name: "Browser wallet" })).toBeNull();
+    expect(screen.getByRole("button", { name: /mock/i })).toBeInTheDocument();
+  });
+
+  it("says there is no wallet when there is neither", async () => {
+    const { WalletConnectButton } = await import("./wallet-connect-button");
+    renderWithWallet(<WalletConnectButton fallback={[]} />, []);
+    await userEvent.click(screen.getByRole("button", { name: "Connect wallet" }));
+    expect(screen.getByText(/No wallet found/)).toBeInTheDocument();
+  });
+
+  it("is what LoginButton offers once Privy has not come ready in time", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      privy.ready = false;
+      renderWithWallet(<LoginButton />, []); // a config with no connectors, as Privy's is
+      await act(() => vi.advanceTimersByTimeAsync(PRIVY_PATIENCE_MS + 100));
+      await userEvent.click(await screen.findByRole("button", { name: "Connect wallet" }));
+      expect(screen.queryByText(/No wallet found/)).toBeNull(); // the fallback is what is listed
+      expect(screen.getByRole("button", { name: "Browser wallet" })).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

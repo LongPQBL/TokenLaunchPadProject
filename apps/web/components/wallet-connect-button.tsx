@@ -2,7 +2,7 @@
 
 import { UI } from "@vezta/shared";
 import { useState } from "react";
-import { useAccount, useConnect, useConnectors, useDisconnect } from "wagmi";
+import { useAccount, useConnect, useConnectors, useDisconnect, type CreateConnectorFn } from "wagmi";
 import { shortAddress } from "@/lib/format";
 import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "./ui/dialog";
@@ -10,7 +10,17 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } 
 /** A wallet announces its own icon. It is shown only if it is an inline image or https: never a URL of any other kind. */
 const safeIcon = (icon: string | undefined) => (icon && /^(data:image\/|https:\/\/)/.test(icon) ? icon : undefined);
 
-export function WalletConnectButton() {
+/**
+ * A way to reach a wallet that is not one of the config's own connectors: offered only when the config has none. Privy's wagmi
+ * config carries no connectors (it strips them and turns wallet discovery off), so when this list is the emergency route out of a
+ * Privy that would not load, the caller brings its own.
+ */
+export interface FallbackWallet {
+  name: string;
+  connector: CreateConnectorFn;
+}
+
+export function WalletConnectButton({ fallback = [] }: { fallback?: FallbackWallet[] } = {}) {
   const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
   const connectors = useConnectors();
@@ -37,7 +47,9 @@ export function WalletConnectButton() {
       </DialogTrigger>
       <DialogContent>
         <DialogTitle>{UI.wallet.connectTitle}</DialogTitle>
-        <DialogDescription>{connectors.length === 0 ? UI.wallet.noWallet : "Choose the wallet you want to use."}</DialogDescription>
+        <DialogDescription>
+          {connectors.length === 0 && fallback.length === 0 ? UI.wallet.noWallet : "Choose the wallet you want to use."}
+        </DialogDescription>
         <ul className="mt-4 flex flex-col gap-2">
           {connectors.map((connector) => {
             const icon = safeIcon(connector.icon);
@@ -57,6 +69,18 @@ export function WalletConnectButton() {
               </li>
             );
           })}
+          {connectors.length === 0 &&
+            fallback.map((wallet) => (
+              <li key={wallet.name}>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start gap-3"
+                  onClick={() => connect({ connector: wallet.connector }, { onSuccess: () => setOpen(false), onError: () => undefined })}
+                >
+                  {wallet.name}
+                </Button>
+              </li>
+            ))}
         </ul>
       </DialogContent>
     </Dialog>

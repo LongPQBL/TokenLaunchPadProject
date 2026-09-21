@@ -15,7 +15,12 @@ export interface CspInput {
 }
 
 /** What Privy's own documentation lists as required, and no more. Scripts are NOT here: the nonce and strict-dynamic already cover what Privy loads. */
-const PRIVY_FRAMES = ["https://auth.privy.io", "https://verify.walletconnect.com", "https://verify.walletconnect.org", "https://challenges.cloudflare.com"];
+const PRIVY_FRAMES = [
+  "https://auth.privy.io",
+  "https://verify.walletconnect.com",
+  "https://verify.walletconnect.org",
+  "https://challenges.cloudflare.com",
+];
 const PRIVY_CONNECT = [
   "https://auth.privy.io",
   "https://*.rpc.privy.systems",
@@ -56,7 +61,14 @@ export function buildCsp({ nonce, isDev, apiUrl, rpcUrl, imageOrigins, walletCon
     ...(walletConnect ? ["wss://relay.walletconnect.org", "https://rpc.walletconnect.org"] : []),
     ...(privy ? PRIVY_CONNECT : []),
   ].filter((x): x is string => !!x);
-  const images = ["'self'", "data:", "blob:", ...imageOrigins.map(origin).filter((x): x is string => !!x)];
+  // (Privy's login screen draws each WalletConnect wallet's logo from this explorer: found by the e2e run, not in Privy's CSP list.)
+  const images = [
+    "'self'",
+    "data:",
+    "blob:",
+    ...imageOrigins.map(origin).filter((x): x is string => !!x),
+    ...(privy ? ["https://explorer-api.walletconnect.com"] : []),
+  ];
 
   return [
     "default-src 'self'",

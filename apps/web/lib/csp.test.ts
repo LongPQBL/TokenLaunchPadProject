@@ -120,6 +120,14 @@ describe("Privy", () => {
     expect(directive(csp, "default-src")).toBe("default-src 'self'");
   });
 
+  it("lets the wallet logos Privy's login screen shows load, from WalletConnect's explorer only, and only with Privy on", () => {
+    // (found by the e2e run: the screen draws each wallet's logo from there, and the policy blocked it)
+    expect(directive(buildCsp({ ...base, privy: true }), "img-src")).toContain("https://explorer-api.walletconnect.com");
+    expect(directive(buildCsp(base), "img-src")).not.toContain("walletconnect");
+    const images = directive(buildCsp({ ...base, privy: true }), "img-src")!.split(" ").slice(1);
+    expect(images.filter((i) => i.startsWith("https:") && i !== "https://explorer-api.walletconnect.com")).toEqual([]); // no wildcard https:
+  });
+
   it("does not open frames to any other origin: frame-src names exactly Privy's, WalletConnect's verifier and Cloudflare's", () => {
     const frames = directive(buildCsp({ ...base, privy: true }), "frame-src")!.split(" ").slice(1);
     expect(frames.sort()).toEqual(["https://auth.privy.io", "https://challenges.cloudflare.com", "https://verify.walletconnect.com", "https://verify.walletconnect.org"]);

@@ -152,7 +152,9 @@ wait_for "the API" 60 curl -sf "http://localhost:$API_PORT/ready"
 log "Building and starting the web app on :$WEB_PORT"
 # The browser reads the chain through the fork directly (NEXT_PUBLIC_RPC_URL) and gets the launchpad's addresses from the
 # same deployment file as everything else (DEPLOYMENT=local, read by next.config.ts).
-(cd "$ROOT/apps/web" && DEPLOYMENT=local NEXT_PUBLIC_API_URL="http://localhost:$API_PORT" NEXT_PUBLIC_RPC_URL="$RPC" \
+# E2E_PRIVY_APP_ID (optional, public) turns Privy on in this build and runs e2e/privy.spec.ts; without it the app is the plain
+# wallet app and the whole suite is what it always was. The Privy app must list http://localhost:$WEB_PORT as an allowed origin.
+(cd "$ROOT/apps/web" && DEPLOYMENT=local NEXT_PUBLIC_API_URL="http://localhost:$API_PORT" NEXT_PUBLIC_RPC_URL="$RPC" NEXT_PUBLIC_PRIVY_APP_ID="${E2E_PRIVY_APP_ID:-}" \
   pnpm exec next build > "$LOGS/web-build.log" 2>&1) \
   || { tail -20 "$LOGS/web-build.log"; die "the web build failed"; }
 (cd "$ROOT/apps/web" && pnpm exec next start -p "$WEB_PORT" > "$LOGS/web.log" 2>&1) &
@@ -163,7 +165,7 @@ wait_for "the web app" 60 curl -sf "http://localhost:$WEB_PORT/sepolia"
 log "Running the browser tests"
 cd "$ROOT/apps/web"
 E2E_BASE_URL="http://localhost:$WEB_PORT" E2E_TOKEN="$E2E_TOKEN" E2E_SAME_BLOCK_TOKEN="$E2E_SAME_BLOCK_TOKEN" \
-  E2E_LAUNCHPAD="$LAUNCHPAD" E2E_DATABASE_URL="$DB_URL" E2E_RPC_URL="$RPC" E2E_ADMIN_KEY="$ADMIN_KEY" \
+  E2E_LAUNCHPAD="$LAUNCHPAD" E2E_DATABASE_URL="$DB_URL" E2E_RPC_URL="$RPC" E2E_ADMIN_KEY="$ADMIN_KEY" E2E_API_URL="http://localhost:$API_PORT" E2E_PRIVY_APP_ID="${E2E_PRIVY_APP_ID:-}" \
   pnpm exec playwright test "$@" || STATUS=$?
 
 # E2E_HOLD=<seconds> keeps the whole stack up after the tests, for poking at it by hand or with a script.
