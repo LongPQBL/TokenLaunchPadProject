@@ -2,21 +2,42 @@ import { describe, expect, it } from "vitest";
 import { formatCompactTokens, formatQuote, formatQuoteApprox, formatTokenPrice } from "./format.js";
 
 describe("formatTokenPrice", () => {
-  it("renders a launch price in scientific notation rather than a wall of zeros", () => {
+  it("writes a launch price out in plain decimals, never as 1.5e-11, with five significant digits", () => {
     // 1.5624999e-11 ETH per token: the real opening price of a 0.05 ETH curve.
-    expect(formatTokenPrice(15_624_999n, 18)).toBe("1.5625e-11");
+    expect(formatTokenPrice(15_624_999n, 18)).toBe("0.000000000015625");
+    expect(formatTokenPrice(15_625_000n, 18)).toBe("0.000000000015625");
   });
 
-  it("drops trailing zeros from the mantissa", () => {
-    expect(formatTokenPrice(15_000_000n, 18)).toBe("1.5e-11");
+  it("drops trailing zeros", () => {
+    expect(formatTokenPrice(15_000_000n, 18)).toBe("0.000000000015");
+  });
+
+  it("rounds to the nearest at the fifth significant digit, and carries into the next place when it has to", () => {
+    expect(formatTokenPrice(26_984_976n, 18)).toBe("0.000000000026985");
+    expect(formatTokenPrice(99_999_999n, 18)).toBe("0.0000000001");
   });
 
   it("renders a normal-sized price as plain decimal", () => {
     expect(formatTokenPrice(2_500_000_000_000_000n, 18)).toBe("0.0025");
+    expect(formatTokenPrice(1_500_000_000_000_000_000n, 18)).toBe("1.5");
   });
 
-  it("renders zero without notation", () => {
+  it("keeps a price that already has five digits or fewer exactly as it is", () => {
+    expect(formatTokenPrice(12_345n, 18)).toBe("0.000000000000012345");
+    expect(formatTokenPrice(1n, 18)).toBe("0.000000000000000001");
+  });
+
+  it("never uses an exponent, for any size of price", () => {
+    for (const raw of [1n, 7n, 999n, 15_624_999n, 10n ** 17n, 10n ** 18n, 10n ** 30n + 12_345n]) expect(formatTokenPrice(raw, 18), String(raw)).not.toMatch(/e/i);
+  });
+
+  it("renders zero as zero", () => {
     expect(formatTokenPrice(0n, 18)).toBe("0");
+  });
+
+  it("works for a quote with other decimals (a 6-decimal stablecoin)", () => {
+    expect(formatTokenPrice(1_234_567n, 6)).toBe("1.2346");
+    expect(formatTokenPrice(15n, 6)).toBe("0.000015");
   });
 });
 

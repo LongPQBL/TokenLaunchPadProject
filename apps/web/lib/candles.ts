@@ -48,11 +48,13 @@ export function fillGaps(series: ChartCandle[], intervalSeconds: number): ChartC
 }
 
 /**
- * A price for the chart's axis. Launch prices are around 1e-11, where fixed decimals would show two significant
- * digits, so small prices are written in scientific notation with four; ordinary ones stay plain.
+ * A price for the chart's axis and its last-price label, written out in plain decimals with five significant digits, the same as
+ * the price in the token's header. A launch price is around 0.000000000015, and "1.5e-11" on an axis is hard to read. Never an
+ * exponent: `toLocaleString` writes any size of number out in full, unlike `toFixed`, which switches to one from 1e21.
  */
 export function formatChartPrice(price: number): string {
-  if (price === 0) return "0";
-  if (Math.abs(price) >= 1e-3) return String(Number(price.toPrecision(4)));
-  return price.toExponential(3).replace(/\.?0+e/, "e");
+  if (!Number.isFinite(price) || price === 0) return "0";
+  const magnitude = Math.floor(Math.log10(Math.abs(price)));
+  const decimals = Math.min(Math.max(4 - magnitude, 0), 100);
+  return price.toLocaleString("en-US", { useGrouping: false, minimumFractionDigits: 0, maximumFractionDigits: decimals });
 }

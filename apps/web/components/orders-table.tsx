@@ -1,4 +1,4 @@
-import { chainBySlug, formatCompactTokens, formatQuote, UI } from "@vezta/shared";
+import { chainBySlug, formatCompactTokens, formatQuote, formatTokenPrice, UI } from "@vezta/shared";
 import Link from "next/link";
 import { explorerTxUrl } from "@/lib/explorer";
 import { formatRelativeTime, shortAddress } from "@/lib/format";
@@ -66,7 +66,7 @@ export function OrdersTable({ chain, orders, now }: { chain: string; orders: Ord
                   {formatCompactTokens(o.tokenAmount)}
                   {o.token.ticker && <span className="ml-1 text-xs text-muted-foreground">{o.token.ticker}</span>}
                 </TableCell>
-                <TableCell className="text-right font-mono">{`${formatQuote(o.price, decimals, 8)} ${symbol}`}</TableCell>
+                <TableCell className="text-right font-mono">{`${formatTokenPrice(o.price, decimals)} ${symbol}`}</TableCell>
                 <TableCell className="text-right font-mono text-xs">
                   {tx && (
                     <a href={tx} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">

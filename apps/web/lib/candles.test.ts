@@ -96,19 +96,41 @@ describe("fillGaps", () => {
 });
 
 describe("formatChartPrice", () => {
-  // A launch price is around 1e-11: fixed decimals would show two significant digits, so small prices go exponential.
-  it("shows a tiny price with four significant digits, in scientific notation", () => {
-    expect(formatChartPrice(2.6984976e-11)).toBe("2.698e-11");
-    expect(formatChartPrice(1.5e-11)).toBe("1.5e-11");
+  // A launch price is around 1e-11. It is written out in plain decimals (an axis full of "1.8e-11" is hard to read), with five
+  // significant digits, the same as the price in the token's header.
+  it("writes a tiny price out in plain decimals, with five significant digits", () => {
+    expect(formatChartPrice(2.6984976e-11)).toBe("0.000000000026985");
+    expect(formatChartPrice(1.5e-11)).toBe("0.000000000015");
+    expect(formatChartPrice(1.5625e-11)).toBe("0.000000000015625");
   });
 
   it("shows an ordinary price in plain decimals, without trailing zeros", () => {
-    expect(formatChartPrice(0.026984976)).toBe("0.02698");
+    expect(formatChartPrice(0.026984976)).toBe("0.026985");
     expect(formatChartPrice(1.5)).toBe("1.5");
     expect(formatChartPrice(12)).toBe("12");
   });
 
-  it("shows zero as zero", () => {
+  it("never uses an exponent, for a very small price or a very large one", () => {
+    for (const price of [1e-15, 3.3e-12, 1.5625e-11, 1e-6, 0.5, 123456, 1.2e9]) expect(formatChartPrice(price), String(price)).not.toMatch(/e/i);
+  });
+
+  it("writes a big number without thousands separators, which the chart would take for a decimal point in some places", () => {
+    expect(formatChartPrice(123456)).toBe("123456");
+    expect(formatChartPrice(1.2e9)).toBe("1200000000");
+  });
+
+  it("does not throw for a price far smaller than any real one", () => {
+    expect(() => formatChartPrice(1e-120)).not.toThrow();
+    expect(formatChartPrice(1e-120)).not.toMatch(/e/i);
+  });
+
+  it("keeps the sign of a negative number and shows zero as zero", () => {
     expect(formatChartPrice(0)).toBe("0");
+    expect(formatChartPrice(-1.5e-11)).toBe("-0.000000000015");
+  });
+
+  it("does not choke on what is not a number", () => {
+    expect(formatChartPrice(Number.NaN)).toBe("0");
+    expect(formatChartPrice(Number.POSITIVE_INFINITY)).toBe("0");
   });
 });

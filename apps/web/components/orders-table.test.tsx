@@ -41,6 +41,11 @@ describe("OrdersTable", () => {
     expect(text[5]).toBe("0.0000005 ETH");
   });
 
+  it("writes a launch-sized price out in full: it must not read as 0", () => {
+    render(<OrdersTable chain="sepolia" orders={[order({ price: 15_625_000n })]} now={NOW} />);
+    expect(cells()[5]).toHaveTextContent("0.000000000015625 ETH");
+  });
+
   it("marks a buy green and a sell red, and shows a sell's total net of its fee", () => {
     render(<OrdersTable chain="sepolia" orders={[order(), order({ id: "x", isBuy: false, total: ETH - ETH / 100n })]} now={NOW} />);
     expect(within(cells(0)[2]!).getByText("Buy")).toHaveClass("text-buy");

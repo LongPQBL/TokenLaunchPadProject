@@ -1,19 +1,23 @@
 import { formatUnits } from "viem";
 
+/** How many significant digits a price is shown with. Five is what tells 0.000000000015625 from 0.000000000015 apart at a glance. */
+const PRICE_SIGNIFICANT_DIGITS = 5;
+
 /**
- * A token price in quote per whole token. These are tiny — a 0.05 ETH curve opens around
- * 1.5e-11 ETH — so below a threshold we switch to scientific notation rather than print
- * eleven leading zeros that nobody can compare at a glance.
- *
- * This is display only: the number never goes back into any calculation, so the float is fine.
+ * A token price in quote per whole token, written out in plain decimals. These are tiny (a 0.05 ETH curve opens around
+ * 0.000000000015625 ETH) and are shown with all their leading zeros rather than in scientific notation, which is what people
+ * expect to see and can compare by eye. Rounded to the nearest at the fifth significant digit, in integers: a price with five
+ * digits or fewer is shown exactly as it is. Display only: the number never goes back into any calculation.
  */
 export function formatTokenPrice(rawQuotePerWholeToken: bigint, quoteDecimals: number): string {
-  if (rawQuotePerWholeToken === 0n) return "0";
-  const plain = formatUnits(rawQuotePerWholeToken, quoteDecimals);
-  const asNumber = Number(plain);
-  if (asNumber >= 1e-6) return trimZeros(plain);
-  const [mantissa, exponent] = asNumber.toExponential(4).split("e");
-  return `${trimZeros(mantissa!)}e${exponent}`;
+  if (rawQuotePerWholeToken <= 0n) return "0";
+  const digits = rawQuotePerWholeToken.toString().length;
+  let shown = rawQuotePerWholeToken;
+  if (digits > PRICE_SIGNIFICANT_DIGITS) {
+    const unit = 10n ** BigInt(digits - PRICE_SIGNIFICANT_DIGITS);
+    shown = ((rawQuotePerWholeToken + unit / 2n) / unit) * unit;
+  }
+  return trimZeros(formatUnits(shown, quoteDecimals));
 }
 
 /**

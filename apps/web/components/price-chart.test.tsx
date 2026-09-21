@@ -47,7 +47,7 @@ describe("PriceChart", () => {
     render(<PriceChart candles={series} />);
     const options = (addSeries.mock.calls[0] as unknown as [unknown, { priceFormat: { type: string; formatter: (n: number) => string; minMove: number } }])[1];
     expect(options.priceFormat.type).toBe("custom");
-    expect(options.priceFormat.formatter(2.6984976e-11)).toBe("2.698e-11");
+    expect(options.priceFormat.formatter(2.6984976e-11)).toBe("0.000000000026985");
     // A price step below the smallest price, or the scale would round everything to zero.
     expect(options.priceFormat.minMove).toBeLessThan(1e-12);
   });

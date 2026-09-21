@@ -102,7 +102,7 @@ describe("TokenHeader: identity", () => {
 
   it("shows the price and the market cap in the chain's currency", () => {
     header();
-    expect(screen.getByText("2.6985e-11 ETH")).toBeInTheDocument();
+    expect(screen.getByText("0.000000000026985 ETH")).toBeInTheDocument();
     expect(screen.getByText("0.0269 ETH")).toBeInTheDocument();
   });
 
