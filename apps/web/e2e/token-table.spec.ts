@@ -10,7 +10,7 @@ test.describe("the token table", () => {
   test("is what discover shows, with the columns of a token table", async ({ page }) => {
     await page.goto("/sepolia");
     const headers = page.getByRole("columnheader");
-    await expect(headers).toHaveText(["Token", "MCAP", "ATH", "AGE", "TXNS", "24H VOL", "TRADERS", "1H", "6H", "24H", "Star"]);
+    await expect(headers).toHaveText(["Token", "MCAP", "ATH", "PROGRESS", "AGE", "TXNS", "24H VOL", "TRADERS", "1H", "6H", "24H", "Star"]);
     // (other specs make tokens too, so there may be more than the two fixtures)
     await expect(row(page, FILLED)).toBeVisible();
     await expect(row(page, SAME_BLOCK)).toBeVisible();

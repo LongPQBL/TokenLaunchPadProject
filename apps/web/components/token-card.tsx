@@ -2,6 +2,7 @@ import { UI } from "@vezta/shared";
 import Link from "next/link";
 import { formatPercentBps, shortAddress } from "@/lib/format";
 import type { TokenListItem } from "@/lib/types";
+import { ProgressBar } from "./progress-bar";
 import { QuoteValue } from "./quote-value";
 import { TokenImage } from "./token-image";
 
@@ -13,7 +14,6 @@ import { TokenImage } from "./token-image";
 export function TokenCard({ chain, token, flash = 0 }: { chain: string; token: TokenListItem; /** Bumped each time the volume changes live: a new number restarts the flash. */ flash?: number }) {
 
   const title = token.name ?? token.ticker ?? shortAddress(token.address);
-  const bps = Math.min(Math.max(token.progressBps, 0), 10_000);
   const status = token.migrated ? UI.token.status.graduated : token.complete ? UI.token.status.graduating : undefined;
 
   return (
@@ -34,16 +34,7 @@ export function TokenCard({ chain, token, flash = 0 }: { chain: string; token: T
         {token.description && <p className="line-clamp-2 text-sm text-muted-foreground">{token.description}</p>}
 
         <div className="mt-2 flex items-center gap-2">
-          <div
-            role="progressbar"
-            aria-label={UI.token.progress}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={Math.round(bps / 100)}
-            className="h-1 flex-1 bg-secondary"
-          >
-            <div className="h-full bg-primary" style={{ width: `${bps / 100}%` }} />
-          </div>
+          <ProgressBar bps={token.progressBps} label={UI.token.progress} className="h-1 flex-1" />
           <span className="font-mono text-xs">{formatPercentBps(token.progressBps)}</span>
         </div>
 

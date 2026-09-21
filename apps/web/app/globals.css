@@ -74,6 +74,16 @@
   100% { background-color: transparent; }
 }
 
+/* A full curve: a light sweeps across the green bar and the bar glows, over and over, so it cannot be missed in a list. */
+@keyframes progress-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+@keyframes progress-glow {
+  0%, 100% { box-shadow: 0 0 3px rgba(34, 197, 94, 0.5); }
+  50% { box-shadow: 0 0 12px rgba(34, 197, 94, 0.95); }
+}
+
 @keyframes tick-flash-primary {
   0% { background-color: rgba(212, 255, 43, 0.4); }
   70% { background-color: rgba(212, 255, 43, 0.32); }
@@ -129,8 +139,20 @@ a[aria-disabled="true"] {
   animation: tick-flash-red 1400ms ease-out;
 }
 
+.progress-full {
+  background-image: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.55) 50%, transparent 70%);
+  background-size: 200% 100%;
+  animation:
+    progress-shimmer 1.8s linear infinite,
+    progress-glow 1.8s ease-in-out infinite;
+}
+
 /* Motion is decoration here, never information: anyone who asks for less of it gets none. */
 @media (prefers-reduced-motion: reduce) {
+  .progress-full {
+    animation: none;
+    background-image: none;
+  }
   .tick-flash-primary,
   .tick-flash-directional {
     animation: none !important;

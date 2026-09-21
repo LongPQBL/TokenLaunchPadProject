@@ -48,7 +48,7 @@ describe("the token table in dollars", () => {
     const cells = within(screen.getByTestId("token-row")).getAllByRole("cell");
     expect(await within(cells[1]!).findByText("$300K")).toBeInTheDocument(); // 100 ETH
     expect(cells[2]).toHaveTextContent("$600K"); // 200 ETH
-    expect(cells[5]).toHaveTextContent("$1.5K"); // 0.5 ETH
+    expect(cells[6]).toHaveTextContent("$1.5K"); // 0.5 ETH
   });
 
   it("shows ETH when there is no price", async () => {

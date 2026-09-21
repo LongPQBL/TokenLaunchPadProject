@@ -261,8 +261,8 @@ describe("LiveTokenGrid as a table", () => {
     const { fake } = view();
     act(() => fake.message("trades", trade(1, A, "1000")));
     const cells = within(screen.getAllByTestId("token-row").find((r) => r.querySelector(`a[href$="${A}"]`))!).getAllByRole("cell");
-    expect(cells[4]).toHaveTextContent("1"); // trades
-    expect(cells[5]!.querySelector("[data-tick]")).not.toBeNull();
+    expect(cells[5]).toHaveTextContent("1"); // trades
+    expect(cells[6]!.querySelector("[data-tick]")).not.toBeNull();
     expect(cells[1]).not.toHaveTextContent("5 ETH"); // the market cap is where the trade's reserves put it
   });
 
@@ -314,7 +314,7 @@ describe("LiveTokenGrid as a watchlist", () => {
     const { fake } = watch();
     act(() => fake.message("trades", trade(1, A)));
     const cells = within(screen.getAllByTestId("token-row").find((r) => r.querySelector(`a[href$="${A}"]`))!).getAllByRole("cell");
-    expect(cells[4]).toHaveTextContent("1");
+    expect(cells[5]).toHaveTextContent("1");
   });
 
   it("refetches its own rows after a reconnect, from the watchlist and not from discover", async () => {

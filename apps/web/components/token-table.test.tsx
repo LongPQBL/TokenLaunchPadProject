@@ -54,23 +54,24 @@ describe("TokenTable: what it shows", () => {
   it("has the columns of a token table, in order, and names each one", () => {
     table([row(A)]);
     const names = screen.getAllByRole("columnheader").map((h) => h.textContent?.trim());
-    expect(names).toEqual(["Token", "MCAP", "ATH", "AGE", "TXNS", "24H VOL", "TRADERS", "1H", "6H", "24H", "Star"]);
+    expect(names).toEqual(["Token", "MCAP", "ATH", "PROGRESS", "AGE", "TXNS", "24H VOL", "TRADERS", "1H", "6H", "24H", "Star"]);
   });
 
   it("shows each number of a token in its own cell, in the quote's units", () => {
     table([row(A)]);
     const text = cells().map((c) => c.textContent);
     expect(text[1]).toBe("5 ETH"); // market cap
-    expect(text[2]).toContain("10 ETH"); // ATH
-    expect(text[3]).toBe("3h");
-    expect(text[4]).toBe("7,103");
-    expect(text[5]).toBe("1.5 ETH");
-    expect(text[6]).toBe("1,905");
+    expect(text[2]).toBe("10 ETH"); // ATH: the number alone
+    expect(text[3]).toBe("25%"); // progress to graduation
+    expect(text[4]).toBe("3h");
+    expect(text[5]).toBe("7,103");
+    expect(text[6]).toBe("1.5 ETH");
+    expect(text[7]).toBe("1,905");
   });
 
   it("shows the three changes with an arrow, a comma in the thousands, and a colour that says which way", () => {
     table([row(A)]);
-    const [h1, h6, h24] = [cells()[7]!, cells()[8]!, cells()[9]!].map((c) => c.firstElementChild as HTMLElement);
+    const [h1, h6, h24] = [cells()[8]!, cells()[9]!, cells()[10]!].map((c) => c.firstElementChild as HTMLElement);
     expect(h1).toHaveTextContent("↑ 88.7%");
     expect(h1).toHaveAttribute("data-direction", "up");
     expect(h6).toHaveTextContent("↑ 6,320.7%");
@@ -80,21 +81,38 @@ describe("TokenTable: what it shows", () => {
 
   it("shows no arrow for a change of nothing", () => {
     table([row(A, { stats: { ...row(A).stats!, change1hBps: 0 } })]);
-    const chip = cells()[7]!.firstElementChild as HTMLElement;
+    const chip = cells()[8]!.firstElementChild as HTMLElement;
     expect(chip).toHaveTextContent(/^0\.0%$/);
     expect(chip).toHaveAttribute("data-direction", "flat");
   });
 
-  it("draws how far the market cap is from its high as a bar, and says it in words", () => {
-    table([row(A)]); // 5 of 10
-    const bar = within(cells()[2]!).getByRole("img");
-    expect(bar).toHaveAccessibleName("50% of its all-time high");
-    expect((bar.firstElementChild as HTMLElement).style.width).toBe("50%");
+  it("keeps the ATH column to a number, on the right like the others: a bar in it made it look out of line", () => {
+    table([row(A)]);
+    const ath = cells()[2]!;
+    expect(ath).toHaveClass("text-right");
+    expect(within(ath).queryByRole("progressbar")).toBeNull();
+    expect(within(ath).queryByRole("img")).toBeNull();
   });
 
-  it("keeps the bar inside its box: at the high it is full, and it never passes it", () => {
-    table([row(A, { stats: { ...row(A).stats!, marketCap: 12n * ETH, athMarketCap: 10n * ETH } })]);
-    expect((within(cells()[2]!).getByRole("img").firstElementChild as HTMLElement).style.width).toBe("100%");
+  it("draws how far the curve is from graduating as a bar, with the percentage beside it, and says it in words", () => {
+    table([row(A)]); // 25%
+    const cell = cells()[3]!;
+    const bar = within(cell).getByRole("progressbar", { name: "Graduation progress" });
+    expect(bar).toHaveAttribute("aria-valuenow", "25");
+    expect((bar.firstElementChild as HTMLElement).style.width).toBe("25%");
+    expect(cell).toHaveTextContent("25%");
+  });
+
+  it("turns the bar to its full state when the curve is full, and only then", () => {
+    table([row(A, { progressBps: 10_000 }), row(B, { progressBps: 9_990 })]);
+    expect(within(cells(0)[3]!).getByRole("progressbar")).toHaveAttribute("data-full", "true");
+    expect(within(cells(1)[3]!).getByRole("progressbar")).not.toHaveAttribute("data-full");
+  });
+
+  it("shows the progress of a token that has no numbers yet: it does not come from them", () => {
+    table([row(A, { stats: undefined, progressBps: 4_000 })]);
+    expect(within(cells()[3]!).getByRole("progressbar")).toHaveAttribute("aria-valuenow", "40");
+    expect(cells()[1]).toHaveTextContent("—");
   });
 
   it("links the token's name to its page, and shows its ticker beside it", () => {
@@ -127,16 +145,17 @@ describe("TokenTable: a row with no numbers", () => {
   it("shows a dash where a number would be, and no arrow, rather than a zero that looks like a fact", () => {
     table([row(A, { stats: undefined })]);
     const text = cells().map((c) => c.textContent);
-    for (const i of [1, 2, 5, 6]) expect(text[i], String(i)).toBe("—");
-    expect(text[3]).toBe("3h"); // what the row itself knows is still shown
-    expect(text[4]).toBe("7,103");
-    expect(screen.queryByText(/%/)).toBeNull();
+    for (const i of [1, 2, 6, 7]) expect(text[i], String(i)).toBe("—"); // market cap, ATH, 24 h volume, traders
+    expect(text[3]).toBe("25%"); // what the row itself knows is still shown: the progress,
+    expect(text[4]).toBe("3h"); // the age,
+    expect(text[5]).toBe("7,103"); // and the trades
+    expect(screen.queryByText(/[↑↓]/)).toBeNull(); // and no change is made up
   });
 
-  it("shows a dash for a market cap that is not known yet (no reserves), and draws no bar", () => {
+  it("shows a dash for a market cap and an ATH that are not known yet (no reserves)", () => {
     table([row(A, { stats: { ...row(A).stats!, marketCap: 0n, athMarketCap: 0n } })]);
     expect(cells()[1]).toHaveTextContent("—");
-    expect(within(cells()[2]!).queryByRole("img")).toBeNull();
+    expect(cells()[2]).toHaveTextContent("—");
   });
 });
 
@@ -145,6 +164,7 @@ describe("TokenTable: sorting by a header", () => {
     table([row(A)], { q: "dog" });
     const link = (name: string) => within(screen.getByRole("columnheader", { name })).getByRole("link");
     expect(link("MCAP")).toHaveAttribute("href", "/sepolia?sort=mcap&q=dog");
+    expect(link("PROGRESS")).toHaveAttribute("href", "/sepolia?sort=progress&q=dog");
     expect(link("AGE")).toHaveAttribute("href", "/sepolia?q=dog");
     expect(link("TXNS")).toHaveAttribute("href", "/sepolia?sort=txns&q=dog");
     expect(link("24H VOL")).toHaveAttribute("href", "/sepolia?sort=volume24h&q=dog");
@@ -194,8 +214,8 @@ describe("TokenTable: the rest", () => {
 
   it("restarts the flash on a row's 24 h volume each time it changes live, and not on the others", () => {
     table([row(A), row(B)], { flashes: { [A]: 2 } });
-    expect(cells(0)[5]!.querySelector("[data-tick]")).not.toBeNull();
-    expect(cells(1)[5]!.querySelector("[data-tick]")).toBeNull();
+    expect(cells(0)[6]!.querySelector("[data-tick]")).not.toBeNull();
+    expect(cells(1)[6]!.querySelector("[data-tick]")).toBeNull();
   });
 
   it("marks the rows that arrived live, for the entrance animation", () => {

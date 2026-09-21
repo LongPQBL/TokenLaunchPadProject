@@ -4,17 +4,19 @@ import { UI } from "@vezta/shared";
 import Link from "next/link";
 import { discoverHref } from "@/lib/discover";
 import { FavoritesNotice, FavoritesProvider } from "@/lib/favorites/use-favorites";
-import { formatAge, formatChangeBps, shortAddress } from "@/lib/format";
+import { formatAge, formatChangeBps, formatPercentBps, shortAddress } from "@/lib/format";
 import type { TokenRow, TokenSort } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { FavoriteStar } from "./favorite-star";
+import { ProgressBar } from "./progress-bar";
 import { QuoteValue } from "./quote-value";
 import { TokenImage } from "./token-image";
 
 /** Which sort each sortable column stands for. Always biggest (or newest) first: that is what people come to a table for. */
 const COLUMNS: { label: string; sort?: TokenSort; align?: "left" | "right" }[] = [
   { label: "MCAP", sort: "mcap", align: "right" },
-  { label: "ATH" },
+  { label: "ATH", align: "right" },
+  { label: "PROGRESS", sort: "progress", align: "right" },
   { label: "AGE", sort: "new", align: "right" },
   { label: "TXNS", sort: "txns", align: "right" },
   { label: "24H VOL", sort: "volume24h", align: "right" },
@@ -25,6 +27,7 @@ const COLUMNS: { label: string; sort?: TokenSort; align?: "left" | "right" }[] =
 ];
 
 const NUMBER = new Intl.NumberFormat("en-US");
+const PROGRESS_LABEL = UI.token.progress;
 const DASH = "—";
 
 function Change({ bps }: { bps: number }) {
@@ -136,8 +139,6 @@ export function TokenTable({
                 const stats = token.stats;
                 const known = !!stats && stats.marketCap > 0n;
                 const ath = stats?.athMarketCap ?? 0n;
-                const percent = known && ath > 0n ? Number((stats.marketCap * 100n) / ath) : 0;
-                const bar = Math.min(Math.max(percent, 0), 100);
                 const status = token.migrated ? UI.token.status.graduated : token.complete ? UI.token.status.graduating : undefined;
                 const flash = flashes?.[token.address] ?? 0;
                 return (
@@ -165,17 +166,13 @@ export function TokenTable({
                       </div>
                     </td>
                     <td className="px-2 py-2 text-right font-mono">{known ? quote(stats.marketCap) : DASH}</td>
+                    <td className="px-2 py-2 text-right font-mono">{known ? quote(ath) : DASH}</td>
                     <td className="px-2 py-2">
-                      {known ? (
-                        <div className="flex items-center gap-2 font-mono">
-                          <div role="img" aria-label={`${bar}% of its all-time high`} className="h-1.5 w-12 shrink-0 bg-secondary">
-                            <div className="h-full bg-primary" style={{ width: `${bar}%` }} />
-                          </div>
-                          <span>{quote(ath)}</span>
-                        </div>
-                      ) : (
-                        <span className="font-mono">{DASH}</span>
-                      )}
+                      {/* How far the curve is from graduating: it is the token's own, so it shows before there are any numbers. */}
+                      <div className="flex items-center justify-end gap-2 font-mono text-xs">
+                        <ProgressBar bps={token.progressBps} label={PROGRESS_LABEL} className="h-1.5 w-16 shrink-0" />
+                        <span className="w-10 text-right">{formatPercentBps(token.progressBps)}</span>
+                      </div>
                     </td>
                     <td className="px-2 py-2 text-right font-mono">{formatAge(token.createdAt, now)}</td>
                     <td className="px-2 py-2 text-right font-mono">{NUMBER.format(token.tradeCount)}</td>
