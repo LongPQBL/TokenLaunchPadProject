@@ -20,11 +20,12 @@ describe("privyConfig", () => {
     expect(c.embeddedWallets?.ethereum?.createOnLogin).toBe("users-without-wallets");
   });
 
-  it("shows Email, Google, MetaMask and Phantom as their own options on the first screen, in that order, not behind \"Continue with a wallet\"", () => {
-    const order = privyConfig(11155111).loginMethodsAndOrder;
-    expect(order?.primary).toEqual(["email", "google", "metamask", "phantom"]);
-    // any other wallet the browser has is one screen further, never lost
-    expect(order?.overflow).toEqual(["detected_ethereum_wallets"]);
+  it("shows Email, Google and ONE wallet option on the first screen, with MetaMask and Phantom listed together behind it", () => {
+    const c = privyConfig(11155111);
+    // Not ordered by us: the first screen is Privy's own (email, Google, "Continue with a wallet"), and the wallets are one screen in.
+    expect(c.loginMethodsAndOrder).toBeUndefined();
+    expect(c.loginMethods).toEqual(["email", "google", "wallet"]);
+    expect(c.appearance?.walletList).toEqual(["metamask", "phantom", "detected_ethereum_wallets"]);
   });
 
   it("is set up for the deployment's chain only", () => {
