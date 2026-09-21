@@ -39,7 +39,7 @@ describe("TradesTable", () => {
     table([trade()]);
     const row = screen.getByTestId("trade-row");
     expect(within(row).getByText("12M")).toHaveClass("font-mono");
-    expect(within(row).getByText("0.004 ETH")).toHaveClass("font-mono");
+    expect(within(row).getByText("0.004 ETH").closest(".font-mono")).not.toBeNull();
   });
 
   it("shows when the trade happened, relative to now", () => {

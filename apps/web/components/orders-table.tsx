@@ -1,9 +1,10 @@
-import { chainBySlug, formatCompactTokens, formatQuote, formatTokenPrice, UI } from "@vezta/shared";
+import { chainBySlug, formatCompactTokens, UI } from "@vezta/shared";
 import Link from "next/link";
 import { explorerTxUrl } from "@/lib/explorer";
 import { formatRelativeTime, shortAddress } from "@/lib/format";
 import type { Order } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { PriceValue, QuoteValue } from "./quote-value";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 
 /** An ISO date for a <time> element, or undefined: new Date(1e33).toISOString() throws, and one bad row must not take the page down. */
@@ -26,8 +27,6 @@ export function OrdersTable({ chain, orders, now }: { chain: string; orders: Ord
     );
   }
   const config = chainBySlug(chain);
-  const decimals = config?.quoteDecimals ?? 18;
-  const symbol = config?.quoteSymbol ?? "ETH";
   const c = UI.positions.columns;
 
   return (
@@ -61,12 +60,16 @@ export function OrdersTable({ chain, orders, now }: { chain: string; orders: Ord
                 <TableCell>
                   <span className={cn("font-semibold", o.isBuy ? "text-buy" : "text-sell")}>{o.isBuy ? UI.token.side.buy : UI.token.side.sell}</span>
                 </TableCell>
-                <TableCell className="text-right font-mono">{`${formatQuote(o.total, decimals, 6)} ${symbol}`}</TableCell>
+                <TableCell className="text-right font-mono">
+                  <QuoteValue chain={chain} raw={o.total} secondary />
+                </TableCell>
                 <TableCell className="text-right font-mono">
                   {formatCompactTokens(o.tokenAmount)}
                   {o.token.ticker && <span className="ml-1 text-xs text-muted-foreground">{o.token.ticker}</span>}
                 </TableCell>
-                <TableCell className="text-right font-mono">{`${formatTokenPrice(o.price, decimals)} ${symbol}`}</TableCell>
+                <TableCell className="text-right font-mono">
+                  <PriceValue chain={chain} raw={o.price} secondary />
+                </TableCell>
                 <TableCell className="text-right font-mono text-xs">
                   {tx && (
                     <a href={tx} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">

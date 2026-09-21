@@ -7,6 +7,8 @@ import type { Trade } from "@/lib/types";
 import type { LiveClient } from "@/lib/ws/client";
 import { createCandleAccumulator, liveTradeSchema, mergeTrades, type LiveTrade } from "@/lib/ws/live";
 import { useLiveRoom } from "@/lib/ws/use-live-room";
+import { useHasChain } from "@/lib/chain/use-has-chain";
+import { useUsdRate } from "@/lib/chain/use-usd-rate";
 import { PriceChart } from "./price-chart";
 import { TradesTable } from "./trades-table";
 
@@ -89,5 +91,13 @@ export function LivePriceChart({
     },
   });
 
-  return <PriceChart candles={useMemo(() => fillGaps(series, interval), [series, interval])} />;
+  const filled = useMemo(() => fillGaps(series, interval), [series, interval]);
+  return useHasChain() ? <PricedChart chain={chain} candles={filled} /> : <PriceChart candles={filled} />;
+}
+
+/** The chart, told what an ETH is worth once the chain's price feed says, so it can draw in dollars (and in ETH until then). */
+function PricedChart({ chain, candles }: { chain: string; candles: ChartCandle[] }) {
+  const rate = useUsdRate(chain);
+  const usdPerEth = rate ? Number(rate.answer) / 10 ** rate.decimals : undefined;
+  return <PriceChart candles={candles} usdPerEth={usdPerEth} />;
 }

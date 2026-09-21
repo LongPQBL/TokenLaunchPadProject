@@ -19,7 +19,7 @@ test.describe("the token table", () => {
   test("shows real numbers for a token that has traded: a market cap, its trades and its traders, and a change for each window", async ({ page }) => {
     await page.goto("/sepolia");
     const cells = row(page, FILLED).getByRole("cell");
-    await expect(cells.nth(1)).toHaveText(/^\d[\d.]* ETH$/); // market cap, not a dash
+    await expect(cells.nth(1)).toHaveText(/^(\$[\d,.]+[KMBT]?|\d[\d.]* ETH)$/); // market cap in dollars (or ETH with no price), not a dash
     await expect(cells.nth(4)).toHaveText(/^[\d,]+$/); // trades
     await expect(cells.nth(6)).toHaveText(/^[\d,]+$/); // traders
     for (const i of [7, 8, 9]) await expect(cells.nth(i)).toHaveText(/^(↑ |↓ )?[\d,]+\.\d%$/);

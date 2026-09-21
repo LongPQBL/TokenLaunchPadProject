@@ -1,6 +1,6 @@
 "use client";
 
-import { chainBySlug, formatCompactTokens, formatQuote } from "@vezta/shared";
+import { formatCompactTokens } from "@vezta/shared";
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { shortAddress } from "@/lib/format";
@@ -8,6 +8,7 @@ import type { LiveClient } from "@/lib/ws/client";
 import { liveTradeSchema, tradeKey, type LiveTrade } from "@/lib/ws/live";
 import { liveTokenHiddenSchema } from "@/lib/ws/moderation";
 import { useLiveRoom } from "@/lib/ws/use-live-room";
+import { QuoteValue } from "./quote-value";
 
 const SHOWN = 20;
 
@@ -17,7 +18,6 @@ const SHOWN = 20;
  * a click is a strip nobody can click) and shows what it missed when they let go.
  */
 export function TradeTicker({ chain, labels, client }: { chain: string; labels: Record<string, string>; client?: LiveClient }) {
-  const config = chainBySlug(chain);
   const [shown, setShown] = useState<LiveTrade[]>([]);
   const held = useRef<LiveTrade[]>([]); // arrived while the pointer was over the strip
   const busy = useRef(false);
@@ -70,7 +70,7 @@ export function TradeTicker({ chain, labels, client }: { chain: string; labels: 
             <li key={`${t.txHash}-${t.logIndex}`} data-testid="ticker-item">
               <Link href={`/${chain}/token/${t.token}`} className="hover:underline">
                 <span className={t.isBuy ? "text-buy" : "text-sell"}>{t.isBuy ? "Buy" : "Sell"}</span>{" "}
-                {formatCompactTokens(t.tokenAmount)} {labels[t.token] ?? shortAddress(t.token)} · {formatQuote(t.quoteAmount, config?.quoteDecimals ?? 18, 4)} {config?.quoteSymbol ?? "ETH"}
+                {formatCompactTokens(t.tokenAmount)} {labels[t.token] ?? shortAddress(t.token)} · <QuoteValue chain={chain} raw={t.quoteAmount} compact />
               </Link>
             </li>
           ))}

@@ -1,8 +1,9 @@
-import { chainBySlug, formatCompactTokens, formatQuote, UI } from "@vezta/shared";
+import { formatCompactTokens, UI } from "@vezta/shared";
 import Link from "next/link";
-import { formatPnlBps, formatSignedQuote, shortAddress } from "@/lib/format";
+import { formatPnlBps, shortAddress } from "@/lib/format";
 import type { Position } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { QuoteValue } from "./quote-value";
 import { TokenImage } from "./token-image";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 
@@ -24,10 +25,8 @@ export function PositionsTable({ chain, positions }: { chain: string; positions:
     );
   }
 
-  const config = chainBySlug(chain);
-  const decimals = config?.quoteDecimals ?? 18;
-  const symbol = config?.quoteSymbol ?? "ETH";
-  const quote = (raw: bigint) => `${formatQuote(raw, decimals, 4)} ${symbol}`;
+  // Dollars when the chain's price feed answers, ETH when it does not; the ETH it comes to is underneath (and in the tooltip).
+  const quote = (raw: bigint) => <QuoteValue chain={chain} raw={raw} secondary />;
   const totalValue = positions.reduce((sum, p) => sum + p.value, 0n);
   const totalPnl = positions.reduce((sum, p) => sum + p.pnl, 0n);
   const c = UI.positions.columns;
@@ -37,11 +36,15 @@ export function PositionsTable({ chain, positions }: { chain: string; positions:
       <dl role="group" aria-label="Totals" className="flex flex-wrap gap-x-10 gap-y-2 font-mono">
         <div>
           <dt className="text-xs text-muted-foreground">{UI.positions.totals.value}</dt>
-          <dd className="text-lg">{quote(totalValue)}</dd>
+          <dd className="text-lg">
+            <QuoteValue chain={chain} raw={totalValue} />
+          </dd>
         </div>
         <div>
           <dt className="text-xs text-muted-foreground">{UI.positions.totals.pnl}</dt>
-          <dd className={cn("text-lg", tone(direction(totalPnl)))}>{`${formatSignedQuote(totalPnl, decimals, 4)} ${symbol}`}</dd>
+          <dd className={cn("text-lg", tone(direction(totalPnl)))}>
+            <QuoteValue chain={chain} raw={totalPnl} signed />
+          </dd>
         </div>
       </dl>
       <div className="overflow-x-auto border border-border">
@@ -82,7 +85,7 @@ export function PositionsTable({ chain, positions }: { chain: string; positions:
                   <TableCell className="text-right font-mono">{p.received > 0n ? quote(p.received) : DASH}</TableCell>
                   <TableCell className="text-right font-mono">
                     <span data-testid="pnl" data-direction={dir} className={tone(dir)}>
-                      {`${formatSignedQuote(p.pnl, decimals, 4)} ${symbol}`}
+                      <QuoteValue chain={chain} raw={p.pnl} signed />
                     </span>
                     {p.pnlBps !== null && <span className={cn("ml-2 text-xs", tone(pct.direction))}>{pct.text}</span>}
                   </TableCell>

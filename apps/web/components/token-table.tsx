@@ -1,6 +1,6 @@
 "use client";
 
-import { chainBySlug, formatQuote, UI } from "@vezta/shared";
+import { UI } from "@vezta/shared";
 import Link from "next/link";
 import { discoverHref } from "@/lib/discover";
 import { FavoritesNotice, FavoritesProvider } from "@/lib/favorites/use-favorites";
@@ -8,6 +8,7 @@ import { formatAge, formatChangeBps, shortAddress } from "@/lib/format";
 import type { TokenRow, TokenSort } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { FavoriteStar } from "./favorite-star";
+import { QuoteValue } from "./quote-value";
 import { TokenImage } from "./token-image";
 
 /** Which sort each sortable column stands for. Always biggest (or newest) first: that is what people come to a table for. */
@@ -81,10 +82,8 @@ export function TokenTable({
   /** Told after a star was saved or removed: which token, and whether it is now starred. */
   onStarChange?: (token: string, starred: boolean) => void;
 }) {
-  const config = chainBySlug(chain);
-  const decimals = config?.quoteDecimals ?? 18;
-  const symbol = config?.quoteSymbol ?? "ETH";
-  const quote = (raw: bigint) => `${formatQuote(raw, decimals, 4)} ${symbol}`;
+  // Amounts are dollars when the chain's price feed answers and ETH when it does not (see QuoteValue), in a compact form ($12.3K).
+  const quote = (raw: bigint) => <QuoteValue chain={chain} raw={raw} compact />;
 
   // Not a spinner: by the time this renders the answer is in, and the answer is "nothing".
   if (items.length === 0) {
