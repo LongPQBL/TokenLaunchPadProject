@@ -1,4 +1,5 @@
 import { cleanup, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // jsdom has no canvas, so the library itself cannot run here. It is replaced by a recorder so the wiring is tested:
@@ -7,7 +8,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const setData = vi.fn();
 const fitContent = vi.fn();
 const remove = vi.fn();
-const addSeries = vi.fn(() => ({ setData }));
+const applyOptions = vi.fn();
+const addSeries = vi.fn(() => ({ setData, applyOptions }));
 const createChart = vi.fn(() => ({ addSeries, timeScale: () => ({ fitContent }), remove, applyOptions: vi.fn() }));
 const CandlestickSeries = Symbol("CandlestickSeries");
 
@@ -104,5 +106,61 @@ describe("PriceChart", () => {
     render(<PriceChart candles={series} />);
     expect(screen.getByTestId("price-chart")).toHaveAttribute("role", "img");
     expect(screen.getByTestId("price-chart")).toHaveAttribute("aria-label", "Price chart");
+  });
+});
+
+describe("PriceChart in dollars", () => {
+  const scaled = (k: number) => series.map((c) => ({ ...c, open: c.open * k, high: c.high * k, low: c.low * k, close: c.close * k }));
+  const formatter = () => (addSeries.mock.calls[0] as unknown as [unknown, { priceFormat: { formatter: (n: number) => string } }])[1].priceFormat.formatter;
+
+  it("offers no switch, and draws the candles as they are, when there is no dollar price", () => {
+    render(<PriceChart candles={series} />);
+    expect(screen.queryByRole("button", { name: "USD" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "ETH" })).toBeNull();
+    expect(setData).toHaveBeenLastCalledWith(series);
+  });
+
+  it("draws in dollars by default when there is a price: every price is multiplied by what an ETH is worth", () => {
+    render(<PriceChart candles={series} usdPerEth={3_000} />);
+    expect(setData).toHaveBeenLastCalledWith(scaled(3_000));
+    expect(screen.getByRole("button", { name: "USD" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "ETH" })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("writes the axis in dollars, with the sign, out in full", () => {
+    render(<PriceChart candles={series} usdPerEth={3_000} />);
+    expect(formatter()(2.6984976e-11 * 3_000)).toBe("$0.000000080955");
+  });
+
+  it("switches to ETH without rebuilding the chart: the same candles as they were, and an axis in ETH", async () => {
+    render(<PriceChart candles={series} usdPerEth={3_000} />);
+    await userEvent.click(screen.getByRole("button", { name: "ETH" }));
+    expect(createChart).toHaveBeenCalledOnce();
+    expect(setData).toHaveBeenLastCalledWith(series);
+    const applied = applyOptions.mock.calls.at(-1)![0] as { priceFormat: { formatter: (n: number) => string } };
+    expect(applied.priceFormat.formatter(2.6984976e-11)).toBe("0.000000000026985");
+    expect(screen.getByRole("button", { name: "ETH" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("switches back to dollars", async () => {
+    render(<PriceChart candles={series} usdPerEth={3_000} />);
+    await userEvent.click(screen.getByRole("button", { name: "ETH" }));
+    await userEvent.click(screen.getByRole("button", { name: "USD" }));
+    expect(setData).toHaveBeenLastCalledWith(scaled(3_000));
+    expect((applyOptions.mock.calls.at(-1)![0] as { priceFormat: { formatter: (n: number) => string } }).priceFormat.formatter(1e-8)).toBe("$0.00000001");
+  });
+
+  it("keeps drawing in dollars as new candles arrive", () => {
+    const next = [...series, { time: 180, open: 2e-11, high: 2.5e-11, low: 1.8e-11, close: 2.2e-11 }];
+    const { rerender } = render(<PriceChart candles={series} usdPerEth={3_000} />);
+    rerender(<PriceChart candles={next} usdPerEth={3_000} />);
+    expect(setData).toHaveBeenLastCalledWith(next.map((c) => ({ ...c, open: c.open * 3_000, high: c.high * 3_000, low: c.low * 3_000, close: c.close * 3_000 })));
+  });
+
+  it("falls back to ETH, and offers no switch, if the price goes away", () => {
+    const { rerender } = render(<PriceChart candles={series} usdPerEth={3_000} />);
+    rerender(<PriceChart candles={series} />);
+    expect(screen.queryByRole("button", { name: "USD" })).toBeNull();
+    expect(setData).toHaveBeenLastCalledWith(series);
   });
 });

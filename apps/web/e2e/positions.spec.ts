@@ -29,10 +29,11 @@ test("a buy shows up as a position with its cost and value, and in the order his
   // (the indexer is a few seconds behind the chain; the page asks again every 15 s)
   await expect(position).toBeVisible({ timeout: 45_000 });
   const cells = position.getByRole("cell");
-  await expect(cells.nth(2)).toHaveText(/^[\d.]+ ETH$/); // value
-  await expect(cells.nth(3)).toHaveText(/^0\.001[\d]* ETH$/); // what it cost, fee included
+  await expect(cells.nth(2)).toContainText("$"); // value, in dollars (the price feed is on the fork)
+  await expect(cells.nth(2)).toContainText(/[\d.]+ ETH$/); // with the ETH underneath
+  await expect(cells.nth(3)).toContainText(/0\.001[\d]* ETH$/); // what it cost, fee included, in ETH underneath its dollars
   await expect(cells.nth(4)).toHaveText("—"); // nothing sold yet
-  await expect(cells.nth(5)).toHaveText(/^[+-][\d.]+ ETH[+-][\d,]+\.\d%$/);
+  await expect(cells.nth(5)).toHaveText(/^[+-](<)?\$[\d,.]+[KMBT]?[+-][\d,]+\.\d%$/);
   await expect(page.getByRole("group", { name: "Totals" })).toContainText("Total value");
 
   await page.getByRole("navigation", { name: "Positions views" }).getByRole("link", { name: "Order history" }).click();

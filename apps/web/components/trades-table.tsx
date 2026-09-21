@@ -1,8 +1,9 @@
-import { chainBySlug, formatCompactTokens, formatQuote, UI } from "@vezta/shared";
+import { chainBySlug, formatCompactTokens, UI } from "@vezta/shared";
 import { explorerAddressUrl } from "@/lib/explorer";
 import { formatRelativeTime, shortAddress } from "@/lib/format";
 import type { Trade } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { QuoteValue } from "./quote-value";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 
 /** An ISO date for a <time> element, or undefined: new Date(1e33).toISOString() throws, and one bad row must not take the page down. */
@@ -22,8 +23,6 @@ export function TradesTable({ trades, chain, now }: { trades: Trade[]; chain: st
   }
 
   const config = chainBySlug(chain);
-  const decimals = config?.quoteDecimals ?? 18;
-  const symbol = config?.quoteSymbol ?? "ETH";
 
   return (
     <Table>
@@ -48,7 +47,9 @@ export function TradesTable({ trades, chain, now }: { trades: Trade[]; chain: st
                 <span className="font-mono">{formatCompactTokens(trade.tokenAmount)}</span>
               </TableCell>
               <TableCell className="text-right">
-                <span className="font-mono">{`${formatQuote(trade.quoteAmount, decimals, 6)} ${symbol}`}</span>
+                <span className="font-mono">
+                  <QuoteValue chain={chain} raw={trade.quoteAmount} />
+                </span>
               </TableCell>
               <TableCell className="font-mono text-xs">
                 {explorer ? (

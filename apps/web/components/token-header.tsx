@@ -1,8 +1,9 @@
-import { chainBySlug, formatQuote, formatTokenPrice, marketCap, safeHttpUrl, spotPrice, UI } from "@vezta/shared";
+import { chainBySlug, marketCap, safeHttpUrl, spotPrice, UI } from "@vezta/shared";
 import { explorerAddressUrl, uniswapSwapUrl } from "@/lib/explorer";
 import { shortAddress } from "@/lib/format";
 import type { TokenDetail } from "@/lib/types";
 import { StatusBadge } from "./status-badge";
+import { PriceValue, QuoteValue } from "./quote-value";
 import { TokenImage } from "./token-image";
 
 const SOCIALS = [
@@ -22,12 +23,10 @@ const EXTERNAL = { target: "_blank", rel: "noopener noreferrer nofollow ugc" } a
  */
 export function TokenHeader({ chain, token }: { chain: string; token: TokenDetail }) {
   const config = chainBySlug(chain);
-  const decimals = config?.quoteDecimals ?? 18;
-  const symbol = config?.quoteSymbol ?? "ETH";
 
   const title = token.name ?? token.ticker ?? shortAddress(token.address);
-  const price = formatTokenPrice(spotPrice(token.virtualQuoteReserves, token.virtualTokenReserves), decimals);
-  const cap = formatQuote(marketCap(token.virtualQuoteReserves, token.virtualTokenReserves), decimals, 4);
+  const price = spotPrice(token.virtualQuoteReserves, token.virtualTokenReserves);
+  const cap = marketCap(token.virtualQuoteReserves, token.virtualTokenReserves);
 
   const links = SOCIALS.flatMap(([key, label]) => {
     const href = safeHttpUrl(token.socials[key]);
@@ -73,11 +72,15 @@ export function TokenHeader({ chain, token }: { chain: string; token: TokenDetai
         <dl className="mt-3 flex gap-6 font-mono text-sm">
           <div>
             <dt className="text-xs text-muted-foreground">{UI.token.price}</dt>
-            <dd>{`${price} ${symbol}`}</dd>
+            <dd>
+              <PriceValue chain={chain} raw={price} secondary />
+            </dd>
           </div>
           <div>
             <dt className="text-xs text-muted-foreground">{UI.token.marketCap}</dt>
-            <dd>{`${cap} ${symbol}`}</dd>
+            <dd>
+              <QuoteValue chain={chain} raw={cap} secondary compact />
+            </dd>
           </div>
         </dl>
 

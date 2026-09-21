@@ -1,7 +1,8 @@
-import { chainBySlug, formatQuote, UI } from "@vezta/shared";
+import { UI } from "@vezta/shared";
 import Link from "next/link";
 import { formatPercentBps, shortAddress } from "@/lib/format";
 import type { TokenListItem } from "@/lib/types";
+import { QuoteValue } from "./quote-value";
 import { TokenImage } from "./token-image";
 
 /**
@@ -10,9 +11,6 @@ import { TokenImage } from "./token-image";
  * A token with no resolved metadata still shows, with what the chain says about it and a placeholder picture.
  */
 export function TokenCard({ chain, token, flash = 0 }: { chain: string; token: TokenListItem; /** Bumped each time the volume changes live: a new number restarts the flash. */ flash?: number }) {
-  const config = chainBySlug(chain);
-  const decimals = config?.quoteDecimals ?? 18;
-  const symbol = config?.quoteSymbol ?? "ETH";
 
   const title = token.name ?? token.ticker ?? shortAddress(token.address);
   const bps = Math.min(Math.max(token.progressBps, 0), 10_000);
@@ -51,7 +49,9 @@ export function TokenCard({ chain, token, flash = 0 }: { chain: string; token: T
 
         <div className="mt-1 flex gap-3 font-mono text-xs text-muted-foreground">
           {/* Keyed by the flash count, so each change is a new element and the animation starts over. */}
-          <span key={flash} data-tick={flash > 0 ? "up" : undefined} className={flash > 0 ? "tick-flash-primary" : undefined}>{`${formatQuote(token.volumeQuote, decimals, 4)} ${symbol}`}</span>
+          <span key={flash} data-tick={flash > 0 ? "up" : undefined} className={flash > 0 ? "tick-flash-primary" : undefined}>
+            <QuoteValue chain={chain} raw={token.volumeQuote} compact />
+          </span>
           <span>{UI.token.trades(token.tradeCount)}</span>
         </div>
       </div>

@@ -1,3 +1,5 @@
+import { formatTokenPrice } from "./format";
+
 /** A price feed's answer: how many USD one whole unit of the quote is worth, as an integer with `decimals` decimals (Chainlink: 8). */
 export interface UsdRate {
   answer: bigint;
@@ -41,4 +43,48 @@ export function centsToText(cents: bigint): string {
   const whole = cents / 100n;
   const frac = (cents % 100n).toString().padStart(2, "0").replace(/0$/, "");
   return frac === "" || frac === "0" ? whole.toString() : `${whole}.${frac}`;
+}
+
+const COMPACT_UNITS: [bigint, string][] = [
+  [10n ** 12n, "T"],
+  [10n ** 9n, "B"],
+  [10n ** 6n, "M"],
+  [10n ** 3n, "K"],
+];
+
+/**
+ * Dollars for a table cell: "$47.23" up to a thousand, then "$12.3K", "$266.98K", "$13.73M", "$42B". At most two decimals, no trailing
+ * zeros, cut and never rounded up (a figure can only understate). In integers, so a huge number is not lost to floating point.
+ */
+export function formatUsdCompact(cents: bigint): string {
+  if (cents < 0n) return `-${formatUsdCompact(-cents)}`;
+  const dollars = cents / 100n;
+  if (dollars < 1_000n) return formatUsd(cents);
+  const [size, suffix] = COMPACT_UNITS.find(([unit]) => dollars >= unit)!;
+  const hundredths = (dollars * 100n) / size;
+  const frac = (hundredths % 100n).toString().padStart(2, "0").replace(/0+$/, "");
+  return `$${(hundredths / 100n).toString()}${frac ? `.${frac}` : ""}${suffix}`;
+}
+
+/** A quote amount (raw units) as dollars at the feed's price. Worth something but less than a cent reads "<$0.01", never "$0.00". */
+export function formatUsdValue(raw: bigint, rate: UsdRate, quoteDecimals = 18, opts: { compact?: boolean } = {}): string {
+  const cents = quoteToUsdCents(raw, rate, quoteDecimals);
+  if (raw > 0n && cents === 0n) return "<$0.01";
+  return opts.compact ? formatUsdCompact(cents) : formatUsd(cents);
+}
+
+/** A gain or a loss in dollars, with its sign: "+$30.00", "-$30.00". Nothing is "$0.00"; a sliver keeps its sign: "+<$0.01". */
+export function formatSignedUsdValue(raw: bigint, rate: UsdRate, quoteDecimals = 18, opts: { compact?: boolean } = {}): string {
+  if (raw === 0n) return "$0.00";
+  const magnitude = formatUsdValue(raw < 0n ? -raw : raw, rate, quoteDecimals, opts);
+  return magnitude === "$0.00" ? "$0.00" : `${raw < 0n ? "-" : "+"}${magnitude}`;
+}
+
+/**
+ * A token's price in dollars, out in full with five significant digits, as for a price in the quote: it is a fraction of a cent
+ * ("$0.000000046875"), and an exponent is hard to read. `priceRaw` is quote per WHOLE token, in raw quote units.
+ */
+export function formatUsdPrice(priceRaw: bigint, rate: UsdRate, quoteDecimals = 18): string {
+  if (rate.answer <= 0n || priceRaw <= 0n) return "$0";
+  return `$${formatTokenPrice(priceRaw * rate.answer, quoteDecimals + rate.decimals)}`;
 }

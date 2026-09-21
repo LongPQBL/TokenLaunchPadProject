@@ -1,0 +1,192 @@
+import { act, screen, within } from "@testing-library/react";
+import { formatUsdPrice, formatUsdValue, marketCap, spotPrice, type UsdRate } from "@vezta/shared";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { Order, Position, TokenDetail, TokenRow, Trade } from "@/lib/types";
+import { fakeChain } from "@/test/fake-chain";
+import { renderWithWallet, TEST_DEPLOYMENT } from "@/test/wallet";
+import { fakeLiveClient } from "../test/fake-live-client";
+import { OrdersTable } from "./orders-table";
+import { PositionsTable } from "./positions-table";
+import { TokenCard } from "./token-card";
+import { TokenHeader } from "./token-header";
+import { TokenTable } from "./token-table";
+import { TradeTicker } from "./trade-ticker";
+import { TradesTable } from "./trades-table";
+
+// Everywhere a price or an amount is drawn: dollars when the chain's feed answers (here $3,000 an ETH), ETH otherwise.
+const RATE: UsdRate = { answer: 3_000n * 10n ** 8n, decimals: 8 };
+const ETH = 10n ** 18n;
+const NOW = 1_700_000_000;
+const A = "0x00000000000000000000000000000000000000a1";
+const HASH = `0x${"ab".repeat(32)}`;
+
+beforeEach(() => vi.stubEnv("NEXT_PUBLIC_DEPLOYMENT", TEST_DEPLOYMENT));
+afterEach(() => vi.unstubAllEnvs());
+
+const show = (ui: React.ReactElement, withPrice = true) => renderWithWallet(ui, undefined, fakeChain(withPrice ? { usd: { answer: RATE.answer } } : {}).transport);
+
+describe("the token table in dollars", () => {
+  const row = (o: Partial<TokenRow> = {}): TokenRow => ({
+    address: A,
+    creator: "0xc0ffee",
+    name: "Alpha",
+    ticker: "ALP",
+    progressBps: 0,
+    volumeQuote: ETH,
+    tradeCount: 5,
+    complete: false,
+    migrated: false,
+    createdAt: BigInt(NOW - 60),
+    stats: { marketCap: 100n * ETH, athMarketCap: 200n * ETH, volume24h: ETH / 2n, traders24h: 3, change1hBps: 0, change6hBps: 0, change24hBps: 0 },
+    ...o,
+  });
+
+  it("shows the market cap, the ATH and the 24 h volume as compact dollars", async () => {
+    show(<TokenTable chain="sepolia" items={[row()]} sort="new" q="" now={NOW} />);
+    const cells = within(screen.getByTestId("token-row")).getAllByRole("cell");
+    expect(await within(cells[1]!).findByText("$300K")).toBeInTheDocument(); // 100 ETH
+    expect(cells[2]).toHaveTextContent("$600K"); // 200 ETH
+    expect(cells[5]).toHaveTextContent("$1.5K"); // 0.5 ETH
+  });
+
+  it("shows ETH when there is no price", async () => {
+    show(<TokenTable chain="sepolia" items={[row()]} sort="new" q="" now={NOW} />, false);
+    await act(() => new Promise((r) => setTimeout(r, 120)));
+    const cells = within(screen.getByTestId("token-row")).getAllByRole("cell");
+    expect(cells[1]).toHaveTextContent("100 ETH");
+    expect(cells[1]).not.toHaveTextContent("$");
+  });
+});
+
+describe("the token card in dollars", () => {
+  it("shows the volume in compact dollars", async () => {
+    show(
+      <TokenCard
+        chain="sepolia"
+        token={{ address: A, creator: "0xc0", name: "Alpha", ticker: "ALP", progressBps: 100, volumeQuote: 4n * ETH, tradeCount: 1, complete: false, migrated: false, createdAt: 1n }}
+      />,
+    );
+    expect(await screen.findByText("$12K")).toBeInTheDocument();
+  });
+});
+
+describe("the token header in dollars", () => {
+  const detail: TokenDetail = {
+    address: A,
+    creator: "0xc0ffee0000000000000000000000000000000000",
+    name: "Demo Token",
+    ticker: "DEMO",
+    progressBps: 4500,
+    volumeQuote: 1n,
+    tradeCount: 3,
+    complete: false,
+    migrated: false,
+    createdAt: 1n,
+    quoteToken: "0xfff9976782d46cc05630d1f6ebab18b2324d6b14",
+    antiSniperWindow: 60,
+    virtualQuoteReserves: 21_902_806_297_056_811n,
+    virtualTokenReserves: 811_666_666_666_666_666_666_666_666n,
+    metadataStatus: "ok",
+    socials: {},
+  };
+  const price = spotPrice(detail.virtualQuoteReserves, detail.virtualTokenReserves);
+  const cap = marketCap(detail.virtualQuoteReserves, detail.virtualTokenReserves);
+
+  it("shows the price and the market cap in dollars, with the ETH underneath", async () => {
+    show(<TokenHeader chain="sepolia" token={detail} />);
+    expect(await screen.findByText(formatUsdPrice(price, RATE))).toBeInTheDocument();
+    expect(screen.getByText(formatUsdValue(cap, RATE, 18, { compact: true }))).toBeInTheDocument();
+    expect(screen.getByText("0.000000000026985 ETH")).toBeInTheDocument(); // the price in ETH, underneath
+    expect(screen.getByText("0.0269 ETH")).toBeInTheDocument(); // and the cap
+  });
+
+  it("shows ETH alone, with the price written out in full, when there is no price", async () => {
+    show(<TokenHeader chain="sepolia" token={detail} />, false);
+    await act(() => new Promise((r) => setTimeout(r, 120)));
+    expect(screen.getByText("0.000000000026985 ETH")).toBeInTheDocument();
+    expect(screen.queryByText(/\$/)).toBeNull();
+  });
+});
+
+describe("the trades in dollars", () => {
+  const trade: Trade = {
+    id: "1-0xabc-1",
+    trader: "0xbeef000000000000000000000000000000000000",
+    isBuy: true,
+    quoteAmount: ETH / 100n,
+    tokenAmount: 12_000_000n * ETH,
+    fee: 0n,
+    launchTax: 0n,
+    virtualQuoteReserves: 1n,
+    virtualTokenReserves: 1n,
+    timestamp: BigInt(NOW - 2),
+    blockNumber: 100n,
+    logIndex: 1,
+  };
+
+  it("the trade table shows what each trade came to in dollars", async () => {
+    show(<TradesTable trades={[trade]} chain="sepolia" now={NOW} />);
+    expect(await screen.findByText("$30.00")).toBeInTheDocument();
+  });
+
+  it("the ticker shows it in compact dollars", async () => {
+    const fake = fakeLiveClient();
+    show(<TradeTicker chain="sepolia" labels={{ [A]: "DEMO" }} client={fake.client} />);
+    act(() =>
+      fake.message("trades", {
+        type: "trade", id: `${HASH}-0`, chain: "sepolia", token: A, trader: "0x00000000000000000000000000000000000000f1", isBuy: true, quoteAmount: String(ETH / 100n), tokenAmount: "5",
+        fee: "0", launchTax: "0", virtualQuoteReserves: "1", virtualTokenReserves: "1", timestamp: "1", blockNumber: "1", txHash: HASH, logIndex: 0,
+      }),
+    );
+    expect(await screen.findByText("$30.00")).toBeInTheDocument();
+  });
+});
+
+describe("positions and orders in dollars", () => {
+  const position: Position = {
+    token: { address: A, name: "Alpha", ticker: "ALP" },
+    balance: 1_000n * ETH,
+    spent: ETH / 100n,
+    received: 0n,
+    buys: 1,
+    sells: 0,
+    value: ETH / 50n,
+    pnl: ETH / 100n,
+    pnlBps: 10_000,
+  };
+
+  it("shows value, what it cost and the profit in dollars, with the ETH underneath, and the totals too", async () => {
+    show(<PositionsTable chain="sepolia" positions={[position]} />);
+    const cells = within(await screen.findByTestId("position-row")).getAllByRole("cell");
+    await within(cells[2]!).findByText("$60.00"); // value: 0.02 ETH
+    expect(cells[2]).toHaveTextContent("0.02 ETH");
+    expect(cells[3]).toHaveTextContent("$30.00"); // cost: 0.01 ETH
+    expect(cells[5]).toHaveTextContent("+$30.00");
+    const totals = screen.getByRole("group", { name: "Totals" });
+    expect(totals).toHaveTextContent("$60.00");
+    expect(totals).toHaveTextContent("+$30.00");
+  });
+
+  it("shows the order total in dollars with ETH underneath, and the price in dollars written out in full", async () => {
+    const order: Order = {
+      id: `11155111-${HASH}-0`,
+      txHash: HASH,
+      token: { address: A, name: "Alpha", ticker: "ALP" },
+      isBuy: true,
+      quoteAmount: ETH / 100n,
+      fee: 0n,
+      total: ETH / 100n,
+      tokenAmount: 1_000n * ETH,
+      price: 15_625_000n,
+      timestamp: BigInt(NOW - 60),
+      blockNumber: 1n,
+      logIndex: 0,
+    };
+    show(<OrdersTable chain="sepolia" orders={[order]} now={NOW} />);
+    const cells = within(await screen.findByTestId("order-row")).getAllByRole("cell");
+    await within(cells[3]!).findByText("$30.00");
+    expect(cells[3]).toHaveTextContent("0.01 ETH");
+    expect(cells[5]).toHaveTextContent("$0.000000046875");
+    expect(cells[5]).toHaveTextContent("0.000000000015625 ETH");
+  });
+});

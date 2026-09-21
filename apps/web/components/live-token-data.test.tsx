@@ -2,6 +2,8 @@ import { act, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { LiveClient, LiveMessage } from "@/lib/ws/client";
 import type { Trade } from "@/lib/types";
+import { fakeChain } from "@/test/fake-chain";
+import { renderWithWallet, TEST_DEPLOYMENT } from "@/test/wallet";
 import { LivePriceChart, LiveTradesTable } from "./live-token-data";
 
 const TOKEN = "0x00000000000000000000000000000000000000b2";
@@ -11,10 +13,11 @@ const api = vi.hoisted(() => ({ trades: vi.fn(), candles: vi.fn() }));
 vi.mock("@/lib/api", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/api")>()), api }));
 
 // The chart itself needs a canvas; what it is asked to draw is what matters here.
-const drawn = vi.hoisted(() => ({ candles: [] as unknown[] }));
+const drawn = vi.hoisted(() => ({ candles: [] as unknown[], usdPerEth: undefined as number | undefined }));
 vi.mock("./price-chart", () => ({
-  PriceChart: ({ candles }: { candles: unknown[] }) => {
+  PriceChart: ({ candles, usdPerEth }: { candles: unknown[]; usdPerEth?: number }) => {
     drawn.candles = candles;
+    drawn.usdPerEth = usdPerEth;
     return <div data-testid="price-chart">{candles.length} candles</div>;
   },
 }));
@@ -117,6 +120,22 @@ describe("LiveTradesTable", () => {
 
 describe("LivePriceChart", () => {
   const initial = [{ time: 960, open: 2e-11, high: 2e-11, low: 2e-11, close: 2e-11 }];
+
+  it("gives the chart what an ETH is worth, once the chain's price feed says, so it can draw in dollars", async () => {
+    vi.stubEnv("NEXT_PUBLIC_DEPLOYMENT", TEST_DEPLOYMENT);
+    const fake = fakeClient();
+    const chain = fakeChain({ usd: { answer: 3_000n * 10n ** 8n } });
+    renderWithWallet(<LivePriceChart chain="sepolia" token={TOKEN} initial={initial} interval={60} decimals={18} client={fake.client} />, undefined, chain.transport);
+    expect(drawn.usdPerEth).toBeUndefined(); // until the feed has answered
+    await vi.waitFor(() => expect(drawn.usdPerEth).toBe(3_000));
+    vi.unstubAllEnvs();
+  });
+
+  it("gives it nothing (so it draws in ETH) when there is no wallet layer to ask through", () => {
+    const fake = fakeClient();
+    render(<LivePriceChart chain="sepolia" token={TOKEN} initial={initial} interval={60} decimals={18} client={fake.client} />);
+    expect(drawn.usdPerEth).toBeUndefined();
+  });
 
   it("draws the candles it was given", () => {
     const fake = fakeClient();
