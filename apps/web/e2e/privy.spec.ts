@@ -61,11 +61,14 @@ test("logging out ends our API session as well as Privy's", async ({ page }) => 
 });
 
 // Review Focus 1: Privy unreachable must not take every way of getting in with it.
-test("with Privy blocked, the page still loads and offers the plain wallet list after a few seconds", async ({ page }) => {
+test("with Privy blocked, the page still loads and the browser's wallet can still be connected after a few seconds", async ({ page }) => {
   await page.route(/privy\.(io|systems)/, (route) => route.abort());
-  await installWallet(page, RPC_URL);
+  const wallet = await installWallet(page, RPC_URL);
   await page.goto("/sepolia");
   await expect(header(page).getByRole("button", { name: "Connect wallet" })).toBeVisible({ timeout: 30_000 });
   await header(page).getByRole("button", { name: "Connect wallet" }).click();
-  await expect(page.getByRole("dialog")).toContainText("E2E Wallet");
+  // Privy's own wagmi config lists no wallets, so the way out brings the browser's own (window.ethereum).
+  await page.getByRole("dialog").getByRole("button", { name: "Browser wallet" }).click();
+  await expect(header(page).getByText(new RegExp(`^${wallet.address.slice(0, 6)}`, "i"))).toBeVisible({ timeout: 30_000 });
+  await expect(header(page).getByRole("button", { name: "Disconnect" })).toBeVisible();
 });
