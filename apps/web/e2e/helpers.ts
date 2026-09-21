@@ -52,14 +52,12 @@ export const tag = () => `t${Math.random().toString(36).slice(2, 8)}`;
 export async function openCommentsSignedIn(page: Page) {
   await page.getByRole("tab", { name: "Comments" }).click();
   const signIn = main(page).getByRole("button", { name: "Sign in" });
-  if (
-    await signIn.waitFor({ state: "visible", timeout: 5_000 }).then(
-      () => true,
-      () => false,
-    )
-  )
-    await signIn.click();
-  await expect(main(page).getByRole("textbox", { name: "Comment" })).toBeVisible();
+  const box = main(page).getByRole("textbox", { name: "Comment" });
+  // The trading wallet signs in by itself, so the button may be on screen for a moment and gone before it is clicked: wait for
+  // whichever shows first, and press the button only if it is still there.
+  await expect(signIn.or(box)).toBeVisible({ timeout: 15_000 });
+  if (await signIn.isVisible()) await signIn.click({ timeout: 3_000 }).catch(() => undefined);
+  await expect(box).toBeVisible();
 }
 
 export async function postComment(page: Page, text: string) {

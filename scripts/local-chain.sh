@@ -24,10 +24,13 @@ until cast block-number --rpc-url "http://127.0.0.1:$PORT" >/dev/null 2>&1; do s
 # bots put EIP-7702 sweeper delegations on the well-known keys and a fork inherits them, so fees
 # paid to one would vanish. deploy/local.json in the contracts repo uses a throwaway address.
 K4=$(cast wallet private-key --mnemonic "test test test test test test test test test test test junk" --mnemonic-index 4)
+# forge loads a .env from the directory it runs in, and the contracts repo's .env is for deploying to a real network (a keystore, a
+# real RPC, DEPLOY_CONFIG=sepolia): it must not leak into this local deploy. So forge runs from a directory with none, and is
+# pointed at the contracts with --root.
 (
-  cd "$CONTRACTS"
+  cd "$(mktemp -d)"
   DEPLOY_CONFIG=local GIT_COMMIT=local \
-    forge script script/Deploy.s.sol --rpc-url "http://127.0.0.1:$PORT" --private-key "$K4" --broadcast
+    forge script "$CONTRACTS/script/Deploy.s.sol" --root "$CONTRACTS" --rpc-url "http://127.0.0.1:$PORT" --private-key "$K4" --broadcast
 )
 cp "$CONTRACTS/deployments/local.json" "$HERE/packages/deployments/local.json"
 
