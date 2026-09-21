@@ -45,6 +45,24 @@ describe("PriceChart", () => {
     expect(link).toHaveAttribute("rel", expect.stringContaining("noopener"));
   });
 
+  it("writes the time axis and the crosshair in the viewer's own time zone, since the library's own is UTC", () => {
+    const zone = process.env.TZ;
+    process.env.TZ = "Asia/Ho_Chi_Minh";
+    try {
+      render(<PriceChart candles={series} />);
+      const options = (createChart.mock.calls[0] as unknown as [
+        unknown,
+        { timeScale: { tickMarkFormatter: (t: number, type: number) => string }; localization: { timeFormatter: (t: number) => string } },
+      ])[1];
+      const t = Date.UTC(2026, 8, 21, 16, 19) / 1000; // 16:19 UTC
+      expect(options.timeScale.tickMarkFormatter(t, 3)).toBe("23:19");
+      expect(options.localization.timeFormatter(t)).toBe("21 Sep 23:19");
+    } finally {
+      if (zone === undefined) delete process.env.TZ;
+      else process.env.TZ = zone;
+    }
+  });
+
   it("formats the price axis for tiny numbers instead of a fixed number of decimals", () => {
     render(<PriceChart candles={series} />);
     const options = (addSeries.mock.calls[0] as unknown as [unknown, { priceFormat: { type: string; formatter: (n: number) => string; minMove: number } }])[1];

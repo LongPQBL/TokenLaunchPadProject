@@ -4,6 +4,7 @@ import { UI } from "@vezta/shared";
 import { CandlestickSeries, createChart, type CandlestickData, type IChartApi, type ISeriesApi } from "lightweight-charts";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { formatChartPrice, type ChartCandle } from "@/lib/candles";
+import { chartTickLabel, chartTimeLabel } from "@/lib/chart-time";
 import { cn } from "@/lib/utils";
 
 // The library draws to a canvas and needs real colours, not CSS variables. They match the design tokens: buy green,
@@ -43,7 +44,9 @@ export function PriceChart({ candles, usdPerEth }: { candles: ChartCandle[]; usd
       layout: { attributionLogo: false, background: { color: "transparent" }, textColor: "#8c8c8c", fontFamily: "JetBrains Mono, ui-monospace, monospace" },
       grid: { vertLines: { color: "#1a1a1a" }, horzLines: { color: "#1a1a1a" } },
       rightPriceScale: { borderColor: "#262626" },
-      timeScale: { borderColor: "#262626", timeVisible: true, secondsVisible: false },
+      // The library writes times in UTC; these write them in the viewer's own time zone (the times themselves are unix seconds).
+      timeScale: { borderColor: "#262626", timeVisible: true, secondsVisible: false, tickMarkFormatter: (time: unknown, type: number) => chartTickLabel(Number(time), type) },
+      localization: { timeFormatter: (time: unknown) => chartTimeLabel(Number(time)) },
     });
     const series = chart.addSeries(CandlestickSeries, {
       upColor: UP,
