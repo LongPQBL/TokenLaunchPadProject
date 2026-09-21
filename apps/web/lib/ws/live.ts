@@ -85,6 +85,17 @@ export function createCandleAccumulator({ token, interval: initialInterval, deci
   /** The spot price after the trade, as whole quote units per token: the same price the REST candles are built from. */
   const priceOf = (t: LiveTrade) => (t.virtualTokenReserves > 0n ? Number(`${(t.virtualQuoteReserves * 10n ** 18n) / t.virtualTokenReserves}e-${decimals}`) : 0);
 
+  /**
+   * The spot price BEFORE the trade, which follows from the reserves after it and what moved (a buy put quote into the curve and took
+   * tokens out of it, a sell the reverse): the price a candle opens at, as the API's candles do. A trade whose amounts do not agree with
+   * its reserves has no price before it, and its own is used.
+   */
+  const priceBeforeOf = (t: LiveTrade) => {
+    const quote = t.isBuy ? t.virtualQuoteReserves - t.quoteAmount : t.virtualQuoteReserves + t.quoteAmount;
+    const tokens = t.isBuy ? t.virtualTokenReserves + t.tokenAmount : t.virtualTokenReserves - t.tokenAmount;
+    return quote > 0n && tokens > 0n ? Number(`${(quote * 10n ** 18n) / tokens}e-${decimals}`) : priceOf(t);
+  };
+
   return {
     get series() {
       return series;
@@ -98,10 +109,13 @@ export function createCandleAccumulator({ token, interval: initialInterval, deci
       if (seen.size > MAX_SEEN) seen.delete(seen.values().next().value!);
 
       const price = priceOf(t);
+      const before = priceBeforeOf(t);
       const bucket = Math.floor(Number(t.timestamp) / interval) * interval;
       const last = series.at(-1);
+      // A candle a trade starts opens where the price was before it, so a lone sell is a candle that goes down and not a flat line.
+      const opened = { time: bucket, open: before, high: Math.max(before, price), low: Math.min(before, price), close: price };
       if (!last) {
-        series = [{ time: bucket, open: price, high: price, low: price, close: price }];
+        series = [opened];
         return true;
       }
       if (bucket < last.time) return false;
@@ -109,7 +123,7 @@ export function createCandleAccumulator({ token, interval: initialInterval, deci
         series = [...series.slice(0, -1), { ...last, high: Math.max(last.high, price), low: Math.min(last.low, price), close: price }];
         return true;
       }
-      series = [...series, { time: bucket, open: price, high: price, low: price, close: price }];
+      series = [...series, opened];
       return true;
     },
     /**

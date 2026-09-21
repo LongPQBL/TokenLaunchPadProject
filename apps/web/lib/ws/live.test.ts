@@ -6,19 +6,27 @@ const OTHER = "0x00000000000000000000000000000000000000b3";
 const tx = (n: number) => `0x${n.toString(16).padStart(64, "0")}`;
 
 /** A trade as the watcher publishes it: amounts are strings. `price` sets the reserves so the spot price is that many wei per token. */
-function wire(o: { n?: number; logIndex?: number; token?: string; timestamp?: number; priceWei?: bigint; isBuy?: boolean } = {}) {
+/**
+ * `priceWei` is the spot price AFTER the trade. By default the trade moved nothing, so the price before it is the same; `beforeWei` is the
+ * price before it, and the amounts that moved (and whether it was a buy) are made to agree with the two, as the contract's are: the
+ * token reserve is left as it is and the quote reserve moves by the difference. `moved` sets the amounts by hand.
+ */
+function wire(o: { n?: number; logIndex?: number; token?: string; timestamp?: number; priceWei?: bigint; beforeWei?: bigint; isBuy?: boolean; moved?: { quote: string; tokens: string } } = {}) {
   const n = o.n ?? 1;
   const logIndex = o.logIndex ?? 0;
   const priceWei = o.priceWei ?? 20_000_000n; // 2e-11 ETH per token
+  const beforeWei = o.beforeWei ?? priceWei;
+  const isBuy = o.isBuy ?? priceWei >= beforeWei;
+  const quote = (beforeWei > priceWei ? beforeWei - priceWei : priceWei - beforeWei) * 10n ** 9n; // the quote reserve is price * 1e27 / 1e18
   return {
     type: "trade",
     id: `${tx(n)}-${logIndex}`,
     chain: "sepolia",
     token: o.token ?? TOKEN,
     trader: "0x00000000000000000000000000000000000000a1",
-    isBuy: o.isBuy ?? true,
-    quoteAmount: "1000",
-    tokenAmount: "5000",
+    isBuy,
+    quoteAmount: o.moved?.quote ?? quote.toString(),
+    tokenAmount: o.moved?.tokens ?? "0",
     fee: "10",
     launchTax: "0",
     // spot price = vQ * 1e18 / vT: with vT = 1e27 this is priceWei
@@ -35,8 +43,9 @@ const candle = (time: number, o: number, h: number, l: number, c: number) => ({ 
 
 describe("liveTradeSchema", () => {
   it("turns every amount into an exact bigint", () => {
-    const t = trade();
+    const t = trade({ moved: { quote: "1000", tokens: "5000" } });
     expect(t.quoteAmount).toBe(1000n);
+    expect(t.tokenAmount).toBe(5000n);
     expect(t.virtualTokenReserves).toBe(10n ** 27n);
     expect(t.timestamp).toBe(1000n);
   });
@@ -94,6 +103,40 @@ describe("createCandleAccumulator", () => {
     acc.apply(trade({ timestamp: 1_020, priceWei: 40_000_000n }));
     expect(acc.series).toHaveLength(2);
     expect(acc.series[1]).toEqual(candle(1_020, 4e-11, 4e-11, 4e-11, 4e-11));
+  });
+
+  // A Trade carries the reserves AFTER it. A candle opens at the price BEFORE its first trade (as the API's candles do), or a lone sell is a
+  // flat line and never a candle that goes down.
+  it("opens a new candle at the price before the trade: a lone sell is a candle that goes down", () => {
+    const acc = make([candle(960, 2e-11, 2e-11, 2e-11, 2e-11)]);
+    acc.apply(trade({ timestamp: 1_020, priceWei: 15_000_000n, beforeWei: 20_000_000n }));
+    expect(acc.series[1]).toEqual(candle(1_020, 2e-11, 2e-11, 1.5e-11, 1.5e-11));
+  });
+
+  it("and a lone buy is a candle that goes up", () => {
+    const acc = make([candle(960, 2e-11, 2e-11, 2e-11, 2e-11)]);
+    acc.apply(trade({ timestamp: 1_020, priceWei: 30_000_000n, beforeWei: 20_000_000n }));
+    expect(acc.series[1]).toEqual(candle(1_020, 2e-11, 3e-11, 2e-11, 3e-11));
+  });
+
+  it("opens the first candle of a token at the price before its first trade: the launch price", () => {
+    const acc = make([]);
+    acc.apply(trade({ timestamp: 1_000, priceWei: 12_600_000n, beforeWei: 12_500_000n }));
+    expect(acc.series).toEqual([candle(960, 1.25e-11, 1.26e-11, 1.25e-11, 1.26e-11)]);
+  });
+
+  it("keeps the open of a candle as later trades come into it, and moves its high, low and close", () => {
+    const acc = make([candle(960, 2e-11, 2e-11, 2e-11, 2e-11)]);
+    acc.apply(trade({ n: 1, timestamp: 1_020, priceWei: 15_000_000n, beforeWei: 20_000_000n })); // 20 -> 15
+    acc.apply(trade({ n: 2, timestamp: 1_030, priceWei: 25_000_000n, beforeWei: 15_000_000n })); // 15 -> 25
+    expect(acc.series[1]).toEqual(candle(1_020, 2e-11, 2.5e-11, 1.5e-11, 2.5e-11));
+  });
+
+  it("uses the trade's own price as the open when its amounts do not agree with its reserves, rather than inventing a price before it", () => {
+    const acc = make([candle(960, 2e-11, 2e-11, 2e-11, 2e-11)]);
+    // a buy of more quote than the whole quote reserve would leave the curve with less than nothing before it
+    acc.apply(trade({ timestamp: 1_020, priceWei: 30_000_000n, moved: { quote: "999999999999999999999999", tokens: "0" } }));
+    expect(acc.series[1]).toEqual(candle(1_020, 3e-11, 3e-11, 3e-11, 3e-11));
   });
 
   it("puts a trade in the bucket its timestamp belongs to", () => {
