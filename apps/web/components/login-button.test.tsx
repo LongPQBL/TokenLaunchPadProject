@@ -9,7 +9,7 @@ import { server } from "../test/msw/server";
 import { renderWithWallet, TEST_DEPLOYMENT } from "../test/wallet";
 import { PrivyActiveProvider } from "@/lib/wallet/privy-context";
 import { ConnectButton } from "./connect-button";
-import { LoginButton } from "./login-button";
+import { LoginButton, PRIVY_PATIENCE_MS } from "./login-button";
 
 // What Privy says, set by each test. Privy itself is not started: its own screens are Privy's to test.
 const privy = vi.hoisted(() => ({ ready: true, authenticated: false, login: vi.fn(), logout: vi.fn() }));
@@ -60,6 +60,39 @@ describe("LoginButton", () => {
     expect(button).toBeDisabled();
     await userEvent.click(button).catch(() => undefined);
     expect(privy.login).not.toHaveBeenCalled();
+  });
+
+  // Review Focus 1: a Privy that never becomes ready (blocked, offline) must not take every way of getting in with it.
+  describe("when Privy never becomes ready", () => {
+    beforeEach(() => vi.useFakeTimers({ shouldAdvanceTime: true }));
+    afterEach(() => vi.useRealTimers());
+
+    it("keeps Log in (disabled) for a few seconds, then offers the plain wallet list instead", async () => {
+      privy.ready = false;
+      await show();
+      expect(screen.getByRole("button", { name: "Log in" })).toBeDisabled();
+      expect(screen.queryByRole("button", { name: "Connect wallet" })).toBeNull();
+      await act(() => vi.advanceTimersByTimeAsync(PRIVY_PATIENCE_MS + 100));
+      expect(await screen.findByRole("button", { name: "Connect wallet" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Log in" })).toBeNull();
+    });
+
+    it("goes back to Log in the moment Privy does become ready", async () => {
+      privy.ready = false;
+      const view = await show();
+      await act(() => vi.advanceTimersByTimeAsync(PRIVY_PATIENCE_MS + 100));
+      expect(await screen.findByRole("button", { name: "Connect wallet" })).toBeInTheDocument();
+      privy.ready = true;
+      view.rerender(<LoginButton />);
+      expect(await screen.findByRole("button", { name: "Log in" })).toBeEnabled();
+    });
+
+    it("does not give up on a Privy that is ready, however long the page stays open", async () => {
+      await show();
+      await act(() => vi.advanceTimersByTimeAsync(PRIVY_PATIENCE_MS * 3));
+      expect(screen.getByRole("button", { name: "Log in" })).toBeEnabled();
+      expect(screen.queryByRole("button", { name: "Connect wallet" })).toBeNull();
+    });
   });
 
   it("shows who is logged in and a Log out, once there is an address", async () => {
