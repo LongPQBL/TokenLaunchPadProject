@@ -68,13 +68,20 @@ describe("SellPanel: an amount of tokens, with the dollars beside it", () => {
     expect(screen.getByTestId("equivalent")).toHaveTextContent(`≈ ${formatUsd(worth(1_000_000n * E18))}`);
   });
 
-  it("says what selling them pays, in ETH and in dollars", async () => {
+  it("says what selling them pays in the breakdown only, with no separate \"You receive\" line above it", async () => {
     const { user } = await setup();
     await user.type(await tokens(), "1000000");
     const payout = previewSellLocal(curve, 100n, 1_000_000n * E18).payout;
-    await waitFor(() =>
-      expect(screen.getByTestId("receive")).toHaveTextContent(`You receive ≈ ${formatQuote(payout, 18, 6)} ETH ≈ ${formatUsd(quoteToUsdCents(payout, RATE))}`),
-    );
+    await waitFor(() => expect(screen.getByTestId("cost-breakdown")).toHaveTextContent(`You get (est.)${formatQuote(payout, 18, 6)}`));
+    expect(screen.queryByTestId("receive")).toBeNull();
+    expect(screen.queryByText(/You receive/)).toBeNull();
+  });
+
+  it("types into a box as large as the one on the Buy side", async () => {
+    await setup();
+    const box = await tokens();
+    expect(box.parentElement).toHaveClass("text-5xl");
+    expect(box.parentElement).not.toHaveClass("text-3xl");
   });
 
   it("sells exactly the tokens typed, decimals included", async () => {
@@ -130,7 +137,7 @@ describe("SellPanel: an amount of tokens, with the dollars beside it", () => {
     for (const bad of ["abc", "-5", "1.2.3"]) {
       await user.clear(box);
       await user.type(box, bad);
-      expect(screen.queryByTestId("receive"), bad).toBeNull();
+      expect(screen.queryByTestId("cost-breakdown"), bad).toBeNull();
       expect(sellButton(), bad).toBeDisabled();
     }
   });

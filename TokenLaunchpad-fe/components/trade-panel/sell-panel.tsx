@@ -111,7 +111,7 @@ export function SellPanel({ chain, token, ticker }: { chain: string; token: Addr
       <div className="flex items-center justify-end gap-2">
         <SlippagePopover bps={slippageBps} onChange={setSlippage} />
       </div>
-      <AmountInput id="sell-amount" label={UI.trade.amountToSell(ticker)} prefix="" value={text} onChange={setText} className="text-3xl" />
+      <AmountInput id="sell-amount" label={UI.trade.amountToSell(ticker)} prefix="" value={text} onChange={setText} />
       {priced && (
         <p data-testid="equivalent" className="-mt-2 text-center text-sm text-muted-foreground">
           {`≈ ${formatUsd(usdOf(amount))}`}
@@ -127,12 +127,6 @@ export function SellPanel({ chain, token, ticker }: { chain: string; token: Addr
             {UI.trade.max}
           </Button>
         </div>
-      )}
-
-      {amount > 0n && quote.payout > 0n && (
-        <p data-testid="receive" className="text-sm text-muted-foreground">
-          {UI.trade.youReceiveQuote(`${formatQuote(quote.payout, decimals, 6)} ${symbol}${priced ? ` ≈ ${formatUsd(quoteToUsdCents(quote.payout, rate!, decimals))}` : ""}`)}
-        </p>
       )}
 
       {amount > 0n && quote.payout > 0n && (

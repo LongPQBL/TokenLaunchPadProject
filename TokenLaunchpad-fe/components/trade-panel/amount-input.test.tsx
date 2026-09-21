@@ -40,4 +40,14 @@ describe("AmountInput", () => {
     await userEvent.type(box, "1234567.89");
     expect(Number(box.getAttribute("size"))).toBeGreaterThan(Number(empty));
   });
+
+  it("draws a short number large, and steps the size down as it grows so that all of it stays in view", async () => {
+    render(<Harness prefix="" />);
+    const box = screen.getByRole("textbox");
+    expect(box.parentElement).toHaveClass("text-5xl");
+    await userEvent.type(box, "1234567890");
+    expect(box.parentElement).not.toHaveClass("text-5xl");
+    await userEvent.type(box, "12345678901234567890");
+    expect(box.parentElement).toHaveClass("text-xl");
+  });
 });
