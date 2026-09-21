@@ -57,6 +57,17 @@ test.describe("the token table", () => {
   });
 });
 
+test.describe("the watchlist", () => {
+  test("says to log in, and the button opens the login, when nobody is", async ({ page }) => {
+    await page.goto("/sepolia");
+    await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Watchlist" }).click();
+    await expect(page).toHaveURL(/\/sepolia\/watchlist$/);
+    await expect(page.getByText("Log in to see the tokens you have starred.")).toBeVisible();
+    await page.locator("main").getByRole("button", { name: "Log in" }).click();
+    await expect(page.getByRole("dialog", { name: "Connect a wallet" })).toBeVisible();
+  });
+});
+
 test.describe("stars", () => {
   test.describe.configure({ mode: "serial" });
   test.setTimeout(120_000);
@@ -81,6 +92,28 @@ test.describe("stars", () => {
     await page.reload();
     await ensureConnected(page);
     await expect(star()).toHaveAttribute("aria-pressed", "false");
+    await page.context().close();
+  });
+
+  test("show up on the watchlist, and leave it when they are taken off", async ({ browser }) => {
+    const page = await (await browser.newContext()).newPage();
+    await installWallet(page, RPC_URL);
+    await page.goto("/sepolia");
+    await ensureConnected(page);
+    await row(page, FILLED).getByRole("button", { name: /^Star / }).click();
+    await expect(row(page, FILLED).getByRole("button", { name: /^Star / })).toHaveAttribute("aria-pressed", "true");
+
+    await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Watchlist" }).click();
+    await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Watchlist" })).toHaveAttribute("aria-current", "page");
+    await expect(row(page, FILLED)).toBeVisible({ timeout: 15_000 });
+    await expect(row(page, SAME_BLOCK)).toHaveCount(0); // not starred
+    await expect(page.getByTestId("token-row")).toHaveCount(1);
+
+    await row(page, FILLED).getByRole("button", { name: /^Star / }).click();
+    await expect(page.getByText("No starred tokens yet. Press the star beside a token to keep it here.")).toBeVisible();
+    await page.reload();
+    await ensureConnected(page);
+    await expect(page.getByText("No starred tokens yet. Press the star beside a token to keep it here.")).toBeVisible({ timeout: 15_000 });
     await page.context().close();
   });
 

@@ -1,7 +1,7 @@
 import { http, HttpResponse } from "msw";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { ApiError } from "../api";
-import { ADDR } from "../../test/msw/fixtures";
+import { ADDR, wireToken } from "../../test/msw/fixtures";
 import { API } from "../../test/msw/handlers";
 import { server } from "../../test/msw/server";
 import { createFavoritesApi } from "./client";
@@ -24,6 +24,25 @@ describe("the favorites client", () => {
     );
     expect(await favorites.list("sepolia")).toEqual([T, ADDR(0xb2)]);
     expect(seen).toEqual(["include"]);
+  });
+
+  it("reads the watchlist as table rows, numbers turned into bigints once, carrying the session cookie", async () => {
+    const seen: string[] = [];
+    const stats = { marketCap: "5000000000000000000", athMarketCap: "10000000000000000000", volume24h: "1", traders24h: 2, change1hBps: -5, change6hBps: 0, change24hBps: 7 };
+    server.use(
+      http.get(`${API}/sepolia/me/watchlist`, ({ request }) => {
+        seen.push(request.credentials);
+        return HttpResponse.json({ items: [wireToken({ stats })] });
+      }),
+    );
+    const [row] = await favorites.watchlist("sepolia");
+    expect(seen).toEqual(["include"]);
+    expect(row!.stats).toMatchObject({ marketCap: 5n * 10n ** 18n, traders24h: 2, change1hBps: -5 });
+  });
+
+  it("does not believe a watchlist whose rows are not rows", async () => {
+    server.use(http.get(`${API}/sepolia/me/watchlist`, () => HttpResponse.json({ items: [{ address: 1 }] })));
+    await expect(favorites.watchlist("sepolia")).rejects.toMatchObject({ code: "bad_response" });
   });
 
   it("stars with PUT and unstars with DELETE, on the token's path", async () => {

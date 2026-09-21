@@ -34,7 +34,7 @@ function explain(error: unknown): string {
  * is put back if the server refuses. The list is asked for only while someone is signed in, and shown only then. Pressing a star
  * when nobody is signed in gets them in first: a connected wallet signs in, and with no wallet the header's own login opens.
  */
-export function FavoritesProvider({ chain, children }: { chain: string; children: ReactNode }) {
+export function FavoritesProvider({ chain, children, onChange }: { chain: string; children: ReactNode; /** Told after the server accepted a change: which token, and whether it is now starred. */ onChange?: (token: string, starred: boolean) => void }) {
   const { address } = useAccount();
   const { isSignedIn, signIn } = useSiwe();
   const queryClient = useQueryClient();
@@ -77,6 +77,9 @@ export function FavoritesProvider({ chain, children }: { chain: string; children
         queryClient.setQueryData(key, has ? current.filter((t) => t !== token) : [token, ...current]);
         try {
           await (has ? api.unstar(chain, token) : api.star(chain, token));
+          // A watchlist that was loaded before this is out of date now: it asks again the next time it is looked at.
+          void queryClient.invalidateQueries({ queryKey: ["watchlist", chain] });
+          onChange?.(token, !has);
         } catch (e) {
           queryClient.setQueryData(key, current);
           setError(explain(e));
@@ -85,7 +88,7 @@ export function FavoritesProvider({ chain, children }: { chain: string; children
         working.current.delete(token);
       }
     },
-    [isSignedIn, address, signIn, queryClient, key, fetchList, api, chain],
+    [isSignedIn, address, signIn, queryClient, key, fetchList, api, chain, onChange],
   );
 
   const value = useMemo(() => ({ starred, toggle, error }), [starred, toggle, error]);

@@ -154,6 +154,12 @@ describe("TokenTable: sorting by a header", () => {
     expect(link("24H")).toHaveAttribute("href", "/sepolia?sort=change24h&q=dog");
   });
 
+  it("sends the headers where the page says, when it is not discover (the watchlist has its own address)", () => {
+    table([row(A)], { q: "", sortHref: (sort) => `/sepolia/watchlist?sort=${sort}` });
+    expect(within(screen.getByRole("columnheader", { name: "MCAP" })).getByRole("link")).toHaveAttribute("href", "/sepolia/watchlist?sort=mcap");
+    expect(within(screen.getByRole("columnheader", { name: "AGE" })).getByRole("link")).toHaveAttribute("href", "/sepolia/watchlist?sort=new");
+  });
+
   it("marks the sorted column, and only that one", () => {
     table([row(A)], { sort: "volume24h" });
     const sorted = screen.getAllByRole("columnheader").filter((h) => h.getAttribute("aria-sort"));

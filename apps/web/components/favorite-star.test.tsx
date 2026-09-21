@@ -61,9 +61,9 @@ function fakeApi(o: { session?: boolean; stars?: string[]; put?: () => Response 
   return state;
 }
 
-async function show(o: { connected?: boolean; loginSpy?: () => void } = {}) {
+async function show(o: { connected?: boolean; loginSpy?: () => void; onChange?: (token: string, starred: boolean) => void } = {}) {
   const wallet = renderWithWallet(
-    <FavoritesProvider chain="sepolia">
+    <FavoritesProvider chain="sepolia" onChange={o.onChange}>
       {/* The header's login control, which a star asks to press when nobody is connected. */}
       <button data-login-trigger onClick={o.loginSpy}>
         Log in
@@ -137,6 +137,38 @@ describe("a star", () => {
     await userEvent.dblClick(star("Alpha"));
     await act(() => new Promise((r) => setTimeout(r, 300)));
     expect(star("Alpha")).toHaveAttribute("aria-pressed", "true"); // pressed twice fast is still one press, not on then off
+  });
+});
+
+describe("telling the page a star changed", () => {
+  it("says which token, and which way, once the server has accepted it", async () => {
+    fakeApi({ stars: [B] });
+    const onChange = vi.fn();
+    await show({ onChange });
+    await waitFor(() => expect(star("Beta")).toHaveAttribute("aria-pressed", "true"));
+    await userEvent.click(star("Alpha"));
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith(A, true));
+    await userEvent.click(star("Beta"));
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith(B, false));
+    expect(onChange).toHaveBeenCalledTimes(2);
+  });
+
+  it("says nothing when the server refused", async () => {
+    fakeApi({ put: () => HttpResponse.json({ error: "too_many", message: "x" }, { status: 409 }) });
+    const onChange = vi.fn();
+    await show({ onChange });
+    await userEvent.click(star("Alpha"));
+    await screen.findByRole("alert");
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("makes a watchlist that was already loaded ask again, since it is out of date now", async () => {
+    fakeApi();
+    const wallet = await show();
+    const key = ["watchlist", "sepolia", TEST_USER];
+    wallet.queryClient.setQueryData(key, []);
+    await userEvent.click(star("Alpha"));
+    await waitFor(() => expect(wallet.queryClient.getQueryState(key)!.isInvalidated).toBe(true));
   });
 });
 

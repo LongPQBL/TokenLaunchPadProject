@@ -46,6 +46,19 @@ describe("the side navigation", () => {
     expect(within(region).getByRole("link", { name: "Create token" })).toHaveAttribute("href", "/sepolia/create");
   });
 
+  it("lists the watchlist for everyone, logged in or not: that page says what to do when nobody is", async () => {
+    await show();
+    expect(screen.getByRole("link", { name: "Watchlist" })).toHaveAttribute("href", "/sepolia/watchlist");
+  });
+
+  it("puts the pages in the order a person reaches for them: Discover, Watchlist, Create token, Profile", async () => {
+    await show();
+    const order = within(screen.getByRole("navigation", { name: "Main" }))
+      .getAllByRole("listitem")
+      .map((li) => li.textContent);
+    expect(order).toEqual(["Discover", "Watchlist", "Create token", "Profile"]);
+  });
+
   it("names each page in words, so the expanded rail and a screen reader say the same thing", async () => {
     await show();
     for (const name of ["Discover", "Create token"]) expect(screen.getByRole("link", { name })).toHaveTextContent(name); // in the page, not only in an attribute
@@ -129,6 +142,10 @@ describe("the side navigation", () => {
 
     it("still knows the page when the address ends in a slash", async () => {
       expect(await at("/sepolia/create/")).toEqual(["/sepolia/create"]);
+    });
+
+    it("marks Watchlist on its page, and not Discover", async () => {
+      expect(await at("/sepolia/watchlist")).toEqual(["/sepolia/watchlist"]);
     });
 
     it("marks Create token on the create page, and not Discover", async () => {

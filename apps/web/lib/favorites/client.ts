@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { ApiError, failureOf } from "../api";
+import { tokenRowSchema } from "../schemas";
+import type { TokenRow } from "../types";
 
+const watchlistSchema = z.object({ items: z.array(tokenRowSchema) });
 const list = z.object({ tokens: z.array(z.string().regex(/^0x[0-9a-fA-F]{40}$/).transform((s) => s.toLowerCase())) });
 
 export interface FavoritesApiConfig {
@@ -35,6 +38,13 @@ export function createFavoritesApi({ baseUrl, fetch: fetchImpl = (...args) => fe
       const parsed = list.safeParse(await res.json().catch(() => undefined));
       if (!parsed.success) throw new ApiError(res.status, "bad_response", "The server sent an unexpected response.");
       return parsed.data.tokens;
+    },
+    /** The starred tokens as rows of a token table, with their numbers. Every star at once: there is no next page. */
+    async watchlist(chain: string): Promise<TokenRow[]> {
+      const res = await call("GET", `/${seg(chain)}/me/watchlist`);
+      const parsed = watchlistSchema.safeParse(await res.json().catch(() => undefined));
+      if (!parsed.success) throw new ApiError(res.status, "bad_response", "The server sent an unexpected response.");
+      return parsed.data.items;
     },
     async star(chain: string, token: string): Promise<void> {
       await call("PUT", `/${seg(chain)}/me/favorites/${seg(token)}`);

@@ -60,6 +60,8 @@ export function TokenTable({
   fresh,
   flashes,
   listProps,
+  sortHref,
+  onStarChange,
 }: {
   chain: string;
   items: TokenRow[];
@@ -74,6 +76,10 @@ export function TokenTable({
   flashes?: Readonly<Record<string, number>>;
   /** Handlers for the table itself: the live grid uses them to know when the pointer is over it. */
   listProps?: React.HTMLAttributes<HTMLTableElement>;
+  /** Where a header sends you, when the table is not on discover's page (the watchlist has its own address). */
+  sortHref?: (sort: TokenSort) => string;
+  /** Told after a star was saved or removed: which token, and whether it is now starred. */
+  onStarChange?: (token: string, starred: boolean) => void;
 }) {
   const config = chainBySlug(chain);
   const decimals = config?.quoteDecimals ?? 18;
@@ -90,7 +96,7 @@ export function TokenTable({
   }
 
   return (
-    <FavoritesProvider chain={chain}>
+    <FavoritesProvider chain={chain} onChange={onStarChange}>
       <div>
         <FavoritesNotice />
         <div className="overflow-x-auto border border-border">
@@ -110,7 +116,7 @@ export function TokenTable({
                     {key ? (
                       // The arrow is drawn by CSS, so it is not part of the header's name.
                       <Link
-                        href={discoverHref(chain, { sort: key, q })}
+                        href={sortHref ? sortHref(key) : discoverHref(chain, { sort: key, q })}
                         className={cn("hover:text-foreground", key === sort && "text-foreground after:ml-1 after:content-['↓']")}
                       >
                         {label}

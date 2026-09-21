@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api";
+import { getFavoritesApi } from "@/lib/favorites/client";
 import type { DiscoverView, TokenRow, TokenSort } from "@/lib/types";
 import type { LiveClient } from "@/lib/ws/client";
 import { applyTradeToItem, liveCreatedSchema, newTokenItem, sortItems } from "@/lib/ws/discover";
@@ -31,6 +32,8 @@ export function LiveTokenGrid({
   nextCursor,
   view = "grid",
   now,
+  watchlist = false,
+  sortHref,
   client,
 }: {
   chain: string;
@@ -42,6 +45,9 @@ export function LiveTokenGrid({
   view?: DiscoverView;
   /** The server's clock in unix seconds, for the ages in the table: the first draw uses it, so it matches what was rendered. */
   now?: number;
+  /** This is someone's watchlist, not discover: tokens that are created are not theirs to see, and a token whose star is taken off leaves. */
+  watchlist?: boolean;
+  sortHref?: (sort: TokenSort) => string;
   client?: LiveClient;
 }) {
   const [items, setItems] = useState<TokenRow[]>(initial);
@@ -60,13 +66,15 @@ export function LiveTokenGrid({
   // Tokens a moderator hid while this page was open: gone from the grid, and not to be added again by a late message.
   const hidden = useRef(new Set<string>());
 
-  const takesNewTokens = sort === "new" && q === "" && firstPage;
+  const takesNewTokens = !watchlist && sort === "new" && q === "" && firstPage;
 
   const refetch = useCallback(async () => {
+    // A watchlist asks for its own rows: discover's first page is not what it shows.
+    if (watchlist) return void setItems(await getFavoritesApi().watchlist(chain));
     if (!firstPage || q !== "") return; // a later page or a search is not the live view
     const page = await api.tokens(chain, { sort, limit: initial.length || undefined });
     setItems(page.items);
-  }, [chain, sort, q, firstPage, initial.length]);
+  }, [chain, sort, q, firstPage, initial.length, watchlist]);
 
   useLiveRoom({
     room: "trades",
@@ -130,7 +138,21 @@ export function LiveTokenGrid({
 
   const listProps = { onPointerEnter: startHolding, onPointerLeave: stopHolding, onFocus: startHolding, onBlur: stopHolding };
   if (view === "table") {
-    return <TokenTable chain={chain} items={ordered} sort={sort} q={q} now={clock} nextCursor={nextCursor} fresh={fresh} flashes={flashes} listProps={listProps} />;
+    return (
+      <TokenTable
+        chain={chain}
+        items={ordered}
+        sort={sort}
+        q={q}
+        now={clock}
+        nextCursor={nextCursor}
+        fresh={fresh}
+        flashes={flashes}
+        listProps={listProps}
+        sortHref={sortHref}
+        onStarChange={watchlist ? (token, starred) => !starred && setItems((prev) => prev.filter((i) => i.address !== token)) : undefined}
+      />
+    );
   }
   return <TokenGrid chain={chain} items={ordered} sort={sort} q={q} nextCursor={nextCursor} fresh={fresh} flashes={flashes} listProps={listProps} />;
 }
