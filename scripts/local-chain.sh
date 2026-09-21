@@ -8,7 +8,9 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 CONTRACTS="${CONTRACTS_DIR:-$HERE/../EVM-Pumpfun-Smart-Contract}"
-RPC="${SEPOLIA_RPC_URL:-https://ethereum-sepolia-rpc.publicnode.com}"
+# Pocket Network answers every state read the fork needs, steadily (about 0.75 s a call); publicnode is quicker but drops requests under
+# the load a fork makes. Either can be chosen with SEPOLIA_RPC_URL.
+RPC="${SEPOLIA_RPC_URL:-https://eth-sepolia-testnet.api.pocket.network}"
 PORT="${ANVIL_PORT:-8545}"
 
 # A public RPC drops requests when the fork asks for a lot of state at once: retry generously (and wait longer for an answer) instead of failing.
