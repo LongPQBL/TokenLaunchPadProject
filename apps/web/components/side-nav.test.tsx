@@ -51,12 +51,17 @@ describe("the side navigation", () => {
     expect(screen.getByRole("link", { name: "Watchlist" })).toHaveAttribute("href", "/sepolia/watchlist");
   });
 
-  it("puts the pages in the order a person reaches for them: Discover, Watchlist, Create token, Profile", async () => {
+  it("lists Positions for everyone: the page itself says to connect a wallet when there is none", async () => {
+    await show();
+    expect(screen.getByRole("link", { name: "Positions" })).toHaveAttribute("href", "/sepolia/positions");
+  });
+
+  it("puts the pages in the order a person reaches for them: Discover, Watchlist, Positions, Create token, Profile", async () => {
     await show();
     const order = within(screen.getByRole("navigation", { name: "Main" }))
       .getAllByRole("listitem")
       .map((li) => li.textContent);
-    expect(order).toEqual(["Discover", "Watchlist", "Create token", "Profile"]);
+    expect(order).toEqual(["Discover", "Watchlist", "Positions", "Create token", "Profile"]);
   });
 
   it("names each page in words, so the expanded rail and a screen reader say the same thing", async () => {
@@ -142,6 +147,10 @@ describe("the side navigation", () => {
 
     it("still knows the page when the address ends in a slash", async () => {
       expect(await at("/sepolia/create/")).toEqual(["/sepolia/create"]);
+    });
+
+    it("marks Positions on its page, whichever view is open", async () => {
+      expect(await at("/sepolia/positions")).toEqual(["/sepolia/positions"]);
     });
 
     it("marks Watchlist on its page, and not Discover", async () => {

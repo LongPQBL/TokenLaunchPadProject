@@ -9,7 +9,7 @@ import { useSiwe } from "@/lib/auth/use-siwe";
 import { cn } from "@/lib/utils";
 import { requestLogin } from "@/lib/wallet/login-trigger";
 
-type Page = "discover" | "watchlist" | "create" | "profile" | "admin";
+type Page = "discover" | "watchlist" | "positions" | "create" | "profile" | "admin";
 
 /**
  * Which listed page a path belongs to. A token's page is part of Discover (it is where Discover leads); a path that matches
@@ -20,6 +20,7 @@ export function pageOf(pathname: string | null, chain: string): Page | undefined
   const home = `/${chain}`;
   if (path === home || path.startsWith(`${home}/token/`)) return "discover";
   if (path === `${home}/watchlist`) return "watchlist";
+  if (path === `${home}/positions`) return "positions";
   if (path === `${home}/create`) return "create";
   if (path.startsWith(`${home}/profile/`)) return "profile";
   if (path === `${home}/admin` || path.startsWith(`${home}/admin/`)) return "admin";
@@ -41,6 +42,11 @@ const ICONS: Record<Page, ReactNode> = {
     </>,
   ),
   watchlist: icon(<path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.8-5.2 2.8 1-5.8-4.3-4.1 5.9-.9z" />),
+  positions: icon(
+    <>
+      <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
+    </>,
+  ),
   create: icon(
     <>
       <circle cx="12" cy="12" r="9" />
@@ -76,6 +82,8 @@ export function SideNav({ chain }: { chain: string }) {
     { page: "discover", label: UI.nav.discover, href: `/${chain}` },
     // For everyone: with no one logged in the page itself says to, which is kinder than a link that is not there.
     { page: "watchlist", label: UI.nav.watchlist, href: `/${chain}/watchlist` },
+    // For everyone, like the watchlist: with no wallet the page itself says to connect one.
+    { page: "positions", label: UI.nav.positions, href: `/${chain}/positions` },
     { page: "create", label: UI.nav.create, href: `/${chain}/create` },
     // Always listed: without a wallet there is no profile to open, so it asks to connect one instead (see below).
     { page: "profile", label: UI.nav.profile, href: address ? `/${chain}/profile/${address}` : undefined },

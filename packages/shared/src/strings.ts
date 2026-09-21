@@ -3,7 +3,7 @@
  * not an excavation through components (spec §2.5).
  */
 export const UI = {
-  nav: { create: "Create token", search: "Search tokens", admin: "Admin", discover: "Discover", watchlist: "Watchlist", profile: "Profile", main: "Main" },
+  nav: { create: "Create token", search: "Search tokens", admin: "Admin", discover: "Discover", watchlist: "Watchlist", positions: "Positions", profile: "Profile", main: "Main" },
   // Named after the chain it is on, so a second testnet never says "SEPOLIA".
   badge: { testnet: (chainName: string) => `${chainName.toUpperCase()} TESTNET` },
   create: {
@@ -50,6 +50,20 @@ export const UI = {
     empty: "No tokens yet. Be the first to create one.",
     searchEmpty: "No tokens match that search.",
     next: "Next page",
+  },
+  positions: {
+    title: "Positions",
+    intro: "What you hold, what it cost and what it is worth, and every order you have made.",
+    tabs: { label: "Positions views", positions: "Positions", orders: "Order history" },
+    connect: "Connect a wallet to see your positions and orders.",
+    connectButton: "Log in",
+    loading: "Loading…",
+    emptyPositions: "You hold no tokens yet. Buy one and it will show here.",
+    emptyOrders: "You have not placed an order yet.",
+    columns: { token: "Token", balance: "Balance", value: "Value", bought: "Bought", sold: "Sold", pnl: "PnL", action: "Trade", time: "Time", type: "Type", total: "Total", amount: "Amount", price: "Price", tx: "Transaction" },
+    totals: { value: "Total value", pnl: "Total PnL" },
+    viewTx: "View",
+    loadMore: "Load more",
   },
   watchlist: {
     title: "Watchlist",

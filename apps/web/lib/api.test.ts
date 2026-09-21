@@ -286,3 +286,68 @@ describe("profile", () => {
     await expect(api.profile("sepolia", T)).rejects.toMatchObject({ code: "bad_response" });
   });
 });
+
+describe("positions of an address", () => {
+  const wirePosition = (o: Record<string, unknown> = {}) => ({
+    token: { address: T, name: "Alpha", ticker: "ALP" },
+    balance: "90000000000000000000",
+    spent: "330",
+    received: "135",
+    buys: 2,
+    sells: 1,
+    value: "180",
+    pnl: "-15",
+    pnlBps: -455,
+    ...o,
+  });
+
+  it("reads amounts into bigints once, keeps a loss negative, and a missing percentage as null", async () => {
+    server.use(http.get(`${API}/sepolia/addresses/:address/positions`, () => HttpResponse.json({ items: [wirePosition(), wirePosition({ pnl: "20", pnlBps: null })] })));
+    const { items } = await api.positions("sepolia", ADDR(9));
+    expect(items[0]).toMatchObject({ balance: 90n * 10n ** 18n, spent: 330n, received: 135n, value: 180n, pnl: -15n, pnlBps: -455, buys: 2 });
+    expect(items[1]).toMatchObject({ pnl: 20n, pnlBps: null });
+  });
+
+  it("puts nothing from the caller into the path unescaped", async () => {
+    const seen = capture("/sepolia/addresses/:address/positions");
+    await api.positions("sepolia", "0xa b/c");
+    expect(seen[0]!.pathname).toBe("/sepolia/addresses/0xa%20b%2Fc/positions");
+  });
+
+  it("does not believe a position whose numbers are not numbers", async () => {
+    server.use(http.get(`${API}/sepolia/addresses/:address/positions`, () => HttpResponse.json({ items: [wirePosition({ value: "lots" })] })));
+    await expect(api.positions("sepolia", ADDR(9))).rejects.toMatchObject({ code: "bad_response" });
+  });
+});
+
+describe("orders of an address", () => {
+  const wireOrder = (o: Record<string, unknown> = {}) => ({
+    id: `11155111-0x${"ab".repeat(32)}-0`,
+    txHash: `0x${"ab".repeat(32)}`,
+    token: { address: T, name: "Alpha", ticker: "ALP" },
+    isBuy: true,
+    quoteAmount: "100",
+    fee: "10",
+    total: "110",
+    tokenAmount: "50",
+    price: "2000000000000000000",
+    timestamp: "1700000000",
+    blockNumber: "5",
+    logIndex: 0,
+    ...o,
+  });
+
+  it("reads a page of orders, and passes the cursor and limit on", async () => {
+    const seen = capture("/sepolia/addresses/:address/orders", { items: [wireOrder()], nextCursor: "n" });
+    const page = await api.orders("sepolia", ADDR(9), { cursor: "c1", limit: 20 });
+    expect(seen[0]!.searchParams.get("cursor")).toBe("c1");
+    expect(seen[0]!.searchParams.get("limit")).toBe("20");
+    expect(page.nextCursor).toBe("n");
+    expect(page.items[0]).toMatchObject({ isBuy: true, total: 110n, price: 2n * 10n ** 18n, timestamp: 1_700_000_000n, blockNumber: 5n });
+  });
+
+  it("does not believe an order without a transaction hash of the right shape", async () => {
+    server.use(http.get(`${API}/sepolia/addresses/:address/orders`, () => HttpResponse.json({ items: [wireOrder({ txHash: "nope" })] })));
+    await expect(api.orders("sepolia", ADDR(9))).rejects.toMatchObject({ code: "bad_response" });
+  });
+});
