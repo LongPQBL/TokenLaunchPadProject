@@ -133,7 +133,7 @@ test("an admin sees hide beside each comment, and hiding one removes it for ever
 test("banning an address takes away its comments and its right to post, and deletes nothing", async ({ browser }) => {
   await adminSignedIn();
   await adminPage.getByRole("textbox", { name: "Address" }).fill(creator.address);
-  await adminPage.getByRole("button", { name: "Ban address" }).click();
+  await adminPage.getByRole("button", { name: "Ban address", exact: true }).click();
   await adminPage.getByRole("dialog").getByRole("button", { name: "Ban" }).click();
   await expect(adminPage.getByText("Banned.")).toBeVisible();
 
