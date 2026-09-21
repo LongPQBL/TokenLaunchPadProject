@@ -28,7 +28,7 @@ describe("UI strings", () => {
 
   it("labels a buy and a sell, and the table columns", () => {
     expect(UI.token.side).toEqual({ buy: "Buy", sell: "Sell" });
-    expect(Object.values(UI.token.columns)).toEqual(["#", "Type", "Amount", "Value", "Trader", "Time", "Holder", "Balance", "Share"]);
+    expect(Object.values(UI.token.columns)).toEqual(["Type", "Amount", "Value", "Trader", "Time", "Holder", "Position", "Profit", "% supply"]);
   });
 
   it("words the comment thread, its limit and each way a post can be refused", () => {

@@ -2,11 +2,12 @@ import { act, screen, within } from "@testing-library/react";
 import { collectedQuote, formatUsdValue, formatUsdPrice, graduationAmountFromReserves, marketCap, spotPrice, type UsdRate } from "@vezta/shared";
 import { roundQuote } from "@/lib/format";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Order, Position, TokenDetail, TokenRow, Trade } from "@/lib/types";
+import type { Holder, Order, Position, TokenDetail, TokenRow, Trade } from "@/lib/types";
 import { fakeChain } from "@/test/fake-chain";
 import { renderWithWallet, TEST_DEPLOYMENT } from "@/test/wallet";
 import { fakeLiveClient } from "../test/fake-live-client";
 import { GraduationProgress } from "./graduation-progress";
+import { HoldersTable } from "./holders-table";
 import { OrdersTable } from "./orders-table";
 import { PositionsTable } from "./positions-table";
 import { TokenCard } from "./token-card";
@@ -26,6 +27,27 @@ beforeEach(() => vi.stubEnv("NEXT_PUBLIC_DEPLOYMENT", TEST_DEPLOYMENT));
 afterEach(() => vi.unstubAllEnvs());
 
 const show = (ui: React.ReactElement, withPrice = true) => renderWithWallet(ui, undefined, fakeChain(withPrice ? { usd: { answer: RATE.answer } } : {}).transport);
+
+describe("the holders in dollars", () => {
+  const holder: Holder = { holder: A, amount: 40_000_000n * ETH, spent: 3n * ETH, received: 0n, value: 6n * ETH, pnl: 3n * ETH };
+
+  it("shows a holder's position and profit in dollars, the profit signed", async () => {
+    show(<HoldersTable holders={[holder, { ...holder, holder: "0x00000000000000000000000000000000000000b2", pnl: -ETH }]} chain="sepolia" />);
+    const rows = screen.getAllByTestId("holder-row");
+    expect(await within(rows[0]!).findByText("$18K")).toBeInTheDocument(); // 6 ETH
+    expect(within(rows[0]!).getByTestId("holder-pnl")).toHaveTextContent("+$9K"); // 3 ETH
+    expect(within(rows[1]!).getByTestId("holder-pnl")).toHaveTextContent("-$3K"); // -1 ETH
+  });
+
+  it("shows ETH when there is no price", async () => {
+    show(<HoldersTable holders={[holder]} chain="sepolia" />, false);
+    await act(() => new Promise((r) => setTimeout(r, 120)));
+    const row = screen.getByTestId("holder-row");
+    expect(row).toHaveTextContent("6 ETH");
+    expect(within(row).getByTestId("holder-pnl")).toHaveTextContent("+3 ETH");
+    expect(row).not.toHaveTextContent("$");
+  });
+});
 
 describe("the token table in dollars", () => {
   const row = (o: Partial<TokenRow> = {}): TokenRow => ({

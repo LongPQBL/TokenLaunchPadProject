@@ -1,6 +1,7 @@
 import { formatCompactTokens, UI } from "@vezta/shared";
 import Link from "next/link";
 import { formatPnlBps, shortAddress } from "@/lib/format";
+import { pnlDirection, pnlTone } from "@/lib/pnl";
 import type { Position } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { QuoteValue } from "./quote-value";
@@ -8,8 +9,8 @@ import { TokenImage } from "./token-image";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 
 const DASH = "—";
-const direction = (n: bigint) => (n > 0n ? "up" : n < 0n ? "down" : "flat");
-const tone = (d: "up" | "down" | "flat") => (d === "up" ? "text-buy" : d === "down" ? "text-sell" : "text-muted-foreground");
+const direction = pnlDirection;
+const tone = pnlTone;
 
 /**
  * What a wallet holds now: how much, what it is worth at the price the curve is at, what it cost and what has come back, and the

@@ -47,7 +47,7 @@ export const wireTrade = (o: Record<string, unknown> = {}) => ({
   ...o,
 });
 
-export const wireHolder = (o: Record<string, unknown> = {}) => ({ holder: ADDR(0xd00d), amount: "40000000000000000000000000", ...o });
+export const wireHolder = (o: Record<string, unknown> = {}) => ({ holder: ADDR(0xd00d), amount: "40000000000000000000000000", spent: "0", received: "0", value: "0", pnl: "0", ...o });
 
 export const wireCandle = (o: Record<string, unknown> = {}) => ({
   time: 1_700_000_040,

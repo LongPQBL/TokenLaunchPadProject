@@ -162,6 +162,7 @@ test.describe("token page: a graduated token", () => {
     await page.getByRole("tab", { name: "Holders" }).click();
     const holders = page.getByTestId("holder-row");
     await expect(holders.first()).toBeVisible();
+    for (const column of ["Holder", "Position", "Profit", "% supply"]) await expect(page.getByRole("columnheader", { name: column })).toBeVisible();
     const text = (await holders.allTextContents()).join(" ").toLowerCase();
     expect(text).not.toContain(LAUNCHPAD.slice(2, 8));
     expect(text).not.toContain("dead");

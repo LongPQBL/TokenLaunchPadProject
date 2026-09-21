@@ -42,6 +42,7 @@ describe("amounts cross the boundary as bigint", () => {
     expect(trades[0]).toMatchObject({ quoteAmount: 1_000_000_000_000_000n, launchTax: 0n, blockNumber: 11_743_550n, logIndex: 3 });
     const { items: holders } = await api.holders("sepolia", T);
     expect(holders[0]!.amount).toBe(40_000_000_000_000_000_000_000_000n);
+    expect(holders[0]!.pnl).toBe(0n);
   });
 
   it("keeps candle prices as decimal strings, because they carry a fraction, and volume as bigint", async () => {
@@ -193,6 +194,21 @@ describe("token detail", () => {
     );
     expect((await api.trades("sepolia", T)).items.map((t) => t.isBuy)).toEqual([true, false]);
     expect((await api.holders("sepolia", T)).items).toHaveLength(2);
+  });
+
+  it("reads a holder's value and profit as exact bigints, a loss as a negative one, and who they are when they have said", async () => {
+    server.use(
+      http.get(`${API}/sepolia/tokens/:address/holders`, () =>
+        HttpResponse.json({ items: [wireHolder({ value: "16100000000000000000", pnl: "-2800000000000000000", spent: "19000000000000000000", received: "100", username: "octopus", avatarUrl: "https://ipfs.io/ipfs/bafy" })] }),
+      ),
+    );
+    const [h] = (await api.holders("sepolia", T)).items;
+    expect(h).toMatchObject({ value: 16_100_000_000_000_000_000n, pnl: -2_800_000_000_000_000_000n, spent: 19_000_000_000_000_000_000n, received: 100n, username: "octopus", avatarUrl: "https://ipfs.io/ipfs/bafy" });
+  });
+
+  it("refuses a holder whose value is not an integer string", async () => {
+    server.use(http.get(`${API}/sepolia/tokens/:address/holders`, () => HttpResponse.json({ items: [wireHolder({ value: "1e18" })] })));
+    await expect(api.holders("sepolia", T)).rejects.toBeDefined();
   });
 });
 

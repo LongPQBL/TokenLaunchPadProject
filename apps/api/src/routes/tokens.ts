@@ -107,6 +107,7 @@ export function tokensRoutes(deps: TokensRoutesDeps): Hono<AppEnv> {
     const items = await listHolders(chainId, c.req.param("address").toLowerCase(), {
       limit: parseLimit(c.req.query("limit"), 50, 100),
       launchpad: deps.launchpads[chainId],
+      gateway: deps.ipfsGateway,
     });
     return json(c, { items });
   });

@@ -80,16 +80,76 @@ describe("TradesTable", () => {
 
 describe("HoldersTable", () => {
   const SUPPLY = 10n ** 27n;
-  const holder = (n: number, tokens: bigint): Holder => ({ holder: `0x${n.toString(16).padStart(40, "0")}`, amount: tokens * 10n ** 18n });
+  const ETH = 10n ** 18n;
+  const holder = (n: number, tokens: bigint, o: Partial<Holder> = {}): Holder => ({
+    holder: `0x${n.toString(16).padStart(40, "0")}`,
+    amount: tokens * ETH,
+    spent: 0n,
+    received: 0n,
+    value: 0n,
+    pnl: 0n,
+    ...o,
+  });
   const table = (holders: Holder[]) => render(<HoldersTable holders={holders} chain="sepolia" />);
+  const cells = (i = 0) => within(screen.getAllByTestId("holder-row")[i]!).getAllByRole("cell");
 
-  it("ranks holders in the order given, with their balance and share of supply", () => {
+  it("has four columns: the holder, their position, their profit and their share of the supply", () => {
+    table([holder(1, 1n)]);
+    expect(screen.getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Holder", "Position", "Profit", "% supply"]);
+    expect(cells()).toHaveLength(4);
+  });
+
+  it("keeps the holders in the order given, with their share of the supply", () => {
     table([holder(1, 40_000_000n), holder(2, 10_000_000n)]);
     const rows = screen.getAllByTestId("holder-row");
     expect(rows).toHaveLength(2);
-    expect(rows[0]).toHaveTextContent("40M");
-    expect(rows[0]).toHaveTextContent("4.00%");
-    expect(rows[1]).toHaveTextContent("1.00%");
+    expect(cells(0)[3]).toHaveTextContent("4.00%");
+    expect(cells(1)[3]).toHaveTextContent("1.00%");
+  });
+
+  it("shows what a holder's tokens are worth as their position, with how many tokens that is a hover away", () => {
+    table([holder(1, 40_000_000n, { value: 16n * ETH })]);
+    expect(cells()[1]).toHaveTextContent("16 ETH");
+    expect(cells()[1]).toHaveAttribute("title", "40M tokens");
+  });
+
+  it("shows a profit with a plus and in the buy colour, and a loss with a minus and in the sell colour", () => {
+    table([holder(1, 1n, { pnl: 2n * ETH }), holder(2, 1n, { pnl: -3n * (ETH / 2n) }), holder(3, 1n, { pnl: 0n })]);
+    const profit = (i: number) => within(cells(i)[2]!).getByTestId("holder-pnl");
+    expect(profit(0)).toHaveTextContent("+2 ETH");
+    expect(profit(0)).toHaveAttribute("data-direction", "up");
+    expect(profit(0)).toHaveClass("text-buy");
+    expect(profit(1)).toHaveTextContent("-1.5 ETH");
+    expect(profit(1)).toHaveAttribute("data-direction", "down");
+    expect(profit(1)).toHaveClass("text-sell");
+    expect(profit(2)).toHaveAttribute("data-direction", "flat");
+    expect(profit(2)).not.toHaveClass("text-buy", "text-sell");
+  });
+
+  it("names a holder who has said who they are, and shows anyone else as a shortened address", () => {
+    table([holder(1, 5n, { username: "bluntoctopus666" }), holder(0xabc, 5n)]);
+    expect(cells(0)[0]).toHaveTextContent("bluntoctopus666");
+    expect(cells(1)[0]).toHaveTextContent(shortAddress(`0x${(0xabc).toString(16).padStart(40, "0")}`));
+  });
+
+  it("draws their picture, and a lettered placeholder for a holder without one", () => {
+    table([holder(1, 5n, { username: "octopus", avatarUrl: "https://ipfs.io/ipfs/bafyavatar" }), holder(2, 5n, { username: "goryorca" })]);
+    const img = within(cells(0)[0]!).getByRole("img");
+    expect(img).toHaveAttribute("src", "https://ipfs.io/ipfs/bafyavatar");
+    expect(img).toHaveClass("rounded-full");
+    expect(within(cells(1)[0]!).getByTestId("token-image-placeholder")).toHaveTextContent("G");
+  });
+
+  it("does not draw a picture whose address is not http(s): it is written by a stranger", () => {
+    table([holder(1, 5n, { username: "sneaky", avatarUrl: "javascript:alert(1)" })]);
+    expect(within(cells()[0]!).queryByRole("img")).toBeNull();
+    expect(within(cells()[0]!).getByTestId("token-image-placeholder")).toBeInTheDocument();
+  });
+
+  it("draws a name as text, never as markup", () => {
+    table([holder(1, 5n, { username: "<img src=x onerror=alert(1)>" })]);
+    expect(cells()[0]).toHaveTextContent("<img src=x onerror=alert(1)>");
+    expect(within(cells()[0]!).queryAllByRole("img").filter((i) => i.getAttribute("src") === "x")).toHaveLength(0);
   });
 
   // Every listed holder is a real holder (the API leaves out the curve, the pool and the burn address), so what is
@@ -111,10 +171,10 @@ describe("HoldersTable", () => {
     expect(screen.getByTestId("holder-row")).toHaveTextContent("<0.01%");
   });
 
-  it("links each holder, shortened, to the explorer, and only when it is an address", () => {
-    table([holder(0xabc, 5n), { holder: "not-an-address", amount: 5n }]);
+  it("links each holder to their page in the app, and only when it is an address", () => {
+    table([holder(0xabc, 5n), { ...holder(1, 5n), holder: "not-an-address" }]);
     expect(screen.getAllByRole("link")).toHaveLength(1);
-    expect(screen.getByRole("link")).toHaveAttribute("href", expect.stringContaining("/address/0x"));
+    expect(screen.getByRole("link")).toHaveAttribute("href", `/sepolia/profile/0x${(0xabc).toString(16).padStart(40, "0")}`);
   });
 
   it("shows the empty state when there are no holders", () => {

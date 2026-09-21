@@ -111,7 +111,17 @@ export const orderSchema = z.object({
 });
 export const orderPageSchema = z.object({ items: z.array(orderSchema), nextCursor: z.string().optional() });
 
-export const holderSchema = z.object({ holder: z.string(), amount });
+/** A holder of a token, with what their tokens are worth now and what they have made on them (`pnl`, negative for a loss). */
+export const holderSchema = z.object({
+  holder: z.string(),
+  amount,
+  spent: amount,
+  received: amount,
+  value: amount,
+  pnl: signed,
+  username: z.string().optional(),
+  avatarUrl: z.string().optional(),
+});
 export const holderListSchema = z.object({ items: z.array(holderSchema) });
 
 export const candleSchema = z.object({
