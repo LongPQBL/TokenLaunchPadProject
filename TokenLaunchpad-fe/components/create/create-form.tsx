@@ -142,7 +142,7 @@ export function CreateForm({ chain }: { chain: string }) {
       placeholder: UI.create.placeholders[key],
       "aria-invalid": opts.error ? true : undefined,
       "aria-describedby": opts.error ? `${id}-error` : undefined,
-      className: "border border-border bg-background px-3 py-2",
+      className: "rounded-lg border border-border bg-background px-3 py-2",
     };
     return (
       <div className="flex flex-col gap-1">

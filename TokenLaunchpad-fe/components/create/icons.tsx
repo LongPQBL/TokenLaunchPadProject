@@ -40,46 +40,6 @@ export function UsdcIcon({ className }: { className?: string }) {
   );
 }
 
-/** Base: its own mark, a white bar on a blue disc. */
-export function BaseIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 32 32" aria-hidden="true" className={className}>
-      <circle cx="16" cy="16" r="16" fill="#0052ff" />
-      <rect x="9" y="14.5" width="14" height="3" rx="1.5" fill="#ffffff" />
-    </svg>
-  );
-}
-
-/** Solana: three angled bars in its gradient, on a dark disc. */
-export function SolanaIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 32 32" aria-hidden="true" className={className}>
-      <circle cx="16" cy="16" r="16" fill="#16181d" />
-      <defs>
-        <linearGradient id="solana-gradient" x1="6" y1="10" x2="26" y2="22" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#00ffa3" />
-          <stop offset="1" stopColor="#dc1fff" />
-        </linearGradient>
-      </defs>
-      <g fill="url(#solana-gradient)">
-        <path d="M9.5 20.3a1 1 0 01.7-.3h13.3a.5.5 0 01.35.85l-2.7 2.7a1 1 0 01-.7.3H6.15a.5.5 0 01-.35-.85z" />
-        <path d="M9.5 8.45a1 1 0 01.7-.3h13.3a.5.5 0 01.35.85l-2.7 2.7a1 1 0 01-.7.3H6.15a.5.5 0 01-.35-.85z" />
-        <path d="M22.5 14.35a1 1 0 00-.7-.3H8.5a.5.5 0 00-.35.85l2.7 2.7a1 1 0 00.7.3h13.3a.5.5 0 00.35-.85z" />
-      </g>
-    </svg>
-  );
-}
-
-/** Robinhood: its feather mark, on a lime disc. */
-export function RobinhoodIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 32 32" aria-hidden="true" className={className}>
-      <circle cx="16" cy="16" r="16" fill="#ccf23f" />
-      <path d="M20 8c-3.5 2-9 6-9 13.5 1.5-2 3.7-3.2 6-3.7-1-1.4-1.3-3-.9-4.6 1.6 1.8 3.6 2.4 5.4 1.8-2.3-1.4-2.6-4.3-1.5-7z" fill="#000000" />
-    </svg>
-  );
-}
-
 /** An open eye, marking a live preview of what is being typed. */
 export function EyeIcon({ className }: { className?: string }) {
   return (

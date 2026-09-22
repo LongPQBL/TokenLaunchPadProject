@@ -122,12 +122,19 @@ describe("CreateForm: the pool pair and the logo", () => {
 });
 
 describe("CreateForm: the chain to launch on", () => {
-  it("offers Sepolia, chosen, with Base, Robinhood and Solana dimmed as coming soon", async () => {
+  it("collapses to the chosen chain until opened", async () => {
     await setup();
-    const group = screen.getByRole("radiogroup", { name: "Chain" });
-    expect(screen.getByRole("radio", { name: "Sepolia" })).toBeChecked();
+    expect(screen.getByRole("button", { name: /Sepolia/ })).toBeInTheDocument();
+    expect(screen.queryByRole("radiogroup", { name: "Chain" })).not.toBeInTheDocument();
+  });
+
+  it("opens to Sepolia, chosen, with Base, Robinhood and Solana dimmed as coming soon", async () => {
+    const { user } = await setup();
+    await user.click(screen.getByRole("button", { name: /Sepolia/ }));
+    const group = await screen.findByRole("radiogroup", { name: "Chain" });
+    expect(within(group).getByRole("radio", { name: "Sepolia" })).toBeChecked();
     for (const name of ["Base", "Robinhood", "Solana"]) {
-      expect(screen.getByRole("radio", { name: new RegExp(name) })).toBeDisabled();
+      expect(within(group).getByRole("radio", { name: new RegExp(name) })).toBeDisabled();
     }
     expect(within(group).getAllByText("Coming soon")).toHaveLength(3);
   });

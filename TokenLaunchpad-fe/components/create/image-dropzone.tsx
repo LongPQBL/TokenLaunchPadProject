@@ -64,14 +64,14 @@ export function ImageDropzone({ id, file, onChange, error }: { id: string; file:
           if (dropped) onChange(dropped);
         }}
         className={cn(
-          "flex min-h-56 flex-col items-center justify-center gap-3 border-2 border-dashed px-4 py-8 text-center transition-colors",
+          "flex min-h-56 flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed px-4 py-8 text-center transition-colors",
           error ? "border-destructive" : dragging ? "border-primary bg-primary/10" : "border-border bg-card/40",
         )}
       >
         <input ref={input} id={id} type="file" accept={ACCEPT} className="sr-only" aria-invalid={error ? true : undefined} onChange={(e) => onChange(e.target.files?.[0])} />
         {file ? (
           <>
-            {preview && <img src={preview} alt={UI.create.image.previewAlt} className="size-28 border border-border object-cover" />}
+            {preview && <img src={preview} alt={UI.create.image.previewAlt} className="size-28 rounded-lg border border-border object-cover" />}
             <div className="flex flex-col gap-0.5">
               <span className="max-w-64 truncate text-sm font-semibold" title={file.name}>
                 {file.name}

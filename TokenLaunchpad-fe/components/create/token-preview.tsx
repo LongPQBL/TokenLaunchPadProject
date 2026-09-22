@@ -33,7 +33,7 @@ export function TokenPreview({ name, ticker, image, chain, chainName }: { name: 
         <EyeIcon className="size-4" />
         {UI.create.preview.title}
       </div>
-      <div className="flex items-center justify-between gap-3 border border-border bg-card/40 px-4 py-4">
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card/40 px-4 py-4">
         <div className="flex min-w-0 items-center gap-3">
           {/* The logo is a local blob: URL, not a stranger's link, so it bypasses TokenImage's http(s)-only gate
               (same as ImageDropzone's own preview) rather than being rejected by it. */}

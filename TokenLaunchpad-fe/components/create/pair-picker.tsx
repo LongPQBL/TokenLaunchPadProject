@@ -16,13 +16,15 @@ export function PairPicker({ symbol }: { symbol: string }) {
       <legend id={`${name}-legend`} className="text-sm font-medium">
         {UI.create.pair.title}
       </legend>
-      <div role="radiogroup" aria-labelledby={`${name}-legend`} className="grid grid-cols-2 gap-3">
-        <label className="flex items-center gap-3 border border-primary bg-primary/10 px-4 py-3 text-sm font-semibold">
+      <div role="radiogroup" aria-labelledby={`${name}-legend`} className="flex flex-wrap gap-3">
+        {/* w-40: sized to fit the longest label among the pair and chain pickers ("Robinhood"), so both read as
+            one family of compact option boxes rather than stretching to the width of the form. */}
+        <label className="flex w-40 items-center gap-3 rounded-lg border border-primary bg-primary/10 px-4 py-3 text-sm font-semibold text-primary">
           <input type="radio" name={name} checked readOnly className="sr-only" />
           <EthIcon className="size-8 shrink-0" />
           {symbol}
         </label>
-        <label className={cn("flex cursor-not-allowed items-center gap-3 border border-border px-4 py-3 text-sm font-semibold opacity-40")}>
+        <label className={cn("flex w-40 cursor-not-allowed items-center gap-3 rounded-lg border border-border px-4 py-3 text-sm font-semibold opacity-40")}>
           <input type="radio" name={name} disabled className="sr-only" />
           <UsdcIcon className="size-8 shrink-0" />
           <span className="flex flex-col leading-tight">

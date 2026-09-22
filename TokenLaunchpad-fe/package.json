@@ -17,6 +17,7 @@
     "@vezta/abi": "workspace:*",
     "@vezta/deployments": "workspace:*",
     "@vezta/shared": "workspace:*",
+    "@web3icons/react": "^4.1.22",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lightweight-charts": "^5.1.0",
