@@ -5,7 +5,6 @@ import { formatQuote, UI } from "@vezta/shared";
 import { useState } from "react";
 import type { Address } from "viem";
 import { useGasPrice, usePublicClient, useSendTransaction } from "wagmi";
-import { QuoteValue } from "@/components/quote-value";
 import { TxToast } from "@/components/tx-toast";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -67,9 +66,10 @@ export function TopUpDialog({
       <DialogContent>
         <DialogTitle>{UI.session.topUpTitle}</DialogTitle>
         <DialogDescription>{UI.session.topUpWhy}</DialogDescription>
+        {/* In ETH, not dollars: everything else here (the presets, the amount box) is ETH too, since that is what actually moves. */}
         {mainBalance !== undefined && (
           <p className="mt-2 text-sm text-muted-foreground">
-            {UI.session.mainWallet} {UI.session.balance.toLowerCase()}: <QuoteValue chain={chain} raw={mainBalance} />
+            {UI.session.mainWallet} {UI.session.balance.toLowerCase()}: <span>{formatQuote(mainBalance, 18, 6)} ETH</span>
           </p>
         )}
         <div className="mt-4 flex gap-2">

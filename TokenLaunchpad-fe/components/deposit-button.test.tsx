@@ -23,8 +23,10 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllEnvs());
 
-async function show(o: { session?: SessionValue; embedded?: boolean; connected?: boolean; balances?: Record<string, bigint> } = {}) {
-  const chain = fakeChain({ balances: o.balances ?? { [TEST_USER.toLowerCase()]: parseEther("1.5") } });
+async function show(
+  o: { session?: SessionValue; embedded?: boolean; connected?: boolean; balances?: Record<string, bigint>; usd?: { answer: bigint } } = {},
+) {
+  const chain = fakeChain({ balances: o.balances ?? { [TEST_USER.toLowerCase()]: parseEther("1.5") }, usd: o.usd });
   const view = renderWithWallet(
     <SessionContext.Provider value={o.session ?? ready}>
       <DepositButton chain="sepolia" />
@@ -55,6 +57,14 @@ describe("DepositButton: an external wallet", () => {
     // to the TRADING wallet, from the main wallet, on the app's chain
     expect(send.sendTransactionAsync).toHaveBeenCalledWith({ to: TRADING.address, value: parseEther("0.2"), chainId: sepolia.id });
     expect(await within(dialog).findByText(/^Sent 0\.2 ETH\. Your trading wallet now has 0\.2 ETH\.$/)).toBeInTheDocument();
+  });
+
+  it("shows the balance in ETH, not dollars, even where there is a price feed to convert it", async () => {
+    const { user } = await show({ balances: { [TEST_USER.toLowerCase()]: parseEther("1.5") }, usd: { answer: 3_000n * 10n ** 8n } });
+    await user.click(deposit());
+    const dialog = screen.getByRole("dialog");
+    expect(await within(dialog).findByText("1.5 ETH")).toBeInTheDocument();
+    expect(within(dialog).queryByText(/\$/)).toBeNull();
   });
 
   it("will not send more than the main wallet holds, and says so", async () => {
