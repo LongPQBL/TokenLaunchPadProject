@@ -58,6 +58,7 @@ export function BuyPanel({ chain, token, ticker }: { chain: string; token: Addre
   const payer = identity.address;
   const balance = useBalance({ address: payer, chainId: deployment?.chainId, query: { enabled: !!payer } });
   const gasPrice = useGasPrice({ chainId: deployment?.chainId });
+  const gasReserve = (gasPrice.data ?? 0n) * BUY_GAS;
   const { bps: slippageBps, setBps: setSlippage } = useSlippage();
   const { state, run } = useTxRun();
   const { setLast } = useLastTrade();
@@ -67,15 +68,15 @@ export function BuyPanel({ chain, token, ticker }: { chain: string; token: Addre
   const [chosen, setChosen] = useState<"usd" | "eth">("usd");
   const mode = rate ? chosen : "eth";
   const [text, setText] = useState("");
-  // What was typed is the most that may ever leave the wallet, refund included — not the quote itself. The quote is worked
-  // backwards from it, so that padding it with slippage for the trade never asks for more than this ceiling.
+  // What was typed is the most that may ever leave the wallet, gas and all, refund included — not the quote itself. Gas and
+  // slippage headroom both come out of it below, so Max can fill in the whole balance and still never ask for more than it.
   const ceiling = mode === "usd" ? (rate ? usdToQuote(parseUsd(text) ?? 0n, rate, decimals) : 0n) : (parseAmount(text, decimals) ?? 0n);
-  const budget = budgetForMaxCost(ceiling, slippageBps);
+  const tradeCeiling = ceiling > gasReserve ? ceiling - gasReserve : 0n;
+  const budget = budgetForMaxCost(tradeCeiling, slippageBps);
   const quote = useBuyQuote({ token, budget });
   const { secondsLeft } = useLaunchTax(token);
 
   const maxQuoteCost = maxCostWithSlippage(quote.total, slippageBps);
-  const gasReserve = (gasPrice.data ?? 0n) * BUY_GAS;
   const canAfford = balance.data === undefined || balance.data.value >= maxQuoteCost + gasReserve;
   const wantsToBuy = quote.amount > 0n;
   // Nothing is said about an empty or zero budget: an unfinished form is not an error.
@@ -96,14 +97,12 @@ export function BuyPanel({ chain, token, ticker }: { chain: string; token: Addre
     setChosen(mode === "usd" ? "eth" : "usd");
   }
 
-  /** The most that can be spent: everything that is held, less only the network fee. Slippage headroom is not the box's
-   * problem — it comes out of the quote (see budgetForMaxCost), so the ceiling can be the whole rest of the balance. */
+  /** The whole balance, to the cent: neither gas nor slippage headroom is the box's problem — both come out of the quote
+   * (see tradeCeiling and budgetForMaxCost above), so what is typed can be every last bit of what is held. */
   function useMax() {
     const held = balance.data?.value;
-    if (held === undefined) return;
-    const spendable = held > gasReserve ? held - gasReserve : 0n;
-    if (spendable === 0n) return;
-    setText(mode === "usd" && rate ? centsToText(quoteToUsdCents(spendable, rate, decimals)) : formatQuote(spendable, decimals));
+    if (!held) return;
+    setText(mode === "usd" && rate ? centsToText(quoteToUsdCents(held, rate, decimals)) : formatQuote(held, decimals));
   }
 
   function buy() {

@@ -14,6 +14,7 @@ const TOKEN = "0x00000000000000000000000000000000000000b2" as const;
 const HASH = `0x${"ab".repeat(32)}` as const;
 const RATE = { answer: 3_000n * 10n ** 8n, decimals: 8 };
 const SLIPPAGE_BPS = 100n; // the default, 1%
+const GAS_RESERVE = 250_000n * 1_000_000_000n; // BUY_GAS at the fake chain's 1 gwei
 
 const trade = vi.hoisted(() => ({
   capabilities: { kind: "self-custody", address: undefined, chainId: undefined, canBatch: false, isZeroPrompt: false },
@@ -58,7 +59,7 @@ describe("BuyPanel in dollars", () => {
   it("quotes the tokens that many dollars buy, in the breakdown only, with no separate \"You receive\" line above it", async () => {
     const { user } = await setup();
     await user.type(await dollars(), "2");
-    const q = computeBuyQuote(freshCurve(), 100n, 0n, budgetForMaxCost(usdToQuote(200n, RATE), SLIPPAGE_BPS));
+    const q = computeBuyQuote(freshCurve(), 100n, 0n, budgetForMaxCost(usdToQuote(200n, RATE) - GAS_RESERVE, SLIPPAGE_BPS));
     await waitFor(() => expect(screen.getByTestId("cost-breakdown")).toHaveTextContent(`You receive (est.)≈ ${formatCompactTokens(q.amount)} DEMO`));
     expect(screen.queryByTestId("receive")).toBeNull();
   });
@@ -67,7 +68,7 @@ describe("BuyPanel in dollars", () => {
     trade.buyWithEth.mockResolvedValue({ hash: HASH, tokenAmount: 1n, quoteAmount: 1n, fee: 0n, launchTax: 0n });
     const { user } = await setup();
     await user.type(await dollars(), "2");
-    const q = computeBuyQuote(freshCurve(), 100n, 0n, budgetForMaxCost(usdToQuote(200n, RATE), SLIPPAGE_BPS));
+    const q = computeBuyQuote(freshCurve(), 100n, 0n, budgetForMaxCost(usdToQuote(200n, RATE) - GAS_RESERVE, SLIPPAGE_BPS));
     await waitFor(() => expect(buyButton()).toBeEnabled());
     await user.click(buyButton());
     expect(trade.buyWithEth).toHaveBeenCalledWith(expect.objectContaining({ token: TOKEN, amount: q.amount }));
@@ -91,13 +92,12 @@ describe("BuyPanel in dollars", () => {
     expect(screen.getByTestId("balance")).not.toHaveTextContent("ETH");
   });
 
-  it("Max fills in the most that can be spent: what is held, less only the network fee (250,000 gas at 1 gwei) — slippage headroom comes out of the quote, not the box", async () => {
+  it("Max fills in the whole balance, to the cent: what pays for gas and slippage headroom comes out of the quote, not the box", async () => {
     const { user } = await setup({ ethBalance: parseEther("1") });
     const box = await dollars();
     await waitFor(() => expect(screen.getByTestId("balance")).toHaveTextContent("$3,000.00"));
     await user.click(screen.getByRole("button", { name: "Max" }));
-    const spendable = parseEther("1") - 250_000n * 1_000_000_000n;
-    await waitFor(() => expect(box).toHaveValue(centsToText(quoteToUsdCents(spendable, RATE))));
+    await waitFor(() => expect(box).toHaveValue(centsToText(quoteToUsdCents(parseEther("1"), RATE))));
   });
 
   it("Max has nothing to fill in for a wallet with no ETH", async () => {
@@ -123,7 +123,7 @@ describe("BuyPanel in dollars", () => {
     await dollars();
     await user.click(screen.getByRole("button", { name: "Enter in ETH" }));
     await user.type(screen.getByRole("textbox", { name: "Amount to spend (ETH)" }), "0.01");
-    const q = computeBuyQuote(freshCurve(), 100n, 0n, budgetForMaxCost(parseEther("0.01"), SLIPPAGE_BPS));
+    const q = computeBuyQuote(freshCurve(), 100n, 0n, budgetForMaxCost(parseEther("0.01") - GAS_RESERVE, SLIPPAGE_BPS));
     await waitFor(() => expect(buyButton()).toBeEnabled());
     await user.click(buyButton());
     expect(trade.buyWithEth).toHaveBeenCalledWith(expect.objectContaining({ amount: q.amount }));
@@ -133,7 +133,7 @@ describe("BuyPanel in dollars", () => {
     const { user } = await setup();
     await user.type(await dollars(), "2");
     expect(await screen.findByTestId("cost-breakdown")).toBeInTheDocument();
-    const q = computeBuyQuote(freshCurve(), 100n, 0n, budgetForMaxCost(usdToQuote(200n, RATE), SLIPPAGE_BPS));
+    const q = computeBuyQuote(freshCurve(), 100n, 0n, budgetForMaxCost(usdToQuote(200n, RATE) - GAS_RESERVE, SLIPPAGE_BPS));
     await waitFor(() => expect(within(screen.getByTestId("cost-breakdown")).getByText(formatQuote(q.total, 18, 6))).toBeInTheDocument());
   });
 });
