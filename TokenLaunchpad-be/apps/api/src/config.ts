@@ -66,8 +66,10 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   const databaseUrl = env.DATABASE_URL;
   if (!databaseUrl) throw new Error("DATABASE_URL is required");
 
-  const port = env.PORT === undefined ? 3001 : Number(env.PORT);
-  if (!Number.isInteger(port) || port <= 0 || port > 65535) throw new Error(`PORT must be a valid port number (got "${env.PORT}")`);
+  // Not PORT: that name is a de facto standard many tools (Ponder among them) read as an override regardless of their own
+  // flags, and now that every backend package shares one env file, a plain PORT here would leak into all of them.
+  const port = env.API_PORT === undefined ? 3001 : Number(env.API_PORT);
+  if (!Number.isInteger(port) || port <= 0 || port > 65535) throw new Error(`API_PORT must be a valid port number (got "${env.API_PORT}")`);
 
   const corsOrigins = (env.CORS_ORIGINS ?? "")
     .split(",")

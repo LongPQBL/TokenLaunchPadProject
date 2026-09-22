@@ -38,7 +38,7 @@ describe("loadConfig", () => {
   });
 
   it("rejects a non-numeric port", () => {
-    expect(() => loadConfig({ ...base, PORT: "abc" })).toThrow(/PORT/);
+    expect(() => loadConfig({ ...base, API_PORT: "abc" })).toThrow(/PORT/);
   });
 
   it("takes the website's origin for sign-in, defaulting to the local dev server, and rejects anything that is not an origin", () => {

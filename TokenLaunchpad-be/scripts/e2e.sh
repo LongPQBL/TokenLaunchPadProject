@@ -152,7 +152,7 @@ ADMIN_ADDR="$(cast wallet address --private-key "$(cast keccak "$ADMIN_SIGNATURE
 # --- 5. the API ----------------------------------------------------------------------------------------------------------
 log "Starting the API on :$API_PORT"
 # WEB_ORIGIN is the domain a sign-in message must name; PINNER=fake because there is no Pinata key here (and it pins nothing).
-(cd "$ROOT/apps/api" && DATABASE_URL="$DB_URL" DEPLOYMENT=local PORT="$API_PORT" CORS_ORIGINS="http://localhost:$WEB_PORT" \
+(cd "$ROOT/apps/api" && DATABASE_URL="$DB_URL" DEPLOYMENT=local API_PORT="$API_PORT" CORS_ORIGINS="http://localhost:$WEB_PORT" \
   WEB_ORIGIN="http://localhost:$WEB_PORT" PINNER=fake REDIS_URL="redis://127.0.0.1:$REDIS_PORT" \
   ADMIN_ADDRESSES="$ADMIN_ADDR" INDEXER_URL="http://localhost:$PONDER_PORT" pnpm start > "$LOGS/api.log" 2>&1) &
 PIDS+=($!)

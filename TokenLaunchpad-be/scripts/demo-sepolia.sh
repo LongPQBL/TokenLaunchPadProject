@@ -125,7 +125,7 @@ wait_for "the bot" 60 grep -q "watching" "$LOGS/bot.log"
 log "Starting the API on :$API_PORT"
 PINATA_JWT="$(grep -E '^PINATA_JWT=' "$ROOT/.env" 2>/dev/null | head -1 | cut -d= -f2- || true)"
 [ -n "$PINATA_JWT" ] || die "no PINATA_JWT in TokenLaunchpad-be/.env: without it a token's image and details cannot be pinned"
-(cd "$ROOT/apps/api" && DATABASE_URL="$DB_URL" DEPLOYMENT=sepolia PORT="$API_PORT" CORS_ORIGINS="http://localhost:$WEB_PORT" \
+(cd "$ROOT/apps/api" && DATABASE_URL="$DB_URL" DEPLOYMENT=sepolia API_PORT="$API_PORT" CORS_ORIGINS="http://localhost:$WEB_PORT" \
   WEB_ORIGIN="http://localhost:$WEB_PORT" PINATA_JWT="$PINATA_JWT" RPC_URL="$RPC" REDIS_URL="redis://127.0.0.1:$REDIS_PORT" \
   ADMIN_ADDRESSES="${ADMIN_ADDRESSES:-}" INDEXER_URL="http://localhost:$PONDER_PORT" pnpm start > "$LOGS/api.log" 2>&1) &
 PIDS+=($!)
