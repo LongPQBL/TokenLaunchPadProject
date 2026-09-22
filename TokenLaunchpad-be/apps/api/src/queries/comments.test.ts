@@ -3,6 +3,7 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { addr } from "../../test/seed.js";
 import { BadCommentCursorError, listComments } from "./comments.js";
 import { resetAppData } from "../../test/app-data.js";
+import { getSql } from "../db.js";
 
 const SEPOLIA = 11155111;
 const GATEWAY = "https://gateway.test";
@@ -30,6 +31,26 @@ describe("listComments", () => {
     expect(items[1]).toMatchObject({ author: ME, username: "alice", body: "first" });
     expect(typeof items[0]!.id).toBe("string");
     expect(typeof items[0]!.createdAt).toBe("bigint");
+  });
+
+  // A naive `timestamp` column has no timezone of its own: it takes the connection's whenever a value goes in, and gives that
+  // same value back out AS UTC, whatever the connection asked for. A comment written on a connection whose clock is set to
+  // Ho Chi Minh City (UTC+7) would land seven hours in the future of a UTC one — this is exactly the bug that made every
+  // comment read "just now" forever, since the (wrongly future) time never fell due. created_at must be a real timestamptz.
+  it("says when a comment was really written, even when the database connection's own clock is not UTC", async () => {
+    const sql = getSql();
+    const reserved = await sql.reserve();
+    try {
+      await reserved`set time zone 'Asia/Ho_Chi_Minh'`;
+      const before = Math.floor(Date.now() / 1000);
+      await reserved`insert into app.comment (chain_id, token, author, body) values (${SEPOLIA}, ${T}, ${ME}, 'tz test')`;
+      const after = Math.floor(Date.now() / 1000);
+      const { items } = await list();
+      expect(Number(items[0]!.createdAt)).toBeGreaterThanOrEqual(before);
+      expect(Number(items[0]!.createdAt)).toBeLessThanOrEqual(after);
+    } finally {
+      reserved.release();
+    }
   });
 
   it("pages with a cursor and never repeats or skips a comment", async () => {

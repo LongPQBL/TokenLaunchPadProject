@@ -18,7 +18,7 @@ model AppUser {
   avatarUri String?   @map("avatar_uri")
   /// When set, the person's comments stop being served and they cannot post. Their rows are kept.
   bannedAt  DateTime? @map("banned_at") @db.Timestamptz(3)
-  createdAt DateTime  @default(now()) @map("created_at")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   comments  Comment[]
   reports   Report[]
   favorites Favorite[]
@@ -39,8 +39,8 @@ model TokenMetadata {
   socials     Json      @default("{}")
   status      String    @default("pending") // ok | pending | invalid | hidden
   attempts    Int       @default(0) // resolve attempts so far (spec §4.4)
-  nextAttempt DateTime? @map("next_attempt")
-  fetchedAt   DateTime? @map("fetched_at")
+  nextAttempt DateTime? @map("next_attempt") @db.Timestamptz(3)
+  fetchedAt   DateTime? @map("fetched_at") @db.Timestamptz(3)
   /// Who hid the token and when: an audit trail, since nothing can be removed from the chain, only from the app.
   hiddenBy    String?   @map("hidden_by")
   hiddenAt    DateTime? @map("hidden_at") @db.Timestamptz(3)
@@ -58,7 +58,7 @@ model Comment {
   author    String
   body      String
   hidden    Boolean  @default(false)
-  createdAt DateTime @default(now()) @map("created_at")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   user      AppUser  @relation(fields: [author], references: [address])
 
   @@index([chainId, token, createdAt(sort: Desc)])
@@ -73,7 +73,7 @@ model Report {
   reporter  String
   reason    String
   resolved  Boolean  @default(false)
-  createdAt DateTime @default(now()) @map("created_at")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   user      AppUser  @relation(fields: [reporter], references: [address])
 
   // A partial unique index (see the one_open_report_each migration) keeps one unsettled report per person per token.
