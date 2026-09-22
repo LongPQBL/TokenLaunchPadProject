@@ -1,11 +1,13 @@
 import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { TokenListItem } from "@/lib/types";
 import { renderWithWallet } from "@/test/wallet";
 import { SearchBox } from "./search-box";
 import { SiteHeader } from "./site-header";
 import { SortTabs } from "./sort-tabs";
 import { TokenGrid } from "./token-grid";
+
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) })); // the search box's suggestions need one
 
 const token = (n: number): TokenListItem => ({
   address: `0x${n.toString(16).padStart(40, "0")}`,

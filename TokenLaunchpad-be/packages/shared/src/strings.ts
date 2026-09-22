@@ -3,7 +3,17 @@
  * not an excavation through components (spec §2.5).
  */
 export const UI = {
-  nav: { create: "Create token", search: "Search tokens", admin: "Admin", discover: "Discover", watchlist: "Watchlist", positions: "Positions", profile: "Profile", main: "Main" },
+  nav: {
+    create: "Create token",
+    search: "Search tokens",
+    searchNoResults: "No tokens found",
+    admin: "Admin",
+    discover: "Discover",
+    watchlist: "Watchlist",
+    positions: "Positions",
+    profile: "Profile",
+    main: "Main",
+  },
   // Named after the chain it is on, so a second testnet never says "SEPOLIA".
   badge: { testnet: (chainName: string) => `${chainName.toUpperCase()} TESTNET` },
   create: {

@@ -9,6 +9,8 @@ import { SessionContext, type SessionValue } from "@/lib/session/use-session";
 import { externalConnector, renderWithWallet, TEST_DEPLOYMENT, TEST_USER } from "@/test/wallet";
 import { SiteHeader } from "./site-header";
 
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) })); // the search box's suggestions need one
+
 const TRADING = privateKeyToAccount(generatePrivateKey());
 const ready: SessionValue = { status: "ready", account: TRADING, main: TEST_USER, enable: async () => true };
 
