@@ -42,7 +42,7 @@ export function TokenHeader({ chain, token }: { chain: string; token: TokenDetai
   return (
     <header className="flex flex-col gap-4 sm:flex-row">
       <div data-testid="token-identity" className="flex flex-col items-center gap-2">
-        <TokenImage src={token.imageUrl} alt={title} initial={token.ticker ?? title} className="size-24 text-3xl" />
+        <TokenImage src={token.imageUrl} alt={title} initial={token.ticker ?? title} className="size-24 rounded-full text-3xl" />
         {links.length > 0 && (
           <div className="flex gap-2">
             {links.map(({ key, label, href, Icon }) => (

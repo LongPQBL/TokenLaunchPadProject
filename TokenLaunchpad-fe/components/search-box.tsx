@@ -140,7 +140,7 @@ export function SearchBox({ chain, sort, q, view = "table" }: { chain: string; s
                 onClick={() => pick(t)}
                 className={cn("flex cursor-pointer items-center gap-2 px-3 py-2 text-sm", i === activeIndex ? "bg-accent" : "hover:bg-accent")}
               >
-                <TokenImage src={t.imageUrl} alt={title} initial={t.ticker ?? title} className="size-6 shrink-0 text-xs" />
+                <TokenImage src={t.imageUrl} alt={title} initial={t.ticker ?? title} className="size-6 shrink-0 rounded-full text-xs" />
                 <span className="min-w-0 flex-1 truncate">{title}</span>
                 {t.ticker && <span className="shrink-0 font-mono text-xs text-muted-foreground">{t.ticker}</span>}
               </li>

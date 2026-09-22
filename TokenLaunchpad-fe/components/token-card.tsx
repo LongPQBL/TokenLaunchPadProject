@@ -22,7 +22,7 @@ export function TokenCard({ chain, token, flash = 0 }: { chain: string; token: T
       data-testid="token-card"
       className="flex gap-3 border border-border bg-card p-3 transition-colors hover:border-border-hover"
     >
-      <TokenImage src={token.imageUrl} alt={title} initial={token.ticker ?? title} className="size-16 text-lg" />
+      <TokenImage src={token.imageUrl} alt={title} initial={token.ticker ?? title} className="size-16 rounded-full text-lg" />
 
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2">

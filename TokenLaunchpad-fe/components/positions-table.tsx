@@ -71,7 +71,7 @@ export function PositionsTable({ chain, positions }: { chain: string; positions:
                 <TableRow key={p.token.address} data-testid="position-row">
                   <TableCell>
                     <div className="flex items-center gap-3">
-                      <TokenImage src={p.token.imageUrl} alt={title} initial={p.token.ticker ?? title} className="size-8 text-sm" />
+                      <TokenImage src={p.token.imageUrl} alt={title} initial={p.token.ticker ?? title} className="size-8 rounded-full text-sm" />
                       <div className="min-w-0">
                         <Link href={href} className="block max-w-[12rem] truncate font-semibold hover:underline">
                           {title}

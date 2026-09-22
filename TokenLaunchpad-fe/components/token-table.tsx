@@ -153,7 +153,7 @@ export function TokenTable({
                   >
                     <td className="px-2 py-2">
                       <div className="flex items-center gap-3">
-                        <TokenImage src={token.imageUrl} alt={title} initial={token.ticker ?? title} className="size-9 text-sm" />
+                        <TokenImage src={token.imageUrl} alt={title} initial={token.ticker ?? title} className="size-9 rounded-full text-sm" />
                         <div className="min-w-0">
                           <Link href={`/${chain}/token/${token.address}`} className="block max-w-[10rem] truncate font-semibold hover:underline">
                             {title}
