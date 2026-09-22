@@ -11,6 +11,7 @@ import { useLiveRoom } from "@/lib/ws/use-live-room";
 import { useHasChain } from "@/lib/chain/use-has-chain";
 import { useUsdRate } from "@/lib/chain/use-usd-rate";
 import { PriceChart } from "./price-chart";
+import { QuoteValue } from "./quote-value";
 import { TradesTable } from "./trades-table";
 
 const TRADES_SHOWN = 30;
@@ -68,6 +69,7 @@ export function LivePriceChart({
   interval: initialInterval,
   decimals,
   client,
+  marketCap,
 }: {
   chain: string;
   token: string;
@@ -75,6 +77,8 @@ export function LivePriceChart({
   interval: number;
   decimals: number;
   client?: LiveClient;
+  /** Drawn large on the chart, where a currency switch used to be. In the quote's raw units; formatted in dollars once there is a price for one. */
+  marketCap?: bigint;
 }) {
   const accumulator = useRef(createCandleAccumulator({ token, interval: initialInterval, decimals, initial }));
   const [shown, setShown] = useState({ interval: initialInterval, series: initial });
@@ -122,12 +126,15 @@ export function LivePriceChart({
   });
 
   const filled = useMemo(() => fillGaps(shown.series, shown.interval), [shown]);
+  // Formatted here, not by PriceChart: QuoteValue already knows dollars-when-priced, ETH-otherwise, and this is the one
+  // place that already has both the chain and the raw amount.
+  const marketCapNode = marketCap !== undefined ? <QuoteValue chain={chain} raw={marketCap} compact /> : undefined;
   const chart =
     // (Keyed by the size: a new size is a new chart, with its own view and its own marks.)
     useHasChain() ? (
-      <PricedChart key={shown.interval} chain={chain} candles={filled} interval={shown.interval} onIntervalChange={(size) => void choose(size)} />
+      <PricedChart key={shown.interval} chain={chain} candles={filled} interval={shown.interval} onIntervalChange={(size) => void choose(size)} marketCap={marketCapNode} />
     ) : (
-      <PriceChart key={shown.interval} candles={filled} interval={shown.interval} onIntervalChange={(size) => void choose(size)} />
+      <PriceChart key={shown.interval} candles={filled} interval={shown.interval} onIntervalChange={(size) => void choose(size)} marketCap={marketCapNode} />
     );
   return (
     <div className="flex flex-col gap-1">

@@ -13,15 +13,34 @@ const api = vi.hoisted(() => ({ trades: vi.fn(), candles: vi.fn() }));
 vi.mock("@/lib/api", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/api")>()), api }));
 
 // The chart itself needs a canvas; what it is asked to draw is what matters here.
-const drawn = vi.hoisted(() => ({ candles: [] as unknown[], usdPerEth: undefined as number | undefined, interval: undefined as number | undefined }));
+const drawn = vi.hoisted(() => ({
+  candles: [] as unknown[],
+  usdPerEth: undefined as number | undefined,
+  interval: undefined as number | undefined,
+  marketCap: undefined as unknown,
+}));
 vi.mock("./price-chart", () => ({
-  PriceChart: ({ candles, usdPerEth, interval, onIntervalChange }: { candles: unknown[]; usdPerEth?: number; interval?: number; onIntervalChange?: (seconds: number) => void }) => {
+  PriceChart: ({
+    candles,
+    usdPerEth,
+    interval,
+    onIntervalChange,
+    marketCap,
+  }: {
+    candles: unknown[];
+    usdPerEth?: number;
+    interval?: number;
+    onIntervalChange?: (seconds: number) => void;
+    marketCap?: React.ReactNode;
+  }) => {
     drawn.candles = candles;
     drawn.usdPerEth = usdPerEth;
     drawn.interval = interval;
+    drawn.marketCap = marketCap;
     return (
       <div data-testid="price-chart">
         {candles.length} candles
+        {marketCap && <div data-testid="market-cap">{marketCap}</div>}
         {onIntervalChange &&
           ([["1m", 60], ["5m", 300], ["1h", 3_600]] as const).map(([label, seconds]) => (
             <button key={seconds} onClick={() => onIntervalChange(seconds)}>
@@ -187,6 +206,25 @@ describe("LivePriceChart", () => {
     await act(async () => fake.reconnect());
     expect(api.candles).toHaveBeenCalledWith("sepolia", TOKEN, 60);
     expect(drawn.candles).toHaveLength(2);
+  });
+
+  it("gives the chart nothing to show where a market cap was not given", () => {
+    const fake = fakeClient();
+    render(<LivePriceChart chain="sepolia" token={TOKEN} initial={initial} interval={60} decimals={18} client={fake.client} />);
+    expect(drawn.marketCap).toBeUndefined();
+  });
+
+  it("gives the chart the market cap, in dollars once the feed answers, once it is told one", async () => {
+    vi.stubEnv("NEXT_PUBLIC_DEPLOYMENT", TEST_DEPLOYMENT);
+    const fake = fakeClient();
+    const chain = fakeChain({ usd: { answer: 3_000n * 10n ** 8n } });
+    renderWithWallet(
+      <LivePriceChart chain="sepolia" token={TOKEN} initial={initial} interval={60} decimals={18} client={fake.client} marketCap={10n ** 16n} />,
+      undefined,
+      chain.transport,
+    );
+    await vi.waitFor(() => expect(screen.getByTestId("market-cap")).toHaveTextContent("$30.00"));
+    vi.unstubAllEnvs();
   });
 });
 

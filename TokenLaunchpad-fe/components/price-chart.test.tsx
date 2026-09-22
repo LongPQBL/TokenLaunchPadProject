@@ -253,42 +253,24 @@ describe("PriceChart in dollars", () => {
   const scaled = (k: number) => series.map((c) => ({ ...c, open: c.open * k, high: c.high * k, low: c.low * k, close: c.close * k }));
   const formatter = () => (addSeries.mock.calls[0] as unknown as [unknown, { priceFormat: { formatter: (n: number) => string } }])[1].priceFormat.formatter;
 
-  it("offers no switch, and draws the candles as they are, when there is no dollar price", () => {
+  it("draws the candles as they are when there is no dollar price: there is no switch to offer one", () => {
     render(<PriceChart candles={series} now={NOW} />);
     expect(screen.queryByRole("button", { name: "USD" })).toBeNull();
     expect(screen.queryByRole("button", { name: "ETH" })).toBeNull();
     expect(candlesDrawn()).toEqual(series);
   });
 
-  it("draws in dollars by default when there is a price: every price is multiplied by what an ETH is worth", () => {
+  it("draws in dollars, unswitchably, whenever there is a price: every price is multiplied by what an ETH is worth", () => {
     render(<PriceChart candles={series} usdPerEth={3_000} now={NOW} />);
     expect(candlesDrawn()).toEqual(scaled(3_000));
     expect(pointsDrawn().filter((p) => !("open" in p)).every((p) => Object.keys(p).join() === "time")).toBe(true); // empty minutes stay empty
-    expect(screen.getByRole("button", { name: "USD" })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("button", { name: "ETH" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.queryByRole("button", { name: "USD" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "ETH" })).toBeNull();
   });
 
   it("writes the axis in dollars, with the sign, out in full", () => {
     render(<PriceChart candles={series} usdPerEth={3_000} />);
     expect(formatter()(2.6984976e-11 * 3_000)).toBe("$0.000000080955");
-  });
-
-  it("switches to ETH without rebuilding the chart: the same candles as they were, and an axis in ETH", async () => {
-    render(<PriceChart candles={series} usdPerEth={3_000} now={NOW} />);
-    await userEvent.click(screen.getByRole("button", { name: "ETH" }));
-    expect(createChart).toHaveBeenCalledOnce();
-    expect(candlesDrawn()).toEqual(series);
-    const applied = applyOptions.mock.calls.at(-1)![0] as { priceFormat: { formatter: (n: number) => string } };
-    expect(applied.priceFormat.formatter(2.6984976e-11)).toBe("0.000000000026985");
-    expect(screen.getByRole("button", { name: "ETH" })).toHaveAttribute("aria-pressed", "true");
-  });
-
-  it("switches back to dollars", async () => {
-    render(<PriceChart candles={series} usdPerEth={3_000} now={NOW} />);
-    await userEvent.click(screen.getByRole("button", { name: "ETH" }));
-    await userEvent.click(screen.getByRole("button", { name: "USD" }));
-    expect(candlesDrawn()).toEqual(scaled(3_000));
-    expect((applyOptions.mock.calls.at(-1)![0] as { priceFormat: { formatter: (n: number) => string } }).priceFormat.formatter(1e-8)).toBe("$0.00000001");
   });
 
   it("keeps drawing in dollars as new candles arrive", () => {
@@ -298,10 +280,34 @@ describe("PriceChart in dollars", () => {
     expect(candlesDrawn()).toEqual(next.map((c) => ({ ...c, open: c.open * 3_000, high: c.high * 3_000, low: c.low * 3_000, close: c.close * 3_000 })));
   });
 
-  it("falls back to ETH, and offers no switch, if the price goes away", () => {
+  it("falls back to ETH if the price goes away: still no switch to offer", () => {
     const { rerender } = render(<PriceChart candles={series} usdPerEth={3_000} now={NOW} />);
     rerender(<PriceChart candles={series} now={NOW} />);
     expect(screen.queryByRole("button", { name: "USD" })).toBeNull();
     expect(candlesDrawn()).toEqual(series);
+  });
+});
+
+describe("PriceChart: market cap", () => {
+  it("shows nothing where the currency switch used to be, when there is no market cap to show", () => {
+    render(<PriceChart candles={series} now={NOW} interval={60} onIntervalChange={() => {}} />);
+    expect(screen.queryByTestId("market-cap")).toBeNull();
+  });
+
+  it("shows the market cap where the currency switch used to be, larger than the rest of the chart's own text", () => {
+    render(<PriceChart candles={series} now={NOW} marketCap={<span>$48,270.11</span>} />);
+    const cap = screen.getByTestId("market-cap");
+    expect(cap).toHaveTextContent("$48,270.11");
+    expect(cap.className).toMatch(/text-2xl/);
+  });
+
+  it("draws whatever it is given: the caller decides dollars, ETH, or nothing, not this component", () => {
+    render(<PriceChart candles={series} now={NOW} marketCap="16.09 ETH" />);
+    expect(screen.getByTestId("market-cap")).toHaveTextContent("16.09 ETH");
+  });
+
+  it("keeps the row when there is a market cap but no candle-size switch", () => {
+    render(<PriceChart candles={series} now={NOW} marketCap="$1" />);
+    expect(screen.getByTestId("market-cap")).toBeInTheDocument();
   });
 });

@@ -1,4 +1,4 @@
-import { chainBySlug, UI } from "@vezta/shared";
+import { chainBySlug, marketCap, UI } from "@vezta/shared";
 import { notFound } from "next/navigation";
 import { TokenHiddenWatcher } from "@/components/admin/token-hidden-watcher";
 import { CommentList } from "@/components/comments/comment-list";
@@ -100,7 +100,14 @@ export default async function TokenPage({
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="flex min-w-0 flex-col gap-6">
           {candles ? (
-            <LivePriceChart chain={chain} token={token} initial={toChartSeries(candles.items, config.quoteDecimals)} interval={CHART_INTERVAL} decimals={config.quoteDecimals} />
+            <LivePriceChart
+              chain={chain}
+              token={token}
+              initial={toChartSeries(candles.items, config.quoteDecimals)}
+              interval={CHART_INTERVAL}
+              decimals={config.quoteDecimals}
+              marketCap={marketCap(detail.virtualQuoteReserves, detail.virtualTokenReserves)}
+            />
           ) : (
             <PanelError className="flex h-80 items-center justify-center border border-border text-muted-foreground" />
           )}

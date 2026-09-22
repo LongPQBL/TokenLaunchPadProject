@@ -40,6 +40,7 @@ export function PriceChart({
   interval = 60,
   onIntervalChange,
   now,
+  marketCap,
 }: {
   candles: ChartCandle[];
   usdPerEth?: number;
@@ -49,14 +50,16 @@ export function PriceChart({
   onIntervalChange?: (seconds: number) => void;
   /** The clock, in unix seconds, for tests; the real time otherwise. */
   now?: number;
+  /** Drawn large, where a currency switch used to be. Already formatted: this component draws it, but does not decide dollars, ETH, or nothing. */
+  marketCap?: React.ReactNode;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const fitted = useRef(false);
   const hasData = candles.length > 0;
-  const [chosen, setChosen] = useState<"usd" | "eth">("usd");
-  const unit = usdPerEth ? chosen : "eth";
+  // Dollars whenever there is a price for one: nobody switches back to ETH by hand any more.
+  const unit: "usd" | "eth" = usdPerEth ? "usd" : "eth";
   const unitRef = useRef(unit);
   unitRef.current = unit;
   // The prices are ETH; in dollars each is multiplied by the price of an ETH. The chart is not rebuilt for it, only redrawn.
@@ -132,9 +135,10 @@ export function PriceChart({
     }
   }, [drawn, hasData]);
 
-  // The candle size and the currency. They stay while there is nothing to draw: a size with no trades in it is a size to go back from.
+  // The candle size and, where a currency switch used to be, the market cap. They stay while there is nothing to draw: a size
+  // with no trades in it is a size to go back from.
   const controls =
-    onIntervalChange || usdPerEth ? (
+    onIntervalChange || marketCap ? (
       <div className="flex items-center justify-between gap-3 font-mono text-xs">
         {onIntervalChange ? (
           <div role="group" aria-label={UI.token.chartInterval} className="flex gap-1">
@@ -153,19 +157,12 @@ export function PriceChart({
         ) : (
           <span />
         )}
-        {usdPerEth ? (
-          <div role="group" aria-label="Chart currency" className="flex gap-1">
-            {(["usd", "eth"] as const).map((u) => (
-              <button
-                key={u}
-                type="button"
-                aria-pressed={unit === u}
-                onClick={() => setChosen(u)}
-                className={cn("border border-border px-2 py-0.5", unit === u ? "bg-accent text-primary" : "text-muted-foreground hover:text-foreground")}
-              >
-                {u === "usd" ? "USD" : "ETH"}
-              </button>
-            ))}
+        {marketCap ? (
+          <div className="text-right">
+            <div className="text-muted-foreground">{UI.token.marketCap}</div>
+            <div data-testid="market-cap" className="text-2xl font-semibold text-foreground">
+              {marketCap}
+            </div>
           </div>
         ) : null}
       </div>
