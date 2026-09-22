@@ -211,14 +211,20 @@ describe("watcher: keeping up", () => {
     expect(s.asked).toEqual([]);
   });
 
-  it("remembers only a bounded number of events", async () => {
-    const logs = Array.from({ length: 12_000 }, (_, i) => tradeLog(101n, i + 1));
-    const s = setup({ head: 100n, logs });
-    await s.watcher.poll();
-    s.state.head = 101n;
-    await s.watcher.poll();
-    expect(s.watcher.rememberedCount()).toBeLessThanOrEqual(10_000);
-  });
+  // 12,000 logs comfortably clear vitest's default 5s timeout on a fast machine, but not on a loaded CI runner: this needs
+  // that many to prove the bound actually bites (rather than just never being reached), so it is given more time instead.
+  it(
+    "remembers only a bounded number of events",
+    async () => {
+      const logs = Array.from({ length: 12_000 }, (_, i) => tradeLog(101n, i + 1));
+      const s = setup({ head: 100n, logs });
+      await s.watcher.poll();
+      s.state.head = 101n;
+      await s.watcher.poll();
+      expect(s.watcher.rememberedCount()).toBeLessThanOrEqual(10_000);
+    },
+    20_000,
+  );
 });
 
 describe("watcher: when things break", () => {
