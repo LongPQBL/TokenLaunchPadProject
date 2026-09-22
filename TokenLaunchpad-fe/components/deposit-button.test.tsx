@@ -45,6 +45,9 @@ describe("DepositButton: an external wallet", () => {
     expect(within(dialog).getByText(/should not hold your whole balance/)).toBeInTheDocument();
     for (const amount of ["0.1", "0.2", "0.3"]) expect(within(dialog).getByRole("button", { name: `${amount} ETH` })).toBeInTheDocument();
 
+    // The main wallet's own balance, so the most that could be deposited is never a guess.
+    expect(await within(dialog).findByText("1.5 ETH")).toBeInTheDocument();
+
     chain.set({ balances: { [TRADING.address.toLowerCase()]: parseEther("0.2") } });
     await user.click(within(dialog).getByRole("button", { name: "0.2 ETH" }));
     await user.click(within(dialog).getByRole("button", { name: "Send from main wallet" }));
