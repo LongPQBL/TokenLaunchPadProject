@@ -153,7 +153,7 @@ describe("GET /:chain/tokens/:address/holders", () => {
     await seedBalance({ token: T, holder: B, amount: 10n });
     await prisma.appUser.create({ data: { address: A, username: "octopus", avatarUri: "ipfs://bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi" } });
     const [a, b] = await holders();
-    expect(a).toMatchObject({ username: "octopus", avatarUrl: "https://ipfs.io/ipfs/bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi" });
+    expect(a).toMatchObject({ username: "octopus", avatarUrl: "https://gateway.pinata.cloud/ipfs/bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi" });
     expect(b).not.toHaveProperty("username"); // nobody who has not said who they are gets a name
     expect(b).not.toHaveProperty("avatarUrl");
   });

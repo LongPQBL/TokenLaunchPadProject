@@ -22,7 +22,7 @@ describe("loadConfig", () => {
   });
 
   it("defaults the IPFS gateway, and trims a trailing slash from one that is given", () => {
-    expect(loadConfig(base).ipfsGatewayUrl).toBe("https://ipfs.io");
+    expect(loadConfig(base).ipfsGatewayUrl).toBe("https://gateway.pinata.cloud");
     expect(loadConfig({ ...base, IPFS_GATEWAY_URL: "https://my.gateway.example///" }).ipfsGatewayUrl).toBe("https://my.gateway.example");
   });
 

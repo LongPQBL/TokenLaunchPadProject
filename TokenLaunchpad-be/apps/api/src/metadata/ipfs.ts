@@ -4,8 +4,13 @@ const CID = /^[A-Za-z0-9]{5,100}$/;
 // A path segment. No "%" so there is no encoded traversal, no "\" or ":" or "@" so nothing can change the host.
 const SEGMENT = /^[A-Za-z0-9._~-]+$/;
 
+// ipfs.io (and its sibling dweb.link) stopped serving path-gateway requests server-side some time before
+// 2026-09-22 — every fetch through it now returns 429 "This IPFS gateway is switching to a service worker
+// gateway only", which only works from a browser. Confirmed live by fetching the same CID through both:
+// ipfs.io/dweb.link 429, gateway.pinata.cloud 200 — and this project already holds a Pinata account for pinning,
+// so its own gateway is the natural replacement.
 /** The public gateway used when IPFS_GATEWAY_URL is not set. The one place it is written; everything else says DEFAULT_IPFS_GATEWAY. */
-export const DEFAULT_IPFS_GATEWAY = "https://ipfs.io";
+export const DEFAULT_IPFS_GATEWAY = "https://gateway.pinata.cloud";
 
 /**
  * Maps an ipfs:// URI onto OUR configured gateway, or returns undefined.
