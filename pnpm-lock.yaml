@@ -63,6 +63,9 @@ importers:
       '@types/node':
         specifier: ^22.0.0
         version: 22.20.4
+      dotenv-cli:
+        specifier: ^11.0.0
+        version: 11.0.0
       socket.io-client:
         specifier: ^4.8.3
         version: 4.8.3(bufferutil@4.1.0)(utf-8-validate@5.0.10)
@@ -97,6 +100,9 @@ importers:
       '@types/node':
         specifier: ^22.0.0
         version: 22.20.4
+      dotenv-cli:
+        specifier: ^11.0.0
+        version: 11.0.0
       tsx:
         specifier: ^4.19.0
         version: 4.23.15
@@ -131,6 +137,9 @@ importers:
       '@types/node':
         specifier: ^22.0.0
         version: 22.20.4
+      dotenv-cli:
+        specifier: ^11.0.0
+        version: 11.0.0
       drizzle-orm:
         specifier: 0.41.0
         version: 0.41.0(@electric-sql/pglite@0.2.13)(@opentelemetry/api@1.9.1)(@prisma/client@6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3))(kysely@0.26.3)(pg@8.23.0)(postgres@3.4.9)(prisma@6.19.3(typescript@5.9.3))
@@ -140,6 +149,72 @@ importers:
       tsx:
         specifier: ^4.19.0
         version: 4.23.15
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.0
+        version: 3.2.7(@types/debug@4.1.13)(@types/node@22.20.4)(jiti@2.7.0)(jsdom@26.1.0(bufferutil@4.1.0)(utf-8-validate@5.0.10))(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.4)(typescript@5.9.3))(tsx@4.23.15)
+
+  TokenLaunchpad-be/packages/abi:
+    devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      viem:
+        specifier: ^2.47.0
+        version: 2.56.8(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.6.5)
+      vitest:
+        specifier: ^3.2.0
+        version: 3.2.7(@types/debug@4.1.13)(@types/node@22.20.4)(jiti@2.7.0)(jsdom@26.1.0(bufferutil@4.1.0)(utf-8-validate@5.0.10))(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.4)(typescript@5.9.3))(tsx@4.23.15)
+
+  TokenLaunchpad-be/packages/app-db:
+    dependencies:
+      '@prisma/client':
+        specifier: ^6.0.0
+        version: 6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3)
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.4
+      dotenv-cli:
+        specifier: ^11.0.0
+        version: 11.0.0
+      prisma:
+        specifier: ^6.0.0
+        version: 6.19.3(typescript@5.9.3)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.0
+        version: 3.2.7(@types/debug@4.1.13)(@types/node@22.20.4)(jiti@2.7.0)(jsdom@26.1.0(bufferutil@4.1.0)(utf-8-validate@5.0.10))(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.4)(typescript@5.9.3))(tsx@4.23.15)
+
+  TokenLaunchpad-be/packages/deployments:
+    dependencies:
+      viem:
+        specifier: ^2.47.0
+        version: 2.56.8(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.6.5)
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.4
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.0
+        version: 3.2.7(@types/debug@4.1.13)(@types/node@22.20.4)(jiti@2.7.0)(jsdom@26.1.0(bufferutil@4.1.0)(utf-8-validate@5.0.10))(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.4)(typescript@5.9.3))(tsx@4.23.15)
+
+  TokenLaunchpad-be/packages/shared:
+    dependencies:
+      viem:
+        specifier: ^2.47.0
+        version: 2.56.8(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76)
+      zod:
+        specifier: ^3.25.0
+        version: 3.25.76
+    devDependencies:
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -246,69 +321,6 @@ importers:
       tailwindcss:
         specifier: ^4.2.1
         version: 4.3.3
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      vitest:
-        specifier: ^3.2.0
-        version: 3.2.7(@types/debug@4.1.13)(@types/node@22.20.4)(jiti@2.7.0)(jsdom@26.1.0(bufferutil@4.1.0)(utf-8-validate@5.0.10))(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.4)(typescript@5.9.3))(tsx@4.23.15)
-
-  TokenLaunchpad-be/packages/abi:
-    devDependencies:
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      viem:
-        specifier: ^2.47.0
-        version: 2.56.8(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.6.5)
-      vitest:
-        specifier: ^3.2.0
-        version: 3.2.7(@types/debug@4.1.13)(@types/node@22.20.4)(jiti@2.7.0)(jsdom@26.1.0(bufferutil@4.1.0)(utf-8-validate@5.0.10))(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.4)(typescript@5.9.3))(tsx@4.23.15)
-
-  TokenLaunchpad-be/packages/app-db:
-    dependencies:
-      '@prisma/client':
-        specifier: ^6.0.0
-        version: 6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3)
-    devDependencies:
-      '@types/node':
-        specifier: ^22.0.0
-        version: 22.20.4
-      prisma:
-        specifier: ^6.0.0
-        version: 6.19.3(typescript@5.9.3)
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      vitest:
-        specifier: ^3.2.0
-        version: 3.2.7(@types/debug@4.1.13)(@types/node@22.20.4)(jiti@2.7.0)(jsdom@26.1.0(bufferutil@4.1.0)(utf-8-validate@5.0.10))(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.4)(typescript@5.9.3))(tsx@4.23.15)
-
-  TokenLaunchpad-be/packages/deployments:
-    dependencies:
-      viem:
-        specifier: ^2.47.0
-        version: 2.56.8(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.6.5)
-    devDependencies:
-      '@types/node':
-        specifier: ^22.0.0
-        version: 22.20.4
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      vitest:
-        specifier: ^3.2.0
-        version: 3.2.7(@types/debug@4.1.13)(@types/node@22.20.4)(jiti@2.7.0)(jsdom@26.1.0(bufferutil@4.1.0)(utf-8-validate@5.0.10))(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.4)(typescript@5.9.3))(tsx@4.23.15)
-
-  TokenLaunchpad-be/packages/shared:
-    dependencies:
-      viem:
-        specifier: ^2.47.0
-        version: 2.56.8(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76)
-      zod:
-        specifier: ^3.25.0
-        version: 3.25.76
-    devDependencies:
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -4128,8 +4140,20 @@ packages:
     resolution: {integrity: sha512-xaBe6ZT4DHPkg0k4Ytbvn5xoxgpG0jOS1dYxSOwAHPuNLjP3/OzN0gH55SrLqpx8cBfSaVt91lXYkApjb+nYdQ==}
     engines: {node: '>=16'}
 
+  dotenv-cli@11.0.0:
+    resolution: {integrity: sha512-r5pA8idbk7GFWuHEU7trSTflWcdBpQEK+Aw17UrSHjS6CReuhrrPcyC3zcQBPQvhArRHnBo/h6eLH1fkCvNlww==}
+    hasBin: true
+
+  dotenv-expand@12.0.3:
+    resolution: {integrity: sha512-uc47g4b+4k/M/SeaW1y4OApx+mtLWl92l5LMPP0GNXctZqELk+YGgOPIIC5elYmUH4OuoK3JLhuRUYegeySiFA==}
+    engines: {node: '>=12'}
+
   dotenv@16.6.1:
     resolution: {integrity: sha512-uBq4egWHTcTt33a72vpSG0z3HnPuIl6NqYcTrKEg2azoEyl2hpW0zqlxysq2pK9HlDIHyHyakeYaYnSAwd8bow==}
+    engines: {node: '>=12'}
+
+  dotenv@17.4.2:
+    resolution: {integrity: sha512-nI4U3TottKAcAD9LLud4Cb7b2QztQMUEfHbvhTH09bqXTxnSie8WnjPALV/WMCrJZ6UV/qHJ6L03OqO3LcdYZw==}
     engines: {node: '>=12'}
 
   drizzle-orm@0.41.0:
@@ -11879,7 +11903,20 @@ snapshots:
     dependencies:
       type-fest: 3.13.1
 
+  dotenv-cli@11.0.0:
+    dependencies:
+      cross-spawn: 7.0.6
+      dotenv: 17.4.2
+      dotenv-expand: 12.0.3
+      minimist: 1.2.8
+
+  dotenv-expand@12.0.3:
+    dependencies:
+      dotenv: 16.6.1
+
   dotenv@16.6.1: {}
+
+  dotenv@17.4.2: {}
 
   drizzle-orm@0.41.0(@electric-sql/pglite@0.2.13)(@opentelemetry/api@1.9.1)(@prisma/client@6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3))(kysely@0.26.3)(pg@8.23.0)(postgres@3.4.9)(prisma@6.19.3(typescript@5.9.3)):
     optionalDependencies:

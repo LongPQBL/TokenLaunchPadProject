@@ -30,16 +30,16 @@ Redis and ports and never touch yours.
 
 ## Configuration
 
-Settings come from the environment. Each deployable has a `.env.example` that lists **every** variable it reads (a test keeps the two in step);
-copy it to `.env` (backend) or `.env.local` (frontend) and fill it in. The copies are git-ignored; only `.env.example` is committed.
+Settings come from the environment. Each side has ONE `.env.example` that lists **every** variable any of its packages read (a test keeps the
+two in step); copy it to `.env` (backend) or `.env.local` (frontend) and fill it in. The copies are git-ignored; only `.env.example` is committed.
 
 | Where | File | Holds |
 |---|---|---|
-| `TokenLaunchpad-be/apps/api/` | `.env` | database, ports and origins, IPFS gateway, **`PINATA_JWT`** (secret), admin addresses |
-| `TokenLaunchpad-be/apps/bot/` | `.env` | RPC, Redis, **`BOT_PRIVATE_KEY`** (secret: the bot's own wallet) |
-| `TokenLaunchpad-be/apps/indexer/` | `.env` | deployment, RPC per chain, database, Ponder schema |
-| `TokenLaunchpad-be/packages/app-db/` | `.env` | `DATABASE_URL` for Prisma's migrations |
+| `TokenLaunchpad-be/` | `.env` | shared by `apps/api`, `apps/bot`, `apps/indexer` and `packages/app-db`: database, RPC, Redis, ports and origins, IPFS gateway, admin addresses, **`PINATA_JWT`** and **`BOT_PRIVATE_KEY`** (secrets) |
 | `TokenLaunchpad-fe/` | `.env.local` | the API and RPC addresses, Privy and WalletConnect IDs, the deployment to build for |
+
+`pnpm dev` / `pnpm start` in `apps/api`, `apps/bot`, `apps/indexer` and `packages/app-db` loads `TokenLaunchpad-be/.env` on its own (via
+`dotenv-cli`); a variable already exported in the shell wins over the file, never the other way round.
 
 Two rules. **Secrets stay in the backend**: anything called `NEXT_PUBLIC_` is written into the page every visitor downloads, so it is an address
 or an ID, never a key (a test refuses a `NEXT_PUBLIC_` name that looks like one). **A setting with a default writes it down once**: the API's

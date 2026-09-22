@@ -7,10 +7,11 @@
 # costs real (test) ETH. What it reads:
 #   TokenLaunchpad-be/packages/deployments/sepolia.json   the deployed addresses (copy the contracts repo's deployments/sepolia.json here)
 #   ../EVM-Pumpfun-Smart-Contract/.env  SEPOLIA_RPC_URL: your own RPC, used by the indexer, the API and the bot (never the browser)
-#   TokenLaunchpad-be/apps/api/.env       PINATA_JWT: token images and metadata are pinned to IPFS for real
+#   TokenLaunchpad-be/.env                       PINATA_JWT: token images and metadata are pinned to IPFS for real
 #   TokenLaunchpad-fe/.env.local                 NEXT_PUBLIC_PRIVY_APP_ID and NEXT_PUBLIC_RPC_URL, as for `pnpm dev`
-# What it creates, and keeps between runs (so comments, stars and profiles survive): the database vezta_demo, and TokenLaunchpad-be/apps/bot/.env
-# (a wallet of the bot's own; send it a little Sepolia ETH so it can migrate curves that fill). Redis is its own, on :6392, never yours.
+# What it creates, and keeps between runs (so comments, stars and profiles survive): the database vezta_demo, and a BOT_PRIVATE_KEY line
+# in TokenLaunchpad-be/.env (a wallet of the bot's own; send it a little Sepolia ETH so it can migrate curves that fill), if it is not
+# there yet. Redis is its own, on :6392, never yours.
 #
 #   (from TokenLaunchpad-be)
 #   ./scripts/demo-sepolia.sh
@@ -104,10 +105,13 @@ log "Starting Redis on :$REDIS_PORT and the migration bot"
 redis-server --port "$REDIS_PORT" --bind 127.0.0.1 --save "" --appendonly no --loglevel warning > "$LOGS/redis.log" 2>&1 &
 PIDS+=($!)
 wait_for "Redis" 30 redis-cli -p "$REDIS_PORT" ping
-if [ ! -f "$ROOT/apps/bot/.env" ]; then
-  (umask 077; printf '# The migration bot'"'"'s own wallet (git-ignored). Send it a little Sepolia ETH for gas.\nBOT_PRIVATE_KEY=%s\n' "$(cast wallet new | awk '/Private key/ {print $3}')" > "$ROOT/apps/bot/.env")
+BOT_KEY="$(grep -E '^BOT_PRIVATE_KEY=' "$ROOT/.env" 2>/dev/null | tail -1 | cut -d= -f2- || true)"
+if [ -z "$BOT_KEY" ]; then
+  BOT_KEY="$(cast wallet new | awk '/Private key/ {print $3}')"
+  # A wallet of the bot's own (git-ignored). Replaces a blank BOT_PRIVATE_KEY= line if there is one, else adds it.
+  { [ -f "$ROOT/.env" ] && grep -vE '^BOT_PRIVATE_KEY=' "$ROOT/.env" || true; printf 'BOT_PRIVATE_KEY=%s\n' "$BOT_KEY"; } > "$ROOT/.env.tmp"
+  (umask 077; mv "$ROOT/.env.tmp" "$ROOT/.env")
 fi
-BOT_KEY="$(grep -E '^BOT_PRIVATE_KEY=' "$ROOT/apps/bot/.env" | cut -d= -f2-)"
 BOT_ADDR="$(cast wallet address --private-key "$BOT_KEY")"
 echo "bot wallet: $BOT_ADDR  balance: $(cast balance "$BOT_ADDR" --rpc-url "$RPC" -e) ETH (it needs a little to migrate a curve that fills)"
 # A free RPC plan answers eth_getLogs for a handful of blocks at most (Alchemy: 10) and refuses a wider request: ten is safe on any plan.
@@ -119,8 +123,8 @@ wait_for "the bot" 60 grep -q "watching" "$LOGS/bot.log"
 
 # --- api -------------------------------------------------------------------------------------------------------------------
 log "Starting the API on :$API_PORT"
-PINATA_JWT="$(grep -E '^PINATA_JWT=' "$ROOT/apps/api/.env" 2>/dev/null | head -1 | cut -d= -f2- || true)"
-[ -n "$PINATA_JWT" ] || die "no PINATA_JWT in apps/api/.env: without it a token's image and details cannot be pinned"
+PINATA_JWT="$(grep -E '^PINATA_JWT=' "$ROOT/.env" 2>/dev/null | head -1 | cut -d= -f2- || true)"
+[ -n "$PINATA_JWT" ] || die "no PINATA_JWT in TokenLaunchpad-be/.env: without it a token's image and details cannot be pinned"
 (cd "$ROOT/apps/api" && DATABASE_URL="$DB_URL" DEPLOYMENT=sepolia PORT="$API_PORT" CORS_ORIGINS="http://localhost:$WEB_PORT" \
   WEB_ORIGIN="http://localhost:$WEB_PORT" PINATA_JWT="$PINATA_JWT" RPC_URL="$RPC" REDIS_URL="redis://127.0.0.1:$REDIS_PORT" \
   ADMIN_ADDRESSES="${ADMIN_ADDRESSES:-}" INDEXER_URL="http://localhost:$PONDER_PORT" pnpm start > "$LOGS/api.log" 2>&1) &
