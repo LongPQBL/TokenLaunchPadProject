@@ -20,6 +20,14 @@ export const UI = {
       telegram: "Telegram",
       optional: "optional",
     },
+    placeholders: {
+      name: "e.g. Doge Coin",
+      ticker: "e.g. DOGE",
+      description: "What makes this token worth trading?",
+      website: "https://example.com",
+      twitter: "https://x.com/yourhandle",
+      telegram: "https://t.me/yourgroup",
+    },
     pair: { title: "Pool liquidity pair", comingSoon: "Coming soon" },
     image: { title: "Select an image to upload", drop: "or drag and drop it here", select: "Select file", replace: "Replace", remove: "Remove", previewAlt: "Logo preview" },
     errors: {

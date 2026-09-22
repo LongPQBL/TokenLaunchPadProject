@@ -55,6 +55,18 @@ async function fill(user: ReturnType<typeof userEvent.setup>, o: { name?: string
 
 const submit = () => screen.getByRole("button", { name: "Create token" });
 
+describe("CreateForm: placeholders", () => {
+  it("shows an example in every text field, so an empty box is never a blank guess", async () => {
+    await setup();
+    expect(screen.getByLabelText(/^Name/)).toHaveAttribute("placeholder", "e.g. Doge Coin");
+    expect(screen.getByLabelText(/^Ticker/)).toHaveAttribute("placeholder", "e.g. DOGE");
+    expect(screen.getByLabelText(/^Description/)).toHaveAttribute("placeholder", "What makes this token worth trading?");
+    expect(screen.getByLabelText(/^Website/)).toHaveAttribute("placeholder", "https://example.com");
+    expect(screen.getByLabelText(/^Twitter/)).toHaveAttribute("placeholder", "https://x.com/yourhandle");
+    expect(screen.getByLabelText(/^Telegram/)).toHaveAttribute("placeholder", "https://t.me/yourgroup");
+  });
+});
+
 describe("CreateForm: the pool pair and the logo", () => {
   it("shows the pool liquidity pair: this chain's ETH chosen, and USDC dimmed as coming soon", async () => {
     await setup();

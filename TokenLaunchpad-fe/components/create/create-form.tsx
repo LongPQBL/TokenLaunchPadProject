@@ -129,12 +129,13 @@ export function CreateForm({ chain }: { chain: string }) {
     }
   }
 
-  const field = (key: keyof Values, label: string, opts: { optional?: boolean; error?: string; textarea?: boolean } = {}) => {
+  const field = (key: Exclude<keyof Values, "antiSniperWindow">, label: string, opts: { optional?: boolean; error?: string; textarea?: boolean } = {}) => {
     const id = `${ids}-${key}`;
     const shared = {
       id,
-      value: values[key] as string,
+      value: values[key],
       onChange: set(key),
+      placeholder: UI.create.placeholders[key],
       "aria-invalid": opts.error ? true : undefined,
       "aria-describedby": opts.error ? `${id}-error` : undefined,
       className: "border border-border bg-background px-3 py-2",
