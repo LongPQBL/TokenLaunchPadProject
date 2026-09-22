@@ -1,6 +1,6 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { formatCompactTokens, formatQuote, maxCostWithSlippage } from "@vezta/shared";
+import { budgetForMaxCost, formatCompactTokens, formatQuote, maxCostWithSlippage } from "@vezta/shared";
 import { parseEther, UserRejectedRequestError } from "viem";
 import { connect } from "wagmi/actions";
 import { sepolia } from "wagmi/chains";
@@ -15,6 +15,7 @@ import { BuyPanel } from "./buy-panel";
 
 const TOKEN = "0x00000000000000000000000000000000000000b2" as const;
 const HASH = `0x${"ab".repeat(32)}` as const;
+const SLIPPAGE_BPS = 100n; // the default, 1%
 
 const trade = vi.hoisted(() => ({
   capabilities: { kind: "self-custody", address: undefined, chainId: undefined, canBatch: false, isZeroPrompt: false },
@@ -46,7 +47,7 @@ describe("BuyPanel: the quote", () => {
   it("itemises the price, the fee and the total for a typed budget, and estimates the tokens", async () => {
     const { user } = await setup();
     await user.type(budgetInput(), "0.01");
-    const q = computeBuyQuote(freshCurve(), 100n, 0n, parseEther("0.01"));
+    const q = computeBuyQuote(freshCurve(), 100n, 0n, budgetForMaxCost(parseEther("0.01"), SLIPPAGE_BPS));
 
     const table = await screen.findByTestId("cost-breakdown");
     await waitFor(() => expect(within(table).getByText(formatQuote(q.total, 18, 6))).toBeInTheDocument());
@@ -99,7 +100,7 @@ describe("BuyPanel: buying", () => {
     trade.buyWithEth.mockResolvedValue({ hash: HASH, tokenAmount: 1n, quoteAmount: 1n, fee: 0n, launchTax: 0n });
     const { user } = await setup();
     await user.type(budgetInput(), "0.01");
-    const q = computeBuyQuote(freshCurve(), 100n, 0n, parseEther("0.01"));
+    const q = computeBuyQuote(freshCurve(), 100n, 0n, budgetForMaxCost(parseEther("0.01"), SLIPPAGE_BPS));
     await waitFor(() => expect(buyButton()).toBeEnabled());
     await user.click(buyButton());
 
@@ -168,14 +169,14 @@ describe("BuyPanel: slippage", () => {
     await user.type(budgetInput(), "0.01");
     await waitFor(() => expect(buyButton()).toBeEnabled());
     await user.click(buyButton());
-    const q = computeBuyQuote(freshCurve(), 100n, 0n, parseEther("0.01"));
+    const q = computeBuyQuote(freshCurve(), 100n, 0n, budgetForMaxCost(parseEther("0.01"), 300n));
     expect(trade.buyWithEth).toHaveBeenCalledWith(expect.objectContaining({ maxQuoteCost: maxCostWithSlippage(q.total, 300n) }));
   });
 });
 
 describe("BuyPanel: what disables the button", () => {
   it("cannot buy when the balance covers the most it might cost but not the gas on top, and says why", async () => {
-    const q = computeBuyQuote(freshCurve(), 100n, 0n, parseEther("0.01"));
+    const q = computeBuyQuote(freshCurve(), 100n, 0n, budgetForMaxCost(parseEther("0.01"), SLIPPAGE_BPS));
     const { user } = await setup({ ethBalance: maxCostWithSlippage(q.total, 100n) + 1n });
     await user.type(budgetInput(), "0.01");
     expect(await screen.findByText("Not enough ETH for this purchase and network fees.")).toBeInTheDocument();
@@ -183,7 +184,7 @@ describe("BuyPanel: what disables the button", () => {
   });
 
   it("can buy when the balance covers the most it might cost plus gas", async () => {
-    const q = computeBuyQuote(freshCurve(), 100n, 0n, parseEther("0.01"));
+    const q = computeBuyQuote(freshCurve(), 100n, 0n, budgetForMaxCost(parseEther("0.01"), SLIPPAGE_BPS));
     const { user } = await setup({ ethBalance: maxCostWithSlippage(q.total, 100n) + 10n ** 15n });
     await user.type(budgetInput(), "0.01");
     await waitFor(() => expect(buyButton()).toBeEnabled());
@@ -233,7 +234,7 @@ describe("BuyPanel: what disables the button", () => {
   }
 
   it("checks the balance of the wallet that will actually pay: the trading wallet", async () => {
-    const q = computeBuyQuote(freshCurve(), 100n, 0n, parseEther("0.01"));
+    const q = computeBuyQuote(freshCurve(), 100n, 0n, budgetForMaxCost(parseEther("0.01"), SLIPPAGE_BPS));
     const enough = maxCostWithSlippage(q.total, 100n) + 10n ** 16n;
     // the main wallet is nearly empty, the trading wallet is full
     const { user } = await setupTrading({ balances: { [TEST_USER.toLowerCase()]: 1n, [TRADING.address.toLowerCase()]: enough } });

@@ -1,7 +1,19 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { centsToText, chainBySlug, formatCompactTokens, formatQuote, formatUsd, maxCostWithSlippage, parseUsd, quoteToUsdCents, UI, usdToQuote } from "@vezta/shared";
+import {
+  budgetForMaxCost,
+  centsToText,
+  chainBySlug,
+  formatCompactTokens,
+  formatQuote,
+  formatUsd,
+  maxCostWithSlippage,
+  parseUsd,
+  quoteToUsdCents,
+  UI,
+  usdToQuote,
+} from "@vezta/shared";
 import { useState } from "react";
 import type { Address } from "viem";
 import { useBalance, useGasPrice } from "wagmi";
@@ -55,7 +67,10 @@ export function BuyPanel({ chain, token, ticker }: { chain: string; token: Addre
   const [chosen, setChosen] = useState<"usd" | "eth">("usd");
   const mode = rate ? chosen : "eth";
   const [text, setText] = useState("");
-  const budget = mode === "usd" ? (rate ? usdToQuote(parseUsd(text) ?? 0n, rate, decimals) : 0n) : (parseAmount(text, decimals) ?? 0n);
+  // What was typed is the most that may ever leave the wallet, refund included — not the quote itself. The quote is worked
+  // backwards from it, so that padding it with slippage for the trade never asks for more than this ceiling.
+  const ceiling = mode === "usd" ? (rate ? usdToQuote(parseUsd(text) ?? 0n, rate, decimals) : 0n) : (parseAmount(text, decimals) ?? 0n);
+  const budget = budgetForMaxCost(ceiling, slippageBps);
   const quote = useBuyQuote({ token, budget });
   const { secondsLeft } = useLaunchTax(token);
 
@@ -76,16 +91,17 @@ export function BuyPanel({ chain, token, ticker }: { chain: string; token: Addre
   /** The same amount in the other unit, so switching does not change what is about to be bought. */
   function switchMode() {
     if (!rate) return;
-    if (mode === "usd") setText(budget > 0n ? formatQuote(budget, decimals) : "");
-    else setText(budget > 0n ? centsToText(quoteToUsdCents(budget, rate, decimals)) : "");
+    if (mode === "usd") setText(ceiling > 0n ? formatQuote(ceiling, decimals) : "");
+    else setText(ceiling > 0n ? centsToText(quoteToUsdCents(ceiling, rate, decimals)) : "");
     setChosen(mode === "usd" ? "eth" : "usd");
   }
 
-  /** The most that can be spent: what is held, less the network fee, less the room slippage may need on top of the price. */
+  /** The most that can be spent: everything that is held, less only the network fee. Slippage headroom is not the box's
+   * problem — it comes out of the quote (see budgetForMaxCost), so the ceiling can be the whole rest of the balance. */
   function useMax() {
     const held = balance.data?.value;
     if (held === undefined) return;
-    const spendable = held > gasReserve ? ((held - gasReserve) * 10_000n) / (10_000n + slippageBps) : 0n;
+    const spendable = held > gasReserve ? held - gasReserve : 0n;
     if (spendable === 0n) return;
     setText(mode === "usd" && rate ? centsToText(quoteToUsdCents(spendable, rate, decimals)) : formatQuote(spendable, decimals));
   }
@@ -133,7 +149,7 @@ export function BuyPanel({ chain, token, ticker }: { chain: string; token: Addre
       />
       {rate && (
         <p data-testid="equivalent" className="-mt-2 text-center text-sm text-muted-foreground">
-          {mode === "usd" ? `≈ ${formatQuote(budget, decimals, 6)} ${symbol}` : `≈ ${formatUsd(quoteToUsdCents(budget, rate, decimals))}`}
+          {mode === "usd" ? `≈ ${formatQuote(ceiling, decimals, 6)} ${symbol}` : `≈ ${formatUsd(quoteToUsdCents(ceiling, rate, decimals))}`}
         </p>
       )}
 

@@ -71,6 +71,13 @@ export function tokensForBudget(c: Curve, p: BuyParams, budget: bigint): bigint 
 /** Buy: never send less than the quote. Add slippage headroom for other trades landing first. */
 export const maxCostWithSlippage = (total: bigint, slippageBps: bigint) => (total * (BPS + slippageBps)) / BPS + 1n;
 
+/**
+ * The inverse of maxCostWithSlippage: given the most that may ever leave the wallet (the ceiling — a balance, say, or
+ * what someone typed as "the most I'll spend"), the largest quote whose slippage-padded cost still fits under it.
+ * Rounds down, so the ceiling is a true ceiling, never a target that slippage padding could push past.
+ */
+export const budgetForMaxCost = (ceiling: bigint, slippageBps: bigint) => (ceiling <= 1n ? 0n : ((ceiling - 1n) * BPS) / (BPS + slippageBps));
+
 /** Sell: the minimum payout you accept. */
 export const minPayoutWithSlippage = (payout: bigint, slippageBps: bigint) => (payout * (BPS - slippageBps)) / BPS;
 

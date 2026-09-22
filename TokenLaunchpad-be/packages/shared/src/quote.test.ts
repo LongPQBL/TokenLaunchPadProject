@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  budgetForMaxCost,
   curveStatus,
   maxCostWithSlippage,
   minPayoutWithSlippage,
@@ -108,6 +109,28 @@ describe("slippage bounds", () => {
 
   it("lets a sell pay slightly less than quoted", () => {
     expect(minPayoutWithSlippage(1_000_000n, 100n)).toBe(990_000n);
+  });
+});
+
+describe("budgetForMaxCost (the inverse of maxCostWithSlippage)", () => {
+  it("finds the quote that, with slippage added back on, never exceeds the ceiling it was given", () => {
+    for (const ceiling of [1n, 2n, 100n, 12_345n, 1_000_000n, 10n ** 16n, 10n ** 18n]) {
+      for (const slippageBps of [0n, 1n, 50n, 100n, 500n, 5_000n]) {
+        const budget = budgetForMaxCost(ceiling, slippageBps);
+        expect(maxCostWithSlippage(budget, slippageBps), `ceiling=${ceiling} slippage=${slippageBps}`).toBeLessThanOrEqual(ceiling);
+      }
+    }
+  });
+
+  it("is as large as it can be: one wei more would push the ceiling over", () => {
+    const ceiling = 1_010_001n; // exactly what a 1,000,000-wei budget costs at 1% slippage
+    const budget = budgetForMaxCost(ceiling, 100n);
+    expect(maxCostWithSlippage(budget + 1n, 100n)).toBeGreaterThan(ceiling);
+  });
+
+  it("returns zero for a ceiling too small to leave any budget", () => {
+    expect(budgetForMaxCost(0n, 100n)).toBe(0n);
+    expect(budgetForMaxCost(1n, 100n)).toBe(0n);
   });
 });
 
