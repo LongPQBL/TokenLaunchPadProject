@@ -1,9 +1,9 @@
-import { chainBySlug, marketCap, safeHttpUrl, spotPrice, UI } from "@vezta/shared";
+import { chainBySlug, safeHttpUrl, spotPrice, UI } from "@vezta/shared";
 import { explorerAddressUrl, uniswapSwapUrl } from "@/lib/explorer";
 import { shortAddress } from "@/lib/format";
 import type { TokenDetail } from "@/lib/types";
 import { StatusBadge } from "./status-badge";
-import { PriceValue, QuoteValue } from "./quote-value";
+import { PriceValue } from "./quote-value";
 import { TokenImage } from "./token-image";
 
 const SOCIALS = [
@@ -26,7 +26,6 @@ export function TokenHeader({ chain, token }: { chain: string; token: TokenDetai
 
   const title = token.name ?? token.ticker ?? shortAddress(token.address);
   const price = spotPrice(token.virtualQuoteReserves, token.virtualTokenReserves);
-  const cap = marketCap(token.virtualQuoteReserves, token.virtualTokenReserves);
 
   const links = SOCIALS.flatMap(([key, label]) => {
     const href = safeHttpUrl(token.socials[key]);
@@ -74,12 +73,6 @@ export function TokenHeader({ chain, token }: { chain: string; token: TokenDetai
             <dt className="text-xs text-muted-foreground">{UI.token.price}</dt>
             <dd>
               <PriceValue chain={chain} raw={price} />
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs text-muted-foreground">{UI.token.marketCap}</dt>
-            <dd>
-              <QuoteValue chain={chain} raw={cap} compact />
             </dd>
           </div>
         </dl>

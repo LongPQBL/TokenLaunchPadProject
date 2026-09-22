@@ -100,10 +100,9 @@ describe("TokenHeader: identity", () => {
     expect(link).toHaveAttribute("href", `https://sepolia.etherscan.io/address/${detail.creator}`);
   });
 
-  it("shows the price and the market cap in the chain's currency", () => {
+  it("shows the price in the chain's currency", () => {
     header();
     expect(screen.getByText("0.000000000026985 ETH")).toBeInTheDocument();
-    expect(screen.getByText("0.0269 ETH")).toBeInTheDocument();
   });
 
   it("shows the status badge", () => {

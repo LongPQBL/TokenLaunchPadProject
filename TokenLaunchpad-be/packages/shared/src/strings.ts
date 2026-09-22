@@ -105,7 +105,7 @@ export const UI = {
       cancel: "Cancel",
     },
     creator: "creator",
-    marketCap: "mcap",
+    marketCap: "Market cap",
     price: "price",
     trades: (n: number) => `${n} ${n === 1 ? "trade" : "trades"}`,
     side: { buy: "Buy", sell: "Sell" },

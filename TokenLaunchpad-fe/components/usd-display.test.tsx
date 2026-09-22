@@ -1,5 +1,5 @@
 import { act, screen, within } from "@testing-library/react";
-import { collectedQuote, formatUsdValue, formatUsdPrice, graduationAmountFromReserves, marketCap, spotPrice, type UsdRate } from "@vezta/shared";
+import { collectedQuote, formatUsdValue, formatUsdPrice, graduationAmountFromReserves, spotPrice, type UsdRate } from "@vezta/shared";
 import { roundQuote } from "@/lib/format";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Holder, Order, Position, TokenDetail, TokenRow, Trade } from "@/lib/types";
@@ -114,15 +114,12 @@ describe("the token header in dollars", () => {
     socials: {},
   };
   const price = spotPrice(detail.virtualQuoteReserves, detail.virtualTokenReserves);
-  const cap = marketCap(detail.virtualQuoteReserves, detail.virtualTokenReserves);
 
-  it("shows the price and the market cap in dollars only: the ETH is in the tooltip, not on the page", async () => {
+  it("shows the price in dollars only: the ETH is in the tooltip, not on the page", async () => {
     show(<TokenHeader chain="sepolia" token={detail} />);
     const dollars = await screen.findByText(formatUsdPrice(price, RATE));
-    expect(screen.getByText(formatUsdValue(cap, RATE, 18, { compact: true }))).toBeInTheDocument();
     expect(screen.queryByText(/ETH/)).toBeNull();
     expect(dollars.closest("[title]")).toHaveAttribute("title", "0.000000000026985 ETH");
-    expect(screen.getByText(formatUsdValue(cap, RATE, 18, { compact: true })).closest("[title]")).toHaveAttribute("title", "0.0269 ETH");
   });
 
   it("shows ETH alone, with the price written out in full, when there is no price", async () => {
