@@ -3,12 +3,34 @@ on: [push, pull_request]
 jobs:
   check:
     runs-on: ubuntu-latest
+    # apps/api and packages/app-db read real tables through Prisma and postgres.js; this is the same vezta_test
+    # database their own "test" scripts default DATABASE_URL to, just provisioned here instead of on a developer's
+    # machine. redis-server is not a service: apps/api and apps/bot's Redis tests each spawn their own instance
+    # (test/redis.ts), on a free port, never a shared one — they only need the binary on PATH.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: vezta_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/vezta_test
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
+      - run: sudo apt-get update && sudo apt-get install -y redis-server
+      - name: Apply database migrations to vezta_test
+        run: pnpm --filter @vezta/app-db exec prisma migrate deploy
       - run: pnpm -w lint
       - run: pnpm -w typecheck
       - run: pnpm -w test
