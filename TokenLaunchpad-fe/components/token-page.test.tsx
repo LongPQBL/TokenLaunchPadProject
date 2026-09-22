@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { shortAddress } from "@/lib/format";
 import type { TokenDetail } from "@/lib/types";
@@ -153,6 +153,21 @@ describe("TokenHeader: metadata that came from a stranger", () => {
       expect(link.getAttribute("rel")).toMatch(/nofollow/);
     }
     expect(screen.getByRole("link", { name: "Website" })).toHaveAttribute("href", "https://example.com");
+  });
+
+  it("draws each social link as a small icon next to the logo, one for each platform given", () => {
+    header({ socials: { website: "https://example.com", twitter: "https://x.com/demo", telegram: "https://t.me/demo" } });
+    const identity = screen.getByTestId("token-identity");
+    for (const name of ["Website", "Twitter", "Telegram"]) {
+      const link = within(identity).getByRole("link", { name });
+      expect(link.querySelector("svg")).toBeInTheDocument();
+    }
+  });
+
+  it("shows no social icons at all when the token gave none", () => {
+    header({ socials: {} });
+    const identity = screen.getByTestId("token-identity");
+    expect(within(identity).queryAllByRole("link")).toHaveLength(0);
   });
 
   // The API and the resolver both filter these; it is checked again here because this is where an href is written.

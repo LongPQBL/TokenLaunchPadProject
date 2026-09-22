@@ -4,12 +4,13 @@ import { shortAddress } from "@/lib/format";
 import type { TokenDetail } from "@/lib/types";
 import { StatusBadge } from "./status-badge";
 import { PriceValue } from "./quote-value";
+import { TelegramIcon, TwitterIcon, WebsiteIcon } from "./social-icons";
 import { TokenImage } from "./token-image";
 
 const SOCIALS = [
-  ["website", "Website"],
-  ["twitter", "Twitter"],
-  ["telegram", "Telegram"],
+  ["website", "Website", WebsiteIcon],
+  ["twitter", "Twitter", TwitterIcon],
+  ["telegram", "Telegram", TelegramIcon],
 ] as const;
 
 // Every link that leaves the site: no handle back to this page, no referrer, and no search-engine credit for a
@@ -27,9 +28,9 @@ export function TokenHeader({ chain, token }: { chain: string; token: TokenDetai
   const title = token.name ?? token.ticker ?? shortAddress(token.address);
   const price = spotPrice(token.virtualQuoteReserves, token.virtualTokenReserves);
 
-  const links = SOCIALS.flatMap(([key, label]) => {
+  const links = SOCIALS.flatMap(([key, label, Icon]) => {
     const href = safeHttpUrl(token.socials[key]);
-    return href ? [{ label, href }] : [];
+    return href ? [{ key, label, href, Icon }] : [];
   });
 
   const uniswap = token.migrated ? uniswapSwapUrl(config, token.address) : undefined;
@@ -39,7 +40,18 @@ export function TokenHeader({ chain, token }: { chain: string; token: TokenDetai
 
   return (
     <header className="flex flex-col gap-4 sm:flex-row">
-      <TokenImage src={token.imageUrl} alt={title} initial={token.ticker ?? title} className="size-24 text-3xl" />
+      <div data-testid="token-identity" className="flex flex-col items-center gap-2">
+        <TokenImage src={token.imageUrl} alt={title} initial={token.ticker ?? title} className="size-24 text-3xl" />
+        {links.length > 0 && (
+          <div className="flex gap-2">
+            {links.map(({ key, label, href, Icon }) => (
+              <a key={key} href={href} {...EXTERNAL} aria-label={label} title={label} className="text-muted-foreground hover:text-foreground">
+                <Icon className="size-4" />
+              </a>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-3">
@@ -79,18 +91,11 @@ export function TokenHeader({ chain, token }: { chain: string; token: TokenDetai
 
         {token.description && <p className="mt-3 text-sm">{token.description}</p>}
 
-        {(links.length > 0 || uniswap) && (
+        {uniswap && (
           <div className="mt-3 flex flex-wrap items-center gap-4 text-sm">
-            {links.map(({ label, href }) => (
-              <a key={label} href={href} {...EXTERNAL} className="text-primary hover:underline">
-                {label}
-              </a>
-            ))}
-            {uniswap && (
-              <a href={uniswap} {...EXTERNAL} className="border border-primary px-3 py-1 text-primary hover:bg-primary hover:text-primary-foreground">
-                {UI.token.tradeOnUniswap}
-              </a>
-            )}
+            <a href={uniswap} {...EXTERNAL} className="border border-primary px-3 py-1 text-primary hover:bg-primary hover:text-primary-foreground">
+              {UI.token.tradeOnUniswap}
+            </a>
           </div>
         )}
       </div>

@@ -33,7 +33,7 @@ interface Values {
 }
 const EMPTY: Values = { name: "", ticker: "", description: "", website: "", twitter: "", telegram: "", antiSniperWindow: 60 };
 
-type FieldErrors = Partial<Record<"name" | "ticker" | "description" | "link" | "image", string>>;
+type FieldErrors = Partial<Record<"name" | "ticker" | "description" | "website" | "twitter" | "telegram" | "image", string>>;
 
 /** What to tell a person, for whatever went wrong. The API's own messages are fixed strings and safe to show as they are. */
 function explain(e: unknown): string | undefined {
@@ -78,7 +78,9 @@ export function CreateForm({ chain }: { chain: string }) {
         if (key === "name") next.name = UI.create.errors.name;
         else if (key === "ticker") next.ticker = UI.create.errors.ticker;
         else if (key === "description") next.description = UI.create.errors.description;
-        else if (key === "website" || key === "twitter" || key === "telegram") next.link = UI.create.errors.link;
+        else if (key === "website") next.website = UI.create.errors.website;
+        else if (key === "twitter") next.twitter = UI.create.errors.twitter;
+        else if (key === "telegram") next.telegram = UI.create.errors.telegram;
       }
     }
     if (!image) next.image = UI.create.errors.imageMissing;
@@ -171,9 +173,9 @@ export function CreateForm({ chain }: { chain: string }) {
         <ImageDropzone id={`${ids}-image`} file={image} onChange={setImage} error={errors.image} />
       </div>
 
-      {field("website", UI.create.fields.website, { optional: true, error: errors.link })}
-      {field("twitter", UI.create.fields.twitter, { optional: true })}
-      {field("telegram", UI.create.fields.telegram, { optional: true })}
+      {field("website", UI.create.fields.website, { optional: true, error: errors.website })}
+      {field("twitter", UI.create.fields.twitter, { optional: true, error: errors.twitter })}
+      {field("telegram", UI.create.fields.telegram, { optional: true, error: errors.telegram })}
 
       <PairPicker symbol={symbol} />
 

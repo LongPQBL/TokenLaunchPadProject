@@ -77,6 +77,26 @@ describe("tokenMetadataSchema", () => {
     const out = tokenMetadataSchema.parse({ ...valid, name: "<script>x</script>" });
     expect(out.name).toBe("<script>x</script>");
   });
+
+  // An icon next to the link says which platform it is; a link that is not really that platform, kept anyway, would
+  // make the icon a lie. website has no real platform to check against, so it stays a plain http(s) link.
+  it("drops a twitter link that does not point at twitter.com or x.com, keeping a good one", () => {
+    for (const twitter of ["https://twitter.com/demo", "https://x.com/demo", "https://www.x.com/demo", "https://mobile.twitter.com/demo", "https://t.co/abc"]) {
+      expect(tokenMetadataSchema.parse({ ...valid, socials: { twitter } }).socials.twitter, twitter).toBe(twitter);
+    }
+    for (const twitter of ["https://evil.example/demo", "https://nottwitter.com", "https://x.com.evil.example/demo"]) {
+      expect(tokenMetadataSchema.parse({ ...valid, socials: { twitter } }).socials.twitter, twitter).toBeUndefined();
+    }
+  });
+
+  it("drops a telegram link that does not point at t.me, keeping a good one", () => {
+    for (const telegram of ["https://t.me/demo", "https://telegram.me/demo"]) {
+      expect(tokenMetadataSchema.parse({ ...valid, socials: { telegram } }).socials.telegram, telegram).toBe(telegram);
+    }
+    for (const telegram of ["https://evil.example/demo", "https://t.me.evil.example/demo"]) {
+      expect(tokenMetadataSchema.parse({ ...valid, socials: { telegram } }).socials.telegram, telegram).toBeUndefined();
+    }
+  });
 });
 
 describe("tokenFormSchema", () => {
@@ -114,6 +134,20 @@ describe("tokenFormSchema", () => {
       expect(tokenFormSchema.safeParse({ ...form, website }).success, website).toBe(false);
     }
     expect(tokenFormSchema.safeParse({ ...form, website: "https://example.com", twitter: "https://x.com/demo", telegram: "https://t.me/demo" }).success).toBe(true);
+  });
+
+  it("REJECTS a twitter link that is not twitter.com or x.com, unlike a generic link", () => {
+    for (const twitter of ["https://evil.example/demo", "https://nottwitter.com", "not a url"]) {
+      expect(tokenFormSchema.safeParse({ ...form, twitter }).success, twitter).toBe(false);
+    }
+    for (const twitter of ["https://twitter.com/demo", "https://x.com/demo"]) {
+      expect(tokenFormSchema.safeParse({ ...form, twitter }).success, twitter).toBe(true);
+    }
+  });
+
+  it("REJECTS a telegram link that is not t.me", () => {
+    expect(tokenFormSchema.safeParse({ ...form, telegram: "https://evil.example/demo" }).success).toBe(false);
+    expect(tokenFormSchema.safeParse({ ...form, telegram: "https://t.me/demo" }).success).toBe(true);
   });
 
   it("treats an empty optional field as absent, so a form left blank is valid", () => {

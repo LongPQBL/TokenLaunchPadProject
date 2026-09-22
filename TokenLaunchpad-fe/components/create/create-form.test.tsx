@@ -46,10 +46,15 @@ async function setup({ connected = true, chain = fakeChain() } = {}) {
   return { user: userEvent.setup(), ...view };
 }
 
-async function fill(user: ReturnType<typeof userEvent.setup>, o: { name?: string; ticker?: string; website?: string; file?: File | null } = {}) {
+async function fill(
+  user: ReturnType<typeof userEvent.setup>,
+  o: { name?: string; ticker?: string; website?: string; twitter?: string; telegram?: string; file?: File | null } = {},
+) {
   await user.type(screen.getByLabelText(/^Name/), o.name ?? "Demo Token");
   await user.type(screen.getByLabelText(/^Ticker/), o.ticker ?? "demo");
   if (o.website) await user.type(screen.getByLabelText(/^Website/), o.website);
+  if (o.twitter) await user.type(screen.getByLabelText(/^Twitter/), o.twitter);
+  if (o.telegram) await user.type(screen.getByLabelText(/^Telegram/), o.telegram);
   if (o.file !== null) await user.upload(screen.getByLabelText(/^Logo/), o.file ?? logo());
 }
 
@@ -181,6 +186,18 @@ describe("CreateForm: the form", () => {
     await userEvent.setup({ applyAccept: false }).upload(screen.getByLabelText(/^Logo/), new File(["<svg/>"], "x.svg", { type: "image/svg+xml" }));
     await user.click(submit());
     expect(screen.getByText("Choose a PNG, JPEG or WebP image of 2 MB or less.")).toBeInTheDocument();
+    expect(upload).not.toHaveBeenCalled();
+  });
+
+  it("rejects a twitter link that is not twitter.com or x.com, and a telegram link that is not t.me, each under its own field", async () => {
+    const { user } = await setup();
+    await fill(user, { website: "https://example.com", twitter: "https://evil.example/demo", telegram: "https://evil.example/demo", file: null });
+    await user.click(submit());
+    expect(screen.queryByText("Enter a link that starts with http:// or https://.")).not.toBeInTheDocument(); // website itself was fine
+    const twitterMessage = screen.getByText("Enter a link to a twitter.com or x.com profile.");
+    const telegramMessage = screen.getByText("Enter a link to a t.me group or channel.");
+    expect(screen.getByLabelText(/^Twitter/)).toHaveAttribute("aria-describedby", twitterMessage.id);
+    expect(screen.getByLabelText(/^Telegram/)).toHaveAttribute("aria-describedby", telegramMessage.id);
     expect(upload).not.toHaveBeenCalled();
   });
 

@@ -21,6 +21,30 @@ export function safeHttpUrl(value: unknown): string | undefined {
 // valid document (and with it the token's name and image).
 const optionalLink = z.unknown().transform(safeHttpUrl);
 
+/** Whether a URL's host is one of the given domains, or a subdomain of one: x.com and www.x.com both match "x.com",
+ * but the lookalike x.com.evil.example does not. */
+function hostMatches(url: string, domains: readonly string[]): boolean {
+  let host: string;
+  try {
+    host = new URL(url).hostname.toLowerCase();
+  } catch {
+    return false;
+  }
+  return domains.some((d) => host === d || host.endsWith(`.${d}`));
+}
+
+const TWITTER_HOSTS = ["twitter.com", "x.com", "t.co"] as const; // t.co: Twitter's own link shortener
+const TELEGRAM_HOSTS = ["t.me", "telegram.me"] as const;
+
+/** Like optionalLink, but for a platform whose real domain is known: a link that does not point at it is dropped
+ * exactly as a non-http(s) one is, since a page shows a Twitter or Telegram icon next to it and that icon would
+ * otherwise be a lie about where the link actually goes. */
+const platformLink = (hosts: readonly string[]) =>
+  z.unknown().transform((v) => {
+    const url = safeHttpUrl(v);
+    return url && hostMatches(url, hosts) ? url : undefined;
+  });
+
 export const tokenMetadataSchema = z.object({
   name: z.string().min(1).max(32),
   symbol: z
@@ -32,7 +56,7 @@ export const tokenMetadataSchema = z.object({
   // ipfs:// or an http(s) URL. Resolved server-side; the browser never dereferences ipfs://.
   image: z.string().max(512).optional(),
   socials: z
-    .object({ website: optionalLink, twitter: optionalLink, telegram: optionalLink })
+    .object({ website: optionalLink, twitter: platformLink(TWITTER_HOSTS), telegram: platformLink(TELEGRAM_HOSTS) })
     .partial()
     .optional()
     .default({}),
@@ -51,22 +75,29 @@ export const ALLOWED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"] as 
 export const ANTI_SNIPER_WINDOWS = [0, 60, 600, 5880] as const;
 
 // Unlike the reader (which DROPS a bad link so one hostile field cannot cost a token its name), the form REJECTS it:
-// this is the moment a person can still fix it. An empty field means "not given".
-const formLink = z
-  .string()
-  .trim()
-  .max(200)
-  .optional()
-  .transform((v) => (v === "" ? undefined : v))
-  .refine((v) => v === undefined || safeHttpUrl(v) !== undefined, "must be an http(s) link");
+// this is the moment a person can still fix it. An empty field means "not given". `hosts`, given, additionally
+// requires the link to really point at that platform (see platformLink): a Twitter field is for a twitter.com or
+// x.com link, not any link at all.
+const formLink = (hosts: readonly string[] | undefined, message: string) =>
+  z
+    .string()
+    .trim()
+    .max(200)
+    .optional()
+    .transform((v) => (v === "" ? undefined : v))
+    .refine((v) => {
+      if (v === undefined) return true;
+      const url = safeHttpUrl(v);
+      return !!url && (!hosts || hostMatches(url, hosts));
+    }, message);
 
 export const tokenFormSchema = z.object({
   name: z.string().trim().min(1).max(32),
   ticker: z.string().trim().regex(/^[A-Za-z0-9]{2,10}$/, "2 to 10 letters or digits"),
   description: z.string().trim().max(500).default(""),
-  website: formLink,
-  twitter: formLink,
-  telegram: formLink,
+  website: formLink(undefined, "must be an http(s) link"),
+  twitter: formLink(TWITTER_HOSTS, "must be a twitter.com or x.com link"),
+  telegram: formLink(TELEGRAM_HOSTS, "must be a t.me link"),
   antiSniperWindow: z.union([z.literal(0), z.literal(60), z.literal(600), z.literal(5880)]).default(60),
 });
 export type TokenForm = z.infer<typeof tokenFormSchema>;
