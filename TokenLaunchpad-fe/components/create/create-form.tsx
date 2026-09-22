@@ -17,9 +17,11 @@ import { friendlyError } from "@/lib/tx/errors";
 import { useIdentity } from "@/lib/wallet/use-identity";
 import { useTrade } from "@/lib/wallet/use-trade";
 import { TradingWalletNotice } from "@/components/trading-wallet-notice";
+import { ChainPicker } from "./chain-picker";
 import { CreateSteps, type CreateStep } from "./create-steps";
 import { ImageDropzone } from "./image-dropzone";
 import { PairPicker } from "./pair-picker";
+import { TokenPreview } from "./token-preview";
 import { WindowPicker } from "./window-picker";
 
 interface Values {
@@ -158,62 +160,72 @@ export function CreateForm({ chain }: { chain: string }) {
     );
   };
 
+  const chainName = config?.name ?? chain;
+
   return (
-    <form onSubmit={submit} noValidate className="flex flex-col gap-5">
-      <p className="text-sm text-muted-foreground">{UI.create.intro}</p>
+    <div className="grid items-start gap-8 lg:grid-cols-[1fr_320px]">
+      <form onSubmit={submit} noValidate className="flex flex-col gap-5">
+        <p className="text-sm text-muted-foreground">{UI.create.intro}</p>
 
-      {field("name", UI.create.fields.name, { error: errors.name })}
-      {field("ticker", UI.create.fields.ticker, { error: errors.ticker })}
-      {field("description", UI.create.fields.description, { optional: true, error: errors.description, textarea: true })}
+        {field("name", UI.create.fields.name, { error: errors.name })}
+        {field("ticker", UI.create.fields.ticker, { error: errors.ticker })}
+        {field("description", UI.create.fields.description, { optional: true, error: errors.description, textarea: true })}
 
-      <div className="flex flex-col gap-1">
-        <label htmlFor={`${ids}-image`} className="text-sm font-medium">
-          {UI.create.fields.image}
-        </label>
-        <ImageDropzone id={`${ids}-image`} file={image} onChange={setImage} error={errors.image} />
-      </div>
+        <div className="flex flex-col gap-1">
+          <label htmlFor={`${ids}-image`} className="text-sm font-medium">
+            {UI.create.fields.image}
+          </label>
+          <ImageDropzone id={`${ids}-image`} file={image} onChange={setImage} error={errors.image} />
+        </div>
 
-      {field("website", UI.create.fields.website, { optional: true, error: errors.website })}
-      {field("twitter", UI.create.fields.twitter, { optional: true, error: errors.twitter })}
-      {field("telegram", UI.create.fields.telegram, { optional: true, error: errors.telegram })}
+        {field("website", UI.create.fields.website, { optional: true, error: errors.website })}
+        {field("twitter", UI.create.fields.twitter, { optional: true, error: errors.twitter })}
+        {field("telegram", UI.create.fields.telegram, { optional: true, error: errors.telegram })}
 
-      <PairPicker symbol={symbol} />
+        <ChainPicker chain={chain} chainName={chainName} />
 
-      <WindowPicker value={values.antiSniperWindow} onChange={(seconds) => setValues((v) => ({ ...v, antiSniperWindow: seconds }))} />
+        <PairPicker symbol={symbol} />
 
-      <dl data-testid="create-costs" className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 font-mono text-sm">
-        <dt className="text-muted-foreground">{UI.create.cost.fee}</dt>
-        <dd className="text-right">{estimate.createFee === undefined ? "…" : `${formatQuote(estimate.createFee, decimals, 6)} ${symbol}`}</dd>
-        {estimate.networkFee !== undefined && (
-          <>
-            <dt className="text-muted-foreground">{UI.create.cost.gas}</dt>
-            <dd className="text-right">{`≈ ${formatQuote(estimate.networkFee, decimals, 6)} ${symbol}`}</dd>
-          </>
+        <WindowPicker value={values.antiSniperWindow} onChange={(seconds) => setValues((v) => ({ ...v, antiSniperWindow: seconds }))} />
+
+        <dl data-testid="create-costs" className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 font-mono text-sm">
+          <dt className="text-muted-foreground">{UI.create.cost.fee}</dt>
+          <dd className="text-right">{estimate.createFee === undefined ? "…" : `${formatQuote(estimate.createFee, decimals, 6)} ${symbol}`}</dd>
+          {estimate.networkFee !== undefined && (
+            <>
+              <dt className="text-muted-foreground">{UI.create.cost.gas}</dt>
+              <dd className="text-right">{`≈ ${formatQuote(estimate.networkFee, decimals, 6)} ${symbol}`}</dd>
+            </>
+          )}
+        </dl>
+        <p className="text-xs text-muted-foreground">{UI.create.cost.note}</p>
+
+        <CreateSteps current={step} />
+
+        {isConnected && payer && <FundWallet address={payer} balance={balance.data?.value} chain={chain} />}
+        <TradingWalletNotice />
+
+        <ChainGuard chainName={chainName}>
+          {isConnected ? (
+            <Button type="submit" size="lg" disabled={working || !identity.address}>
+              {UI.create.submit}
+            </Button>
+          ) : (
+            <ConnectButton />
+          )}
+        </ChainGuard>
+
+        {!siwe.isSignedIn && isConnected && <p className="text-xs text-muted-foreground">{UI.create.signInFirst}</p>}
+        {failure && (
+          <p role="alert" className="text-sm text-destructive">
+            {failure}
+          </p>
         )}
-      </dl>
-      <p className="text-xs text-muted-foreground">{UI.create.cost.note}</p>
+      </form>
 
-      <CreateSteps current={step} />
-
-      {isConnected && payer && <FundWallet address={payer} balance={balance.data?.value} chain={chain} />}
-      <TradingWalletNotice />
-
-      <ChainGuard chainName={config?.name ?? chain}>
-        {isConnected ? (
-          <Button type="submit" size="lg" disabled={working || !identity.address}>
-            {UI.create.submit}
-          </Button>
-        ) : (
-          <ConnectButton />
-        )}
-      </ChainGuard>
-
-      {!siwe.isSignedIn && isConnected && <p className="text-xs text-muted-foreground">{UI.create.signInFirst}</p>}
-      {failure && (
-        <p role="alert" className="text-sm text-destructive">
-          {failure}
-        </p>
-      )}
-    </form>
+      <aside className="lg:sticky lg:top-20">
+        <TokenPreview name={values.name} ticker={values.ticker} image={image} chain={chain} chainName={chainName} />
+      </aside>
+    </div>
   );
 }

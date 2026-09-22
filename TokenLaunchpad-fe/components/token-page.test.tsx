@@ -109,6 +109,11 @@ describe("TokenHeader: identity", () => {
     header({ complete: true, migrated: false });
     expect(screen.getByTestId("status-badge")).toHaveTextContent("GRADUATING…");
   });
+
+  it("shows the chain the token launched on, next to its name", () => {
+    header();
+    expect(screen.getByTestId("chain-badge")).toHaveTextContent("Sepolia");
+  });
 });
 
 describe("TokenHeader: Uniswap", () => {

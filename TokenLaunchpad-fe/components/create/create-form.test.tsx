@@ -75,10 +75,11 @@ describe("CreateForm: placeholders", () => {
 describe("CreateForm: the pool pair and the logo", () => {
   it("shows the pool liquidity pair: this chain's ETH chosen, and USDC dimmed as coming soon", async () => {
     await setup();
-    expect(screen.getByRole("radiogroup", { name: "Pool liquidity pair" })).toBeInTheDocument();
+    const group = screen.getByRole("radiogroup", { name: "Pool liquidity pair" });
+    expect(group).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: "ETH" })).toBeChecked();
     expect(screen.getByRole("radio", { name: /USDC/ })).toBeDisabled();
-    expect(screen.getByText("Coming soon")).toBeInTheDocument();
+    expect(within(group).getByText("Coming soon")).toBeInTheDocument();
   });
 
   it("asks for the logo in a drop area with a Select file button, not a bare file input", async () => {
@@ -117,6 +118,44 @@ describe("CreateForm: the pool pair and the logo", () => {
     await user.click(submit());
     expect(screen.getByText("Choose a logo.")).toBeInTheDocument();
     expect(screen.getByTestId("dropzone")).toHaveAttribute("data-invalid", "true");
+  });
+});
+
+describe("CreateForm: the chain to launch on", () => {
+  it("offers Sepolia, chosen, with Base, Robinhood and Solana dimmed as coming soon", async () => {
+    await setup();
+    const group = screen.getByRole("radiogroup", { name: "Chain" });
+    expect(screen.getByRole("radio", { name: "Sepolia" })).toBeChecked();
+    for (const name of ["Base", "Robinhood", "Solana"]) {
+      expect(screen.getByRole("radio", { name: new RegExp(name) })).toBeDisabled();
+    }
+    expect(within(group).getAllByText("Coming soon")).toHaveLength(3);
+  });
+});
+
+describe("CreateForm: the live preview", () => {
+  it("shows placeholder text before anything is typed", async () => {
+    await setup();
+    const preview = screen.getByTestId("token-preview");
+    expect(within(preview).getByText("Token Name")).toBeInTheDocument();
+    expect(within(preview).getByText("$TICKER")).toBeInTheDocument();
+  });
+
+  it("reflects the name and ticker as they are typed", async () => {
+    const { user } = await setup();
+    await user.type(screen.getByLabelText(/^Name/), "Demo Token");
+    await user.type(screen.getByLabelText(/^Ticker/), "demo");
+    const preview = screen.getByTestId("token-preview");
+    expect(within(preview).getByText("Demo Token")).toBeInTheDocument();
+    expect(within(preview).getByText("$demo")).toBeInTheDocument();
+  });
+
+  it("shows the chosen logo once uploaded", async () => {
+    vi.stubGlobal("URL", Object.assign(URL, { createObjectURL: vi.fn(() => "blob:preview"), revokeObjectURL: vi.fn() }));
+    const { user } = await setup();
+    await user.upload(screen.getByLabelText(/^Logo/), logo());
+    const preview = screen.getByTestId("token-preview");
+    expect(within(preview).getAllByRole("img").length).toBeGreaterThan(0);
   });
 });
 

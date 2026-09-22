@@ -39,6 +39,8 @@ export const UI = {
       telegram: "https://t.me/yourgroup",
     },
     pair: { title: "Pool liquidity pair", comingSoon: "Coming soon" },
+    chain: { title: "Chain", comingSoon: "Coming soon" },
+    preview: { title: "Preview", namePlaceholder: "Token Name", tickerPlaceholder: "$TICKER" },
     image: { title: "Select an image to upload", drop: "or drag and drop it here", select: "Select file", replace: "Replace", remove: "Remove", previewAlt: "Logo preview" },
     errors: {
       name: "Enter a name of 1 to 32 characters.",

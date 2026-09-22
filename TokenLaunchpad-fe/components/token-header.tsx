@@ -2,6 +2,7 @@ import { chainBySlug, safeHttpUrl, spotPrice, UI } from "@vezta/shared";
 import { explorerAddressUrl, uniswapSwapUrl } from "@/lib/explorer";
 import { shortAddress } from "@/lib/format";
 import type { TokenDetail } from "@/lib/types";
+import { ChainIcon } from "./chain-icon";
 import { StatusBadge } from "./status-badge";
 import { PriceValue } from "./quote-value";
 import { TelegramIcon, TwitterIcon, WebsiteIcon } from "./social-icons";
@@ -58,6 +59,10 @@ export function TokenHeader({ chain, token }: { chain: string; token: TokenDetai
           <h1 className="text-2xl font-semibold">{title}</h1>
           {token.ticker && token.name && <span className="font-mono text-sm text-muted-foreground">{token.ticker}</span>}
           <StatusBadge complete={token.complete} migrated={token.migrated} />
+          <span data-testid="chain-badge" className="flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 font-mono text-[0.65rem] text-muted-foreground">
+            <ChainIcon chain={chain} className="size-4" />
+            {config?.name ?? chain}
+          </span>
         </div>
 
         <p className="mt-2 break-all font-mono text-xs text-muted-foreground">
