@@ -6,6 +6,8 @@ export interface CspInput {
   nonce: string;
   isDev: boolean;
   apiUrl: string;
+  /** The live-updates server, when it is not the API's own address (a websocket cannot go through the site's /api-proxy). */
+  wsUrl?: string;
   /** The RPC the browser reads the chain through. Absent means the client's built-in default for the chain. */
   rpcUrl: string | undefined;
   /** Hosts token images may load from: the configured IPFS gateway, never "any https host". */
@@ -48,7 +50,7 @@ function origin(value: string | undefined): string | undefined {
  * did), nothing may be framed or posted elsewhere, and the page may talk only to itself, the API and the RPC. It is the
  * second line of defence: the first is that no hostile string is ever rendered as markup (spec §11).
  */
-export function buildCsp({ nonce, isDev, apiUrl, rpcUrl, imageOrigins, walletConnect, privy = false }: CspInput): string {
+export function buildCsp({ nonce, isDev, apiUrl, wsUrl, rpcUrl, imageOrigins, walletConnect, privy = false }: CspInput): string {
   if (!/^[A-Za-z0-9+/=_-]+$/.test(nonce)) throw new Error("the CSP nonce must be base64");
 
   // A websocket is a different scheme from the page that opens it, and not every browser counts wss: as a match for https:, so
@@ -58,6 +60,8 @@ export function buildCsp({ nonce, isDev, apiUrl, rpcUrl, imageOrigins, walletCon
     "'self'",
     origin(apiUrl),
     socketOf(origin(apiUrl)),
+    origin(wsUrl),
+    socketOf(origin(wsUrl)),
     origin(rpcUrl ?? sepolia.rpcUrls.default.http[0]),
     ...(walletConnect ? ["wss://relay.walletconnect.org", "https://rpc.walletconnect.org"] : []),
     ...(privy ? PRIVY_CONNECT : []),
@@ -95,6 +99,7 @@ export function buildCsp({ nonce, isDev, apiUrl, rpcUrl, imageOrigins, walletCon
 export function cspSources(env: Record<string, string | undefined>) {
   return {
     apiUrl: env.NEXT_PUBLIC_API_URL?.trim() || DEFAULT_API_URL,
+    wsUrl: env.NEXT_PUBLIC_WS_URL?.trim() || undefined,
     rpcUrl: origin(env.NEXT_PUBLIC_RPC_URL) ? env.NEXT_PUBLIC_RPC_URL : undefined,
     imageOrigins: (env.NEXT_PUBLIC_IMAGE_ORIGINS ?? "")
       .split(",")

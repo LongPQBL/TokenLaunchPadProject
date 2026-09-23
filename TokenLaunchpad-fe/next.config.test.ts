@@ -7,6 +7,20 @@ afterEach(() => {
 
 const load = async () => (await import("./next.config")).default;
 
+// The API lives on another registrable domain than a Vercel site, and its session cookie is SameSite=Lax, so the browser would never keep it.
+// Reached through the site's own /api-proxy it is the same origin.
+describe("the API proxy", () => {
+  it("is off unless API_PROXY_TARGET is set", async () => {
+    vi.stubEnv("API_PROXY_TARGET", "");
+    expect(await (await load()).rewrites?.()).toEqual([]);
+  });
+
+  it("sends /api-proxy/* to the API, whatever trailing slash the target was given", async () => {
+    vi.stubEnv("API_PROXY_TARGET", "https://api.example/");
+    expect(await (await load()).rewrites?.()).toEqual([{ source: "/api-proxy/:path*", destination: "https://api.example/:path*" }]);
+  });
+});
+
 // A build writes over the folder the running server reads its files from. So two things that build the app on one machine (the demo, and the
 // browser tests) must not share one folder, or the running one serves pages that point at files the other has just replaced (404 on every
 // script, "This page couldn't load").

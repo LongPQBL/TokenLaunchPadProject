@@ -15,7 +15,7 @@ const sources = (dir: string): string[] =>
 const appSources = [...sources("app"), ...sources("components"), ...sources("lib"), "proxy.ts", "next.config.ts"];
 // (Comments are left out: they mention `process.env.NEXT_PUBLIC_X` as an example of what Next inlines.)
 const code = (file: string) => text(file).replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
-const read = new Set(appSources.flatMap((f) => [...code(f).matchAll(/process\.env\.(NEXT_PUBLIC_[A-Z0-9_]+|DEPLOYMENT|NEXT_DIST_DIR)\b/g)].map((m) => m[1]!)));
+const read = new Set(appSources.flatMap((f) => [...code(f).matchAll(/process\.env\.(NEXT_PUBLIC_[A-Z0-9_]+|DEPLOYMENT|NEXT_DIST_DIR|API_PROXY_TARGET)\b/g)].map((m) => m[1]!)));
 // (NEXT_PUBLIC_DEPLOYMENT is written by next.config.ts from DEPLOYMENT, not set by a person)
 read.delete("NEXT_PUBLIC_DEPLOYMENT");
 

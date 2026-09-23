@@ -37,6 +37,14 @@ describe("buildCsp", () => {
     expect(directive(buildCsp(base), "connect-src")).toContain("wss://api.launchpad.example");
   });
 
+  // The API is reached through the site's own /api-proxy, but a websocket cannot go through that: it opens straight to the live-updates server.
+  it("names the live-updates server too when it is not the API's own address", () => {
+    const connect = directive(buildCsp({ ...base, apiUrl: "https://site.example/api-proxy", wsUrl: "https://live.example/x" }), "connect-src");
+    expect(connect).toContain("https://live.example");
+    expect(connect).toContain("wss://live.example");
+    expect(connect).not.toContain("/x");
+  });
+
   it("names an RPC by its origin only, so a path or an API key in the URL is not repeated in a header", () => {
     expect(buildCsp(base)).not.toContain("/v1/key");
   });
@@ -82,6 +90,11 @@ describe("cspSources", () => {
   it("reads the origins from the build's environment, dropping what is not a URL", () => {
     const s = cspSources({ NEXT_PUBLIC_API_URL: "https://api.example/x", NEXT_PUBLIC_RPC_URL: "not a url", NEXT_PUBLIC_IMAGE_ORIGINS: "https://ipfs.io, nope ,https://cdn.example/path", NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: "abc" });
     expect(s).toEqual({ apiUrl: "https://api.example/x", rpcUrl: undefined, imageOrigins: ["https://ipfs.io", "https://cdn.example"], walletConnect: true, privy: false });
+  });
+
+  it("reads the live-updates server, when there is one apart from the API", () => {
+    expect(cspSources({ NEXT_PUBLIC_WS_URL: " https://live.example " }).wsUrl).toBe("https://live.example");
+    expect(cspSources({ NEXT_PUBLIC_WS_URL: "  " }).wsUrl).toBeUndefined();
   });
 
   it("has sensible local defaults", () => {

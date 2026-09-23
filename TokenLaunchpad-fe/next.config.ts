@@ -30,6 +30,13 @@ const config: NextConfig = {
   // Workspace packages are shipped as TypeScript source, so Next has to compile them.
   transpilePackages: ["@vezta/shared", "@vezta/abi"],
   env: deployment ? { NEXT_PUBLIC_DEPLOYMENT: deployment } : {},
+  // The session cookie is SameSite=Lax, so it only survives if the site and the API are one registrable domain. A Vercel site and an API
+  // on another host are not, so the browser calls the site's own /api-proxy and Next forwards it to API_PROXY_TARGET (set NEXT_PUBLIC_API_URL
+  // to <the site>/api-proxy). Off unless the target is set. A websocket cannot go through a rewrite: NEXT_PUBLIC_WS_URL names its server.
+  async rewrites() {
+    const target = process.env.API_PROXY_TARGET?.trim().replace(/\/+$/, "");
+    return target ? [{ source: "/api-proxy/:path*", destination: `${target}/:path*` }] : [];
+  },
 };
 
 export default config;

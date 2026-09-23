@@ -22,6 +22,7 @@ export function proxy(request: NextRequest) {
 /** Next only inlines a NEXT_PUBLIC_ variable written out in full, so they are named one by one here. */
 const publicEnv = () => ({
   NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
+  NEXT_PUBLIC_WS_URL: process.env.NEXT_PUBLIC_WS_URL,
   NEXT_PUBLIC_RPC_URL: process.env.NEXT_PUBLIC_RPC_URL,
   NEXT_PUBLIC_IMAGE_ORIGINS: process.env.NEXT_PUBLIC_IMAGE_ORIGINS,
   NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID,
