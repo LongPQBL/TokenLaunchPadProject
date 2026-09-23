@@ -1,0 +1,26 @@
+// Copy to ecosystem.config.cjs on the server (git-ignored there, or just kept out of the repo) and run:
+//   pm2 start ecosystem.config.cjs
+// Each app loads TokenLaunchpad-be/.env itself (via `pnpm start`'s own dotenv -e ../../.env), so pm2 does not
+// need to pass env vars — it only needs the right working directory per process.
+module.exports = {
+  apps: [
+    {
+      name: "indexer",
+      cwd: "./apps/indexer",
+      script: "pnpm",
+      args: "start:views",
+    },
+    {
+      name: "api",
+      cwd: "./apps/api",
+      script: "pnpm",
+      args: "start",
+    },
+    {
+      name: "bot",
+      cwd: "./apps/bot",
+      script: "pnpm",
+      args: "start",
+    },
+  ],
+};
